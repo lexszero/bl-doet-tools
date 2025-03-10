@@ -216,7 +216,7 @@ class DataLoader:
 
     def load_consumers(self):
         j = None
-        if self.OFFLINE:
+        if self.OFFLINE or not self.PLACEMENT_ENTITIES_URL:
             if not self.PLACEMENT_ENTITIES_FILENAME:
                 return
             with open(self.PLACEMENT_ENTITIES_FILENAME, 'r') as f:
