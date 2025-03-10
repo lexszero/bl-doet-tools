@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Callable, Iterable, Literal
+from typing import Annotated, Any, Callable, Iterable
 
 import io
 import csv
@@ -8,10 +8,11 @@ from fastapi.responses import PlainTextResponse
 from power_map.data import ProjectData, get_project_data
 from power_map.geometry import Feature, FeatureCollection, Polygon, Point, LineString, to_geojson_feature_collection
 from power_map.power_area import PowerArea, PowerAreaStats, PowerAreaInfo
-from power_map.power_consumer import PowerConsumer, PowerConsumerPropertiesWithStats, PowerConsumerPropertiesWithStatsStyled
+from power_map.power_consumer import PowerConsumer, PowerConsumerPropertiesWithStatsStyled
 from power_map.power_grid_base import PowerGridItem, PowerItem
 from power_map.power_grid_cable import PowerGridCablePropertiesWithStats, PowerGridCablePropertiesWithStatsStyled
-from power_map.power_grid_pdu import PowerGridPDUPropertiesWithStats, PowerGridPDUPropertiesWithStatsStyled
+from power_map.power_grid_pdu import PowerGridPDU, PowerGridPDUPropertiesWithStats, PowerGridPDUPropertiesWithStatsStyled
+from power_map.utils import NameDescriptionModel
 
 power_map_api = APIRouter()
 
@@ -44,7 +45,7 @@ async def get_power_areas_json(project: ProjectDep) -> list[PowerAreaInfo]:
     return [PowerAreaInfo.model_validate(
         area,
         from_attributes=True
-        ) for area in project.power_grid.areas_recursive()]
+        ) for area in project.power_grid.areas_recursive() if area.geometry]
 
 @power_map_api.get("/{project_id}/power_areas.csv")
 async def get_power_areas_csv(project: ProjectDep) -> PlainTextResponse:
@@ -71,6 +72,22 @@ async def get_power_grid_styled_geojson(project: ProjectDep) -> FeatureCollectio
     return to_geojson_feature_collection(
             project.power_grid.grid_items,
             PowerGridItem.feature_properties_styled)
+
+@power_map_api.get("/{project_id}/power_coverage.geojson")
+async def get_power_grid_coverage_geojson(project: ProjectDep) -> FeatureCollection[Feature[Polygon, NameDescriptionModel]]:
+    def pdu_coverage_feature(pdu: PowerGridPDU) -> Feature[Polygon, NameDescriptionModel]:
+        return Feature(
+                type='Feature',
+                geometry=pdu.coverage_geometry(),
+                properties=NameDescriptionModel(
+                    name=pdu.name
+                    )
+                )
+
+    return FeatureCollection(
+            type='FeatureCollection',
+            features=map(pdu_coverage_feature, project.power_grid._pdus)
+            )
 
 @power_map_api.get("/{project_id}/placement_entities.geojson", response_model_exclude_none=True)
 async def get_placement_entities_geojson(project: ProjectDep, coloring: PowerConsumer.ColoringMode = 'power_need') -> FeatureCollection[Feature[Polygon, PowerConsumerPropertiesWithStatsStyled]]:

@@ -17,8 +17,6 @@ from shapely.geometry import (
 from shapely.geometry.base import BaseGeometry as ShapelyBaseGeometry
 from shapely.ops import transform as coord_transform
 
-from .utils import log
-
 CRS_WGS84 = pyproj.CRS('EPSG:4326')
 CRS_SWEDEN = pyproj.CRS('EPSG:3152')
 
@@ -59,20 +57,9 @@ class GeoObject(BaseModel, Generic[Geom, ShapelyGeometryT, StyleT]):
     def shape(self) -> ShapelyGeometryT:
         return shape(self.geometry)
 
-    #@computed_field
     @cached_property
     def shape_proj(self) -> ShapelyGeometryT:
         return coord_transform(XFRM_GEO_TO_PROJ, self.shape)
-
-#    @property
-#    def __geo_interface__(self):
-#        if not self.geometry:
-#            return None
-#        return {
-#                'type': 'Feature',
-#                'geometry': self.geometry.__geo_interface__['geometry'],
-#                'properties': self.model_dump(exclude={'geometry'})
-#                }
 
     def to_geojson_feature(self, properties_fn: Callable[[Any], Props]) -> Feature[Geom, Props]:
         props = properties_fn(self)
@@ -100,7 +87,7 @@ class GeometryPolygon(GeoObject[Polygon, ShapelyPolygon, PolygonStyle]):
 
     @cached_property
     def center_lon(self) -> Optional[float]:
-        return self.geometry and self.geometry_center.coords[0][0] or None
+        return self.geometry and self.geometry_center.coords[0][0]
 
     @cached_property
     def center_lat(self) -> Optional[float]:

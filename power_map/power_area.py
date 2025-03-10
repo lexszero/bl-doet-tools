@@ -1,8 +1,8 @@
 from functools import cached_property
-from typing import Any, Generator, ClassVar, Optional, Self
+from typing import Any, ClassVar, Iterable, Optional, Self
 from pydantic import Field, PrivateAttr, computed_field
 
-from power_map.power_grid_base import PowerItem
+from power_map.power_grid_base import PowerGridItem
 from power_map.power_grid_cable import PowerGridCable
 from power_map.power_grid_pdu import PowerGridPDU
 from power_map.power_consumer import PowerConsumer
@@ -36,8 +36,8 @@ class PowerAreaStatsHuman(PowerAreaStats):
 
 class PowerAreaInfo(PowerAreaStats):
     id: str = Field(alias='name')
-    center_lon: Optional[float]
-    center_lat: Optional[float]
+    center_lon: float = 0.0
+    center_lat: float = 0.0
 
 class PowerArea(NameDescriptionModel, GeometryPolygon):
     _areas: dict[str, 'PowerArea'] = PrivateAttr(default_factory=dict)
@@ -57,7 +57,7 @@ class PowerArea(NameDescriptionModel, GeometryPolygon):
     def total_power(self) -> float:
         return sum([item.power_need or 0 for item in self._consumers])
 
-    def areas_recursive(self: Self, skip_empty_geometry=False) -> Generator['PowerArea']:
+    def areas_recursive(self: Self, skip_empty_geometry=False) -> Iterable['PowerArea']:
         if (not skip_empty_geometry) or self.geometry:
             yield self
         for area in self._areas.values():
@@ -65,7 +65,7 @@ class PowerArea(NameDescriptionModel, GeometryPolygon):
                 yield it
 
     @property
-    def grid_items(self) -> Generator[PowerItem]:
+    def grid_items(self) -> Iterable[PowerGridItem]:
         for item in self._pdus:
             yield item
         for item in self._cables:

@@ -39,6 +39,9 @@ class PowerGridItemSize(str, Enum):
             return self.__order.index(self.value) < self.__order.index(other.value)
         return NotImplemented
 
+    def __str__(self):
+        return self.value
+
     def __repr__(self):
         return self.value
 
@@ -81,7 +84,7 @@ class PowerItem(GeoObject[Geom, ShapelyGeometryT, StyleT]):
     _areas: list['PowerArea'] = PrivateAttr(default_factory=list)
 
     def feature_properties(self):
-        return self._PropertiesModel.model_validate(self, from_attributes=True)
+        return self._PropertiesModel.model_validate(self.model_dump(), from_attributes=True)
 
 class PowerGridItem(PowerItem, PowerGridBaseProperties):
     def feature_properties_styled(self, context: Optional[Any] = None):
