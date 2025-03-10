@@ -8,6 +8,8 @@ from pydantic import ConfigDict, Field, PrivateAttr, model_validator
 from power_map.geometry import GeoObject, ShapelyGeometryT, StyleT
 from power_map.utils import BaseModel, NameDescriptionModel
 
+PowerGridItemSizeOrder: list[str] = ['unknown', '1f', '16', '32', '63', '125', '250']
+
 class PowerGridItemSize(str, Enum):
     Unknown = 'unknown'
     SinglePhase_16A = '1f'
@@ -16,8 +18,6 @@ class PowerGridItemSize(str, Enum):
     ThreePhase_63A = '63'
     ThreePhase_125A = '125'
     ThreePhase_250A = '250'
-
-    __order: list[str] = ['unknown', '1f', '16', '32', '63', '125', '250']
 
     def __ge__(self, other):
         if self.__class__ is other.__class__:
@@ -36,7 +36,7 @@ class PowerGridItemSize(str, Enum):
 
     def __lt__(self, other):
         if self.__class__ is other.__class__:
-            return self.__order.index(self.value) < self.__order.index(other.value)
+            return PowerGridItemSizeOrder.index(self.value) < PowerGridItemSizeOrder.index(other.value)
         return NotImplemented
 
     def __str__(self):
