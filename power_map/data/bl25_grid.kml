@@ -693,44 +693,6 @@
         <styleUrl>#poly-000000-1200-143-nodesc-highlight</styleUrl>
       </Pair>
     </StyleMap>
-    <Style id="poly-000000-1200-255-nodesc-normal">
-      <LineStyle>
-        <color>ff000000</color>
-        <width>1.2</width>
-      </LineStyle>
-      <PolyStyle>
-        <color>ff000000</color>
-        <fill>1</fill>
-        <outline>1</outline>
-      </PolyStyle>
-      <BalloonStyle>
-        <text><![CDATA[<h3>$[name]</h3>]]></text>
-      </BalloonStyle>
-    </Style>
-    <Style id="poly-000000-1200-255-nodesc-highlight">
-      <LineStyle>
-        <color>ff000000</color>
-        <width>1.8</width>
-      </LineStyle>
-      <PolyStyle>
-        <color>ff000000</color>
-        <fill>1</fill>
-        <outline>1</outline>
-      </PolyStyle>
-      <BalloonStyle>
-        <text><![CDATA[<h3>$[name]</h3>]]></text>
-      </BalloonStyle>
-    </Style>
-    <StyleMap id="poly-000000-1200-255-nodesc">
-      <Pair>
-        <key>normal</key>
-        <styleUrl>#poly-000000-1200-255-nodesc-normal</styleUrl>
-      </Pair>
-      <Pair>
-        <key>highlight</key>
-        <styleUrl>#poly-000000-1200-255-nodesc-highlight</styleUrl>
-      </Pair>
-    </StyleMap>
     <Style id="poly-000000-1200-77-nodesc-normal">
       <LineStyle>
         <color>ff000000</color>
@@ -1695,69 +1657,6 @@
         </LineString>
       </Placemark>
       <Placemark>
-        <name>125A E</name>
-        <styleUrl>#icon-1660-A52714-nodesc</styleUrl>
-        <Point>
-          <coordinates>
-            14.9326173,57.6226428,0
-          </coordinates>
-        </Point>
-      </Placemark>
-      <Placemark>
-        <name>Pipe  under road</name>
-        <styleUrl>#poly-000000-1200-255-nodesc</styleUrl>
-        <Polygon>
-          <outerBoundaryIs>
-            <LinearRing>
-              <tessellate>1</tessellate>
-              <coordinates>
-                14.9260281,57.6224475,0
-                14.926024,57.6224684,0
-                14.9259087,57.6224518,0
-                14.9259221,57.6224324,0
-                14.9260281,57.6224475,0
-              </coordinates>
-            </LinearRing>
-          </outerBoundaryIs>
-        </Polygon>
-      </Placemark>
-      <Placemark>
-        <name>Pipe under road</name>
-        <styleUrl>#poly-000000-1200-255-nodesc</styleUrl>
-        <Polygon>
-          <outerBoundaryIs>
-            <LinearRing>
-              <tessellate>1</tessellate>
-              <coordinates>
-                14.9252761,57.6218578,0
-                14.9253874,57.621865,0
-                14.9253915,57.6218995,0
-                14.9252748,57.6218887,0
-                14.9252761,57.6218578,0
-              </coordinates>
-            </LinearRing>
-          </outerBoundaryIs>
-        </Polygon>
-      </Placemark>
-      <Placemark>
-        <name>pipe under road (existing)</name>
-        <styleUrl>#poly-000000-1200-255-nodesc</styleUrl>
-        <Polygon>
-          <outerBoundaryIs>
-            <LinearRing>
-              <tessellate>1</tessellate>
-              <coordinates>
-                14.9259546,57.6226113,0
-                14.9259479,57.6226328,0
-                14.9258339,57.6226127,0
-                14.925846,57.6225912,0
-                14.9259546,57.6226113,0
-              </coordinates>
-            </LinearRing>
-          </outerBoundaryIs>
-        </Polygon>
-      </Placemark>
-      <Placemark>
         <name>63A SW</name>
         <styleUrl>#line-E65100-6619-nodesc</styleUrl>
         <LineString>
@@ -1798,11 +1697,29 @@
         </LineString>
       </Placemark>
       <Placemark>
+        <name>125A E1</name>
+        <styleUrl>#icon-1660-A52714-nodesc</styleUrl>
+        <Point>
+          <coordinates>
+            14.9326173,57.6226428,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
         <name>125A E2</name>
         <styleUrl>#icon-1660-A52714-nodesc</styleUrl>
         <Point>
           <coordinates>
             14.9343842,57.6240317,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>125A E3</name>
+        <styleUrl>#icon-1660-A52714-nodesc</styleUrl>
+        <Point>
+          <coordinates>
+            14.9334513,57.6233023,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1855,15 +1772,6 @@
             14.9339175,57.624856,0
           </coordinates>
         </LineString>
-      </Placemark>
-      <Placemark>
-        <name>125 E3</name>
-        <styleUrl>#icon-1660-A52714-nodesc</styleUrl>
-        <Point>
-          <coordinates>
-            14.9334513,57.6233023,0
-          </coordinates>
-        </Point>
       </Placemark>
       <Placemark>
         <name>63A ES2</name>
@@ -2260,11 +2168,11 @@
             <LinearRing>
               <tessellate>1</tessellate>
               <coordinates>
-                14.9258857,57.6224862,0
-                14.9258991,57.6224567,0
-                14.9260251,57.6224775,0
-                14.9260118,57.6225056,0
-                14.9258857,57.6224862,0
+                14.9258978,57.6224589,0
+                14.9259112,57.6224294,0
+                14.9260372,57.6224502,0
+                14.9260239,57.6224783,0
+                14.9258978,57.6224589,0
               </coordinates>
             </LinearRing>
           </outerBoundaryIs>
