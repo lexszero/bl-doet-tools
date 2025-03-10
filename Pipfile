@@ -1,0 +1,27 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+nicegui = "*"
+devtools = "*"
+folium = "*"
+tortoise = "*"
+starlette-auth-toolkit = "*"
+fastapi-users = {extras = ["sqlalchemy"], version = "*"}
+coloredlogs = "*"
+sqlalchemy = {extras = ["asyncpg"], version = "*"}
+pydantic-settings = "*"
+asyncpg = "*"
+passlib = "*"
+fastapi = {extras = ["standard"], version = "*"}
+geojson-pydantic = "*"
+pydantic-extra-types = "*"
+shapely = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.13.2"
+python_full_version = "3.13.2"
