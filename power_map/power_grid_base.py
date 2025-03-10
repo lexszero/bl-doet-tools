@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, Literal, Optional
 
 from geojson_pydantic.features import Geom
-from pydantic import Field, PrivateAttr, model_validator
+from pydantic import ConfigDict, Field, PrivateAttr, model_validator
 
 from power_map.geometry import GeoObject, ShapelyGeometryT, StyleT
 from power_map.utils import BaseModel, NameDescriptionModel
@@ -77,6 +77,10 @@ class PowerGridBaseProperties(NameDescriptionModel):
     size: PowerGridItemSize = Field(PowerGridItemSize.Unknown, alias="power_size")
     native: bool = Field(False, alias="power_native")
 
+    model_config = ConfigDict(
+            populate_by_name=True
+            )
+
 class PowerItem(GeoObject[Geom, ShapelyGeometryT, StyleT]):
     _PropertiesModel: type
     _PropertiesStyledModel: type
@@ -84,7 +88,7 @@ class PowerItem(GeoObject[Geom, ShapelyGeometryT, StyleT]):
     _areas: list['PowerArea'] = PrivateAttr(default_factory=list)
 
     def feature_properties(self):
-        return self._PropertiesModel.model_validate(self.model_dump(), from_attributes=True)
+        return self._PropertiesModel.model_validate(self.model_dump())
 
 class PowerGridItem(PowerItem, PowerGridBaseProperties):
     def feature_properties_styled(self, context: Optional[Any] = None):

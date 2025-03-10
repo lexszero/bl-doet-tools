@@ -4,6 +4,8 @@ from power_map.data_loader import DataLoader
 from power_map.power_grid_base import PowerGridItemSize
 
 class PowerGrid_BL25(DataLoader):
+    OFFLINE = True
+
     KML_URL = 'http://www.google.com/maps/d/kml?forcekml=1&mid=1mjli2CA4t6cnU7NQaSPyUL0byiDQO64'
     KML_FILENAME = os.path.dirname(__file__)+'/data/bl25_grid.kml'
 

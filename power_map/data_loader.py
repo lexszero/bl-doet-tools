@@ -11,15 +11,14 @@ from fastkml.features import Placemark
 
 from shapely.geometry import Point as ShapelyPoint
 
-from power_map.power_consumer import PowerConsumer
-from power_map.power_grid_base import PowerGridItemSize
-from power_map.power_grid_cable import PowerGridCable
-from power_map.power_grid_pdu import PowerGridPDU
-
 from power_map.geometry import Point, LineString, ShapelyBaseGeometry, shape
 from power_map.utils import *
 from power_map.placement import PlacementEntityFeature
 from power_map.power_area import PowerArea
+from power_map.power_consumer import PowerConsumer
+from power_map.power_grid_base import PowerGridItemSize
+from power_map.power_grid_cable import PowerGridCable
+from power_map.power_grid_pdu import PowerGridPDU
 
 def feature_name_desc(feature):
     #return feature.properties.get('Name'), feature.properties.get('description')
@@ -70,6 +69,8 @@ def print_areas(areas: dict[str, PowerArea], level=1):
         print_areas(area.areas, level=level+1)
 
 class DataLoader:
+    OFFLINE: bool = False
+
     KML_URL: str
     KML_FILENAME: str
 
@@ -91,8 +92,8 @@ class DataLoader:
         self.loaded_consumers = False
 
         log.info("Reloading grid & placement data")
-        self.load_grid(offline)
-        self.load_consumers(offline)
+        self.load_grid()
+        self.load_consumers()
 
     @classmethod
     def is_ignored_area(cls, feature) -> bool:
@@ -127,8 +128,8 @@ class DataLoader:
                 log.warning(f"can't determine item type: {feature_desc(feature)}")
                 return PowerGridItemSize.Unknown
 
-    def load_grid(self, offline: bool = False):
-        if offline:
+    def load_grid(self):
+        if self.OFFLINE:
             if not self.KML_FILENAME:
                 raise RuntimeError("KML_FILENAME undefined")
             with open(self.KML_FILENAME, 'rb') as f:
@@ -213,9 +214,9 @@ class DataLoader:
 
         self.loaded_grid = True
 
-    def load_consumers(self, offline: bool = False):
+    def load_consumers(self):
         j = None
-        if offline:
+        if self.OFFLINE:
             if not self.PLACEMENT_ENTITIES_FILENAME:
                 return
             with open(self.PLACEMENT_ENTITIES_FILENAME, 'r') as f:
