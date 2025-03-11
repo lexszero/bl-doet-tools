@@ -4,7 +4,9 @@ import uvicorn
 
 from power_map.api import power_map_api
 
-app = FastAPI()
+app = FastAPI(
+    title="BL DoET data service"
+        )
 
 app.include_router(power_map_api,
                    prefix="/power_map")

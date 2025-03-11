@@ -13,6 +13,11 @@ from power_map.power_grid_base import PowerItem
 from power_map.power_grid_pdu import PowerGridPDU
 from power_map.utils import log
 
+class PowerConsumerColoringMode(str, Enum):
+    power_need = 'power_need'
+    grid_coverage = 'grid_coverage'
+    sound = 'sound'
+
 class PowerConsumerProperties(PlacementEntityProperties):
     type: Literal['power_consumer'] = 'power_consumer'
 
@@ -52,11 +57,11 @@ class PowerConsumer(PowerItem, GeometryPolygon, PowerConsumerPropertiesWithStats
     def feature_properties(self) -> PowerConsumerPropertiesWithStats:
         return PowerConsumerPropertiesWithStats.model_validate(self, from_attributes=True)
 
-    def feature_properties_styled(self, mode: ColoringMode = 'power_need', context: Optional[Any] = None) -> PowerConsumerPropertiesWithStatsStyled:
+    def feature_properties_styled(self, mode: PowerConsumerColoringMode = PowerConsumerColoringMode.power_need, context: Optional[Any] = None) -> PowerConsumerPropertiesWithStatsStyled:
 
         return PowerConsumerPropertiesWithStatsStyled.model_validate({
             **self.model_dump(exclude_none=True, exclude_unset=True),
-            **PolygonStyle(color=getattr(self, '_color_by_'+mode)()).model_dump(exclude_none=True)
+            **PolygonStyle(fill=getattr(self, '_color_by_'+mode)()).model_dump(exclude_none=True)
             })
 
     def _color_by_power_need(self) -> Color:
