@@ -1,12 +1,12 @@
 <script lang="ts">
 import { browser } from '$app/environment'
-import type { Snippet } from 'svelte';
-  import type { PageLoad } from './$types';
+  import type { Snippet } from 'svelte';
   import {Map, TileLayer, GeoJSON, ControlLayers, LayerGroup, } from 'sveaflet?client';
   import 'leaflet/dist/leaflet.css'
   import L from 'leaflet?client';
 
   let {
+    data = null,
     entitiesDisplayMode = null,
     project_id = 'bl24'
   } = $props();
@@ -97,10 +97,10 @@ const PowerGridFeatureStyle = {
 
     <ControlLayers>
       <LayerGroup name='Areas' layerType='overlayer' checked={true}>
-        {#await fetchJSON("https://bl.skookum.cc/api/power_map/"+project_id+"/power_areas.geojson")}
-        {:then geojsonAreas}
+        {#await data.powerAreas}
+        {:then json}
           <GeoJSON
-            json={geojsonAreas}
+            json={json}
             options={{
               style(feature) {
                 return {
