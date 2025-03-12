@@ -3,10 +3,10 @@ from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from common.db import Base
+from common.db import DBModel
 from common.model_utils import ModelJson
 
-class User(Base):
+class User(DBModel):
     __tablename__ = 'user'
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, index=True)

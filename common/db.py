@@ -9,7 +9,7 @@ from sqlalchemy.orm import DeclarativeMeta, declarative_base, session
 from common.settings import settings
 
 DATABASE_URL = f"postgresql+asyncpg://{settings.db_user}:{settings.db_password}@{settings.db_host}/{settings.db_name}"
-Base: DeclarativeMeta = declarative_base()
+DBModel: DeclarativeMeta = declarative_base()
 
 class DatabaseSessionManager:
     def __init__(self, host: str, engine_kwargs: dict[str, Any] = {}):
@@ -62,6 +62,6 @@ get_async_db_session = sessionmanager.session
 
 async def create_db_and_tables():
     async with sessionmanager.connect() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(DBModel.metadata.create_all)
 
-__all__ = ['create_db_and_tables', 'get_db_session', 'Base', 'AsyncSession']
+__all__ = ['create_db_and_tables', 'get_db_session', 'DBModel', 'AsyncSession']

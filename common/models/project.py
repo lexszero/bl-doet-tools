@@ -1,18 +1,17 @@
-from pydantic import BaseModel
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.collections import attribute_mapped_collection
 
-from common.db import Base
-from common.model_utils import ModelJson
+from common.db import DBModel
+from common.model_utils import BaseModel, ModelJson
 
 from common.models.user import User
 
 class ProjectData(BaseModel):
     name: str
 
-class Project(Base):
+class Project(DBModel):
     __tablename__ = 'project'
 
     id = Column(Integer, primary_key=True)
@@ -22,7 +21,7 @@ class Project(Base):
     users = association_proxy('project_permissions', 'user',
                                 creator=lambda k, v: ProjectPermission(user=k, role=v))
 
-class ProjectPermission(Base):
+class ProjectPermission(DBModel):
     __tablename__ = 'project_permissions'
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('user.id'), primary_key=True)

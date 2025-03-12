@@ -1,23 +1,32 @@
 import logging
-from typing import Any, Generic, Optional, Type, TypeVar
+from typing import Any, Generic, Optional, Self, Type, TypeVar
 
-from pydantic import BaseModel, ValidationError, parse_obj_as
+from pydantic import (
+        BaseModel as PydanticBaseModel,
+        ModelWrapValidatorHandler,
+        TypeAdapter,
+        ValidationError,
+        model_validator,
+        )
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.dialects.postgresql import JSONB
 
 log = logging.getLogger('model_utils')
+
+class BaseModel(PydanticBaseModel):
+    pass
 
 ModelT = TypeVar('ModelT', bound=BaseModel)
 class ModelJson(TypeDecorator, Generic[ModelT]):
     impl = JSONB
     cache_ok = True
 
-    _model: Type[ModelT]
+    _model: type
     _allowed_types: list[Type]
 
     _name: str
 
-    def __init__(self, model: Type[ModelT], allowed_types: Optional[list[Type]] = None):
+    def __init__(self, model: type[ModelT], allowed_types: Optional[list[Type]] = None):
         self._name = f'ModelJson<{model.__name__}>'
         log.debug(f'{self._name}: init, model={model}, allowed_types={allowed_types}')
         if not issubclass(model, BaseModel):
@@ -61,7 +70,7 @@ class ModelJson(TypeDecorator, Generic[ModelT]):
             #    return value
             try:
                 #log.debug(f'{self._name}: result_value: trying to parse as {variant}')
-                result = parse_obj_as(variant, value)
+                result = TypeAdapter(variant).validate_python(value)
                 #log.debug(f'{self._name}: result_value: parsed as {type(result)} {repr(result)}')
                 break
             except ValidationError as exc:
@@ -82,3 +91,15 @@ class ModelJson(TypeDecorator, Generic[ModelT]):
     def raw(self):
         return self.impl
 
+class ModelLoggingValidator(PydanticBaseModel):
+    @model_validator(mode='wrap')
+    @classmethod
+    def log_failed_validation(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+        log.debug(f"{cls}: before validation: {data=}")
+        try:
+            d = handler(data)
+            log.debug(f"{cls}: after validation: {d=}")
+            return d
+        except ValidationError:
+            log.error(f"Model {cls} failed to validate with {data=}")
+            raise
