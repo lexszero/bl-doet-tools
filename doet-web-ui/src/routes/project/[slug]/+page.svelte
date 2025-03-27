@@ -12,7 +12,7 @@
     <PowerGridMap data={data} entitiesDisplayMode={mapEntitiesDisplayMode}/>
   </div>
   <div class="w-1/4">
-    <Segment value={mapEntitiesDisplayMode}>
+    <Segment value={mapEntitiesDisplayMode} onValueChange={(e) => (mapEntitiesDisplayMode=e.value)} >
       <Segment.Item value="off">Off</Segment.Item>
       <Segment.Item value="grid_coverage">Coverage</Segment.Item>
       <Segment.Item value="power_need">Consumption</Segment.Item>

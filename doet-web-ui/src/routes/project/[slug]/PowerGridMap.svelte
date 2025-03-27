@@ -6,9 +6,8 @@ import { browser } from '$app/environment'
   import L from 'leaflet?client';
 
   let {
-    data = null,
-    entitiesDisplayMode = null,
-    project_id = 'bl24'
+    data = $bindable(),
+    entitiesDisplayMode = 'power_need',
   } = $props();
 
   const mapOptions = {
@@ -23,10 +22,6 @@ import { browser } from '$app/environment'
     maxNativeZoom: 19,
     attribution: "© OpenStreetMap contributors",
   };
-
-  async function fetchJSON(url) {
-    return await fetch(url).then((x) => x.json());
-  }
 
   const entitiesStyleDefault = {
     weight: 0.5,
@@ -53,31 +48,35 @@ interface PowerGridFeature {
     geometry: any;
     properties: PowerGridFeatureProperties;
   }
-const PowerGridFeatureStyle = {
+  const PowerGridFeatureStyle = {
+    '250': {
+      weight: 6,
+      color: '#B61471',
+    },
     '125': {
-        weight: 5,
-        color: '#C4162A',
-        },
+      weight: 5,
+      color: '#C4162A',
+    },
     '63': {
-        'weight': 4,
-        'color': '#F2495C',
-        },
+      'weight': 4,
+      'color': '#F2495C',
+    },
     '32': {
-        'weight': 3,
-        'color': '#FF9830',
-        },
+      'weight': 3,
+      'color': '#FF9830',
+    },
     '16': {
-        'weight': 2,
-        'color': '#FADE2A'
-        },
+      'weight': 2,
+      'color': '#FADE2A'
+    },
     '1f': {
-        'weight': 1,
-        'color': '#5794F2'
-        },
+      'weight': 1,
+      'color': '#5794F2'
+    },
     'unknown': {
-        'weight': 5,
-        'color': '#FF0000'
-        },
+      'weight': 5,
+      'color': '#FF0000'
+    },
     };
 </script>
 
@@ -116,7 +115,7 @@ const PowerGridFeatureStyle = {
       </LayerGroup>
 
       <LayerGroup name='Entities' layerType='overlayer' checked={false}>
-        {#await fetchJSON("https://bl.skookum.cc/api/power_map/"+project_id+"/placement_entities.geojson")}
+        {#await data.placementEntities}
         {:then geojsonEntities}
           {#if entitiesDisplayMode != "off"}
             <GeoJSON
@@ -132,7 +131,7 @@ const PowerGridFeatureStyle = {
       </LayerGroup>
 
       <LayerGroup name='Power grid' layerType='overlayer' checked={true}>
-        {#await fetchJSON("https://bl.skookum.cc/api/power_map/"+project_id+"/power_grid.geojson")}
+        {#await data.powerGrid}
         {:then geojsonGrid}
           <GeoJSON
             json={geojsonGrid}
@@ -145,7 +144,7 @@ const PowerGridFeatureStyle = {
                 pointToLayer(feature, latlng) {
                   let style = PowerGridFeatureStyle[feature.properties.power_size];
                   return L.circleMarker(latlng, {
-                    radius: style.weight,
+                    radius: style.weight*1.2,
                     fillColor: style.color,
                     color: style.color,
                     weight: 1,
