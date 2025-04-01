@@ -29,4 +29,4 @@ if 'IS_OFFLINE' in os.environ:
         Log.warning("IS_OFFLINE, but no coloredlogs")
 
 # Silence libs a bit
-logging.getLogger('sqlalchemy').setLevel(logging.WARNING)
+#logging.getLogger('sqlalchemy').setLevel(logging.INFO)

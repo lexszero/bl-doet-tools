@@ -40,6 +40,9 @@
 		"vite-plugin-iso-import": "^1.2.0"
 	},
 	"dependencies": {
+		"@lucide/svelte": "^0.486.0",
+		"@types/geojson": "^7946.0.16",
+		"date-fns": "^4.1.0",
 		"sveaflet": "^0.1.4",
 		"svelte-leafletjs": "^2.0.0"
 	}

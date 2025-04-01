@@ -47,6 +47,7 @@ StyleT = TypeVar('StyleT', bound=Union[PolygonStyle, PointStyle, LineStyle])
 
 
 class GeoObject(BaseModel, Generic[Geom, ShapelyGeometryT, StyleT]):
+    id: str
     geometry: Optional[Geom] = Field(None, repr=False)
 
     model_config = ConfigDict(
@@ -71,6 +72,7 @@ class GeoObject(BaseModel, Generic[Geom, ShapelyGeometryT, StyleT]):
             self.geometry.bbox = None
         return Feature[Geom, Props](
                 type='Feature',
+                id=self.id,
                 geometry=self.geometry,
                 properties=props
                 )

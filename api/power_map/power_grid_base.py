@@ -1,11 +1,10 @@
 import re
 from enum import Enum
-from typing import Any, Literal, Optional, Self
+from typing import Any, Optional, Self
 
-from geojson_pydantic.features import Props
 from pydantic import ConfigDict, Field, PrivateAttr
 
-from common.geometry import Feature, Geom, GeoObject, ShapelyGeometryT, StyleT
+from common.geometry import Feature, GeoObject
 from power_map.utils import NameDescriptionModel
 
 PowerGridItemSizeOrder: list[str] = ['unknown', '1f', '16', '32', '63', '125', '250']
@@ -88,10 +87,10 @@ class PowerItemBase(GeoObject):
     _areas: list['PowerArea'] = PrivateAttr(default_factory=list)
 
     @classmethod
-    def from_feature(cls, data: Feature) -> Self:
-        if not data.properties:
-            raise ValueError(f"Placement entity feature {data} is missing properties")
-        return cls(geometry=data.geometry, **data.properties.model_dump())
+    def from_feature(cls, feature: Feature) -> Self:
+        if not feature.properties:
+            raise ValueError(f"Placement entity feature {feature} is missing properties")
+        return cls(id=feature.id, geometry=feature.geometry, **feature.properties.model_dump())
 
     def feature_properties(self, context: Optional[Any] = None):
         return self._PropertiesModel.model_validate(self.model_dump(), context=context)
@@ -130,5 +129,5 @@ STYLE_GRID_ITEM_SIZE = {
 __all__ = [
         'PowerGridItemSize',
         'PowerGridItemPropertiesBase',
-        'PowerItem',
+        'PowerItemBase',
         ]

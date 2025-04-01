@@ -1,11 +1,10 @@
-import os
 import re
 from typing import Iterable
 
 from power_map.data_bl25 import PowerGrid_BL25
 from power_map.placement import PlacementEntityFeature, PlacementEntityProperties
-from power_map.external_data import log
 from power_map.power_grid_base import PowerGridItemSize
+from power_map.utils import log
 
 class PowerGrid_BL25_Test(PowerGrid_BL25):
     OFFLINE = False
@@ -16,7 +15,7 @@ class PowerGrid_BL25_Test(PowerGrid_BL25):
     def placement_features(self) -> Iterable[PlacementEntityFeature]:
         idx = 1000
         for item in self._kml_folders['Placement'].features:
-            m = re.search(r'id=(\d+)', item.description)
+            m = re.search(r'id=(\d+)', item.description or "")
             if m:
                 item_id = m[1]
             else:
@@ -24,7 +23,7 @@ class PowerGrid_BL25_Test(PowerGrid_BL25):
                 item_id = f"_{idx}"
                 idx += 1
 
-            m = re.search(r'powerNeed=(\d+)', item.description)
+            m = re.search(r'powerNeed=(\d+)', item.description or "")
             if m:
                 power_need=int(m[1])
             else:

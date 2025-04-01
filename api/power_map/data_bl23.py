@@ -1,7 +1,7 @@
-from power_map.external_data import ExternalDataLoader
+from power_map.loader import Loader
 from power_map.power_grid_base import PowerGridItemSize
 
-class PowerGrid_BL23(ExternalDataLoader):
+class PowerGrid_BL23(Loader):
     KML_URL = 'https://www.google.com/maps/d/kml?forcekml=1&mid=1zD_Jj58_9Lq29tYEz6X6zSc2Ag2NSP0'
 
     KML_FOLDER_AREAS = 'areas'

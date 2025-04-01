@@ -1,21 +1,46 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { PageProps } from './$types';
-  import { Segment } from '@skeletonlabs/skeleton-svelte';
   import PowerGridMap from './PowerGridMap.svelte';
+  import { Segment, Slider, Switch } from '@skeletonlabs/skeleton-svelte';
+  import { API } from '$lib/api';
+  import { fromUnixTime, getUnixTime } from "date-fns";
 
-  let { data }: PageProps = $props();
-  let mapEntitiesDisplayMode = $state('power_need');
+  let props: PageProps = $props();
+  let timestampSlider = $state(getUnixTime(Date()));
+  let timestampData = $state(null);
+
+  let api = new API(props.data.project_name);
+  let data = $derived.by(() => {
+    return {
+      powerAreas: api.getPowerAreasGeoJSON(timestampData),
+      powerGrid: api.getPowerGridGeoJSON(timestampData),
+      placementEntities: api.getPlacementEntitiesGeoJSON(timestampData),
+    }
+  });
+  function reload() {
+    timestampData = fromUnixTime(timestampSlider);
+  }
 </script>
 
-<div class="flex gap-4 w-screen h-screen">
-  <div class="w-3/4">
-    <PowerGridMap data={data} entitiesDisplayMode={mapEntitiesDisplayMode}/>
+{#snippet sliderMark()}
+  
+{/snippet}
+
+<div class="flex flex-col gap-4 w-screen h-screen">
+  <div class="flex justify-between items-center gap-4 h-10">
+  {#await api.getChangeTimestamps()}
+  {:then info}
+    <p>Time travel</p>
+    <Slider name='TimeTravel'
+      value={[timestampSlider]}
+      markers={info.timestamps}
+      onValueChange={(e) => (timestampSlider = e.value[0])}
+      onValueChangeEnd={reload}
+      min={Math.min.apply(null, info.timestamps)}
+      max={Math.max(Math.max.apply(null, info.timestamps), getUnixTime(Date()))}
+    />
+  {/await}
   </div>
-  <div class="w-1/4">
-    <Segment value={mapEntitiesDisplayMode} onValueChange={(e) => (mapEntitiesDisplayMode=e.value)} >
-      <Segment.Item value="off">Off</Segment.Item>
-      <Segment.Item value="grid_coverage">Coverage</Segment.Item>
-      <Segment.Item value="power_need">Consumption</Segment.Item>
-    </Segment>
-  </div>
+  <PowerGridMap data={data} />
 </div>

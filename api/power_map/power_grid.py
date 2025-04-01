@@ -1,6 +1,7 @@
+from datetime import datetime
+from typing import Optional
 from devtools import debug
-from typing import Any
-from pydantic import BaseModel, RootModel, TypeAdapter
+from pydantic import RootModel, TypeAdapter
 
 from common.db_async import DBSessionDep
 from core.store import VersionedCollection
@@ -32,13 +33,13 @@ class PowerGridSnapshotCollection(VersionedCollection[PowerGridSnapshot]):
 
 class PowerGrid(PowerArea):
     def __init__(self):
-        super().__init__(name="<TopLevel>", geometry=None)
+        super().__init__(id="<TopLevel>", name="<TopLevel>", geometry=None)
 
     def add_area_feature(self, f: PowerAreaFeature) -> PowerArea:
         area = PowerArea.from_feature(f)
-        if area.name in self._areas:
+        if area.id in self._areas:
             raise ValueError(f"Duplicate area {area.name}")
-        self._areas[area.name] = area
+        self._areas[area.id] = area
         return area
 
     def add_grid_feature(self, f: PowerGridFeature):
@@ -54,7 +55,7 @@ class PowerGrid(PowerArea):
         log.info("")
         all_cables = {}
         all_pdus = {}
-        for item in self.power_grid.grid_items:
+        for item in self.grid_items:
             #log.debug(item)
             if item.native:
                 continue
@@ -86,17 +87,17 @@ class PowerGrid(PowerArea):
     def add_placement_feature(self, f: PlacementEntityFeature):
         self.add_item(PowerConsumer.from_feature(f))
 
-async def get_power_grid(db: DBSessionDep, project: 'Project') -> PowerGrid:
+async def get_power_grid(db: DBSessionDep, project: 'Project', timestamp: Optional[datetime] = None) -> PowerGrid:
     collections = await project.awaitable_attrs.collections
 
     grid = PowerGrid()
-    async for f in PowerAreaFeatureCollection(collections['power_areas']).all_last_values(db):
+    async for f in PowerAreaFeatureCollection(collections['power_areas'], time_end=timestamp).all_last_values(db):
         grid.add_area_feature(f)
 
-    async for f in PowerGridFeatureCollection(collections['power_grid']).all_last_values(db):
+    async for f in PowerGridFeatureCollection(collections['power_grid'], time_end=timestamp).all_last_values(db):
         grid.add_grid_feature(f)
 
-    async for f in PlacementEntityFeatureCollection(collections['placement']).all_last_values(db):
+    async for f in PlacementEntityFeatureCollection(collections['placement'], time_end=timestamp).all_last_values(db):
         grid.add_placement_feature(f)
 
     return grid

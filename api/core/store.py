@@ -103,8 +103,8 @@ class VersionedCollection(ABC, Generic[ModelT]):
     store_item_class: Optional[type[ModelT] | TypeAdapter[ModelT]] = None
 
     _collection: StoreCollection
-    _time_start: Optional[datetime]
-    _time_end: Optional[datetime]
+    _time_start: Optional[datetime] = None
+    _time_end: Optional[datetime] = None
 
     @classmethod
     async def bind(cls, db: DBSessionDep, project: 'Project', allow_create=False):
@@ -136,8 +136,10 @@ class VersionedCollection(ABC, Generic[ModelT]):
             raise RuntimeError(f"Collection {collection} item_type={collection.item_type} is not compatible with item class {self.store_item_class} (item_type={self.store_item_type})")
 
         self._collection = collection
-        self._time_start = time_start
-        self._time_end = time_end
+        if time_start:
+            self._time_start = time_start.replace(tzinfo=None)
+        if time_end:
+            self._time_end = time_end.replace(tzinfo=None)
 
     def _from_dict(self, value: dict[str, Any]) -> Optional[ModelT]:
         #log.info(f"{self.__class__.__name__}: from_dict {self.store_item_class=} {value=}")
@@ -294,6 +296,9 @@ class VersionedCollection(ABC, Generic[ModelT]):
     async def all_last_values(self, db: DBSessionDep) -> AsyncGenerator[ModelT]:
         result = await self._all_last_revisions(db)
         for item in result:
+            if not item.data:
+                log.debug(f"{self.__class__.__name__}: Item {item.item_id} is missing data")
+                continue
             value = self._from_dict(item.data)
             if value:
                 yield value

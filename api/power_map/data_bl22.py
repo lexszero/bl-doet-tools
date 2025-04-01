@@ -1,4 +1,4 @@
-from power_map.external_data import ExternalDataLoader
+from power_map.loader import Loader
 from power_map.power_grid_base import PowerGridItemSize
 
 class PowerGrid_BL22(ExternalDataLoader):

@@ -16,7 +16,7 @@ from core.dependencies import get_project
 from core.project import Project
 from core.store import VersionedCollection
 from core.user import User, get_user
-from power_map.external_data import ExternalDataLoader
+from power_map.loader import Loader
 from power_map.placement import PlacementEntityFeatureCollection
 from power_map.power_area import PowerAreaFeatureCollection
 from power_map.power_grid import PowerGridFeatureCollection
@@ -62,7 +62,8 @@ def matching_points(a, b):
 
 def is_geometry_similar(a, b):
     if isinstance(a._shape, Polygon):
-        mp = matching_points(a._shape.coords, b._shape.coords)
+        #debug(a, b)
+        mp = matching_points(a._shape.exterior.coords, b._shape.exterior.coords)
         if mp > 0:
             log.debug(f"Similar geometry: Polygons has {mp} matching points")
             return True
@@ -115,7 +116,7 @@ def make_new_id(all_ids: list[str], s: str):
 
     max_n = 0
     for v in all_ids:
-        m = re.match(f'^{prefix}_(\d+)$', v)
+        m = re.match(f'^{prefix}_(\\d+)$', v)
         if m:
             n = int(m[1])
             if n > max_n:
@@ -127,7 +128,7 @@ class UpdateContext:
     db: AsyncSession
     user: User
     project: Project
-    loader: ExternalDataLoader
+    loader: Loader
 
     async def _update_collection_with_features(self, collection: VersionedCollection, features: list[Any]):
         features_known = with_shapes(await A.list(collection.all_last_values(self.db)))
@@ -179,7 +180,7 @@ class UpdateContext:
                 log.debug(f"Added {new.id} ({new.properties.name})")
                 await collection.add(self.db, self.user, new.id, new)
             elif feature_changed(known, new):
-                debug(known, new)
+                #debug(known, new)
                 log.debug(f"Updated {new.id} ({new.properties.name})")
                 await collection.add(self.db, self.user, new.id, new)
 
@@ -210,14 +211,14 @@ class UpdateContext:
 class Updater:
     _user_name: str
     _project_name: str
-    _loader: type[ExternalDataLoader]
+    _loader: type[Loader]
 
-    def __init__(self, user_name: str, project_name: str, loader: type[ExternalDataLoader]):
+    def __init__(self, user_name: str, project_name: str, loader: type[Loader]):
         self._user_name = user_name
         self._project_name = project_name
         self._loader = loader
 
-    async def run(self, db: Optional[AsyncSession] = None):
+    async def run(self, db: Optional[AsyncSession] = None, commit: bool = True):
         if not db:
             db = await get_db_session()
         async with db:
@@ -228,4 +229,7 @@ class Updater:
                     loader=self._loader()
                     )
             await ctx.update_all()
-            await db.commit()
+            if commit:
+                await db.commit()
+            else:
+                await db.rollback()

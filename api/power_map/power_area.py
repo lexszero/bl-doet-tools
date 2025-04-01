@@ -59,7 +59,7 @@ class PowerArea(
     def from_feature(cls, data: PowerAreaFeature) -> Self:
         if not data.properties:
             raise ValueError(f"Placement entity feature {data} is missing properties")
-        return cls(geometry=data.geometry, **data.properties.model_dump())
+        return cls(id=data.id, geometry=data.geometry, **data.properties.model_dump())
 
     @computed_field
     @cached_property
@@ -122,7 +122,7 @@ class PowerArea(
             #log.warning(f"{self.name}: Can't find sub-area for {item}")
             misc_name = f"{self.name}-misc"
             if misc_name not in self._areas:
-                self._areas[misc_name] = PowerArea(name=misc_name, geometry=None)
+                self._areas[misc_name] = PowerArea(id=misc_name, name=misc_name, geometry=None)
             self._areas[misc_name].add_item(item)
 
     def print(self, dump_grid=False, level=0):

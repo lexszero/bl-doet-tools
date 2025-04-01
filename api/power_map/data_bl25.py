@@ -1,9 +1,9 @@
 import os
 
-from power_map.external_data import ExternalDataLoader
+from power_map.loader import Loader
 from power_map.power_grid_base import PowerGridItemSize
 
-class PowerGrid_BL25(ExternalDataLoader):
+class PowerGrid_BL25(Loader):
     OFFLINE = False
 
     KML_URL = 'http://www.google.com/maps/d/kml?forcekml=1&mid=1mjli2CA4t6cnU7NQaSPyUL0byiDQO64'
@@ -11,9 +11,11 @@ class PowerGrid_BL25(ExternalDataLoader):
 
     KML_FOLDERS_AREAS = ['Power_Areas']
     KML_FOLDERS_GRID = [
-            'HV_and_trafos',
-            'Core_grid',
-            'PDUs'
+            'West_Transformer',
+            'WEST_Grid',
+            'WEST_Grid_PDUs',
+            'EAST_Grid',
+            'PDUs_EAST_Grid'
             ]
 
     GRID_MISC_ITEMS = {

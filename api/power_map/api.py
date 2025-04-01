@@ -29,10 +29,10 @@ def write_csv(f, collection: Iterable[Any], properties_fn: Callable[[Any], list[
         writer.writerow(properties_fn(item))
 
 @cached(TTLCache(10, 30))
-async def get_power_grid_dep(project_name: str):
+async def get_power_grid_dep(project_name: str, timestamp: Optional[datetime] = None):
     async with await get_db_session() as db:
         project = await get_project(db, project_name)
-        return await get_power_grid(db, project)
+        return await get_power_grid(db, project, timestamp=timestamp)
 
 PowerGridDep = Annotated[PowerGrid, Depends(get_power_grid_dep)]
 

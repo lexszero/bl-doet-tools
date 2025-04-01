@@ -1,9 +1,9 @@
 import os
 
-from power_map.external_data import ExternalDataLoader
+from power_map.loader import Loader
 from power_map.power_grid_base import PowerGridItemSize
 
-class PowerGrid_BL24(ExternalDataLoader):
+class PowerGrid_BL24(Loader):
     OFFLINE = True
 
     KML_URL = 'http://www.google.com/maps/d/kml?forcekml=1&mid=1oS6UFpJMdwnm7UmkaEBRJrC3Mhp80nQ'

@@ -22,6 +22,8 @@ shapely = "*"
 ipython = "*"
 asyncstdlib = "*"
 cachetools-async = "*"
+matplotlib = "*"
+fastkml = "*"
 
 [dev-packages]
 

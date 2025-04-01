@@ -11,7 +11,6 @@ from fastkml.containers import Folder
 from fastkml.features import Placemark
 
 from shapely.geometry import Point as ShapelyPoint
-from sqlalchemy import desc
 
 from common.geometry import Point, LineString, ShapelyBaseGeometry, shape
 from power_map.utils import *
@@ -68,7 +67,7 @@ def find_containing_area(areas: dict[str, PowerArea], item: ShapelyBaseGeometry 
 
     return None
 
-class ExternalDataLoader():
+class Loader():
     OFFLINE: bool = False
 
     KML_URL: str
