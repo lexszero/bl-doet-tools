@@ -1,11 +1,12 @@
 <script lang="ts">
   import { browser } from '$app/environment'
-  import { Segment, Slider, Switch } from '@skeletonlabs/skeleton-svelte';
+  import { Segment, Slider, Switch, Combobox } from '@skeletonlabs/skeleton-svelte';
   import {Map, TileLayer, GeoJSON, Control, LayerGroup} from 'sveaflet?client';
   import 'leaflet/dist/leaflet.css'
   import L from 'leaflet?client';
   import {LayerGroup as LeafletLayerGroup, PolyUtil} from 'leaflet?client';
   import colormap from '$lib/colormap';
+  import { Cable, SmartphoneCharging, type Icon as IconType } from '@lucide/svelte';
 
   let {
     data = null,
@@ -19,20 +20,22 @@
   let placementPDUDistance = $state(50);
   let showGridCoverage = $state(false);
 
-  let map;
-  let layerPowerAreas;
-  let layerPowerGrid;
-  let layerPowerGridCoverage;
-  let layerPlacement;
+  let map: L = $state();
+  let layerPowerAreas = $state();
+  let layerPowerGrid = $state();
+  let layerPowerGridCoverage = $state();
+  let layerPlacement = $state();
 
-  let layerHighlightedSavedStyle;
+  let layerSelectedBase;
+  let layerHighlightedBase;
+
 
   const mapOptions = {
     center: [57.62377, 14.92715],
     zoom: 15,
+    zoomControl: false
   };
-
-  const layerBasemapTileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+    const layerBasemapTileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
   const layerBasemapOptions = {
     minZoom: 0,
     maxZoom: 20,
@@ -40,29 +43,53 @@
     attribution: "© OpenStreetMap contributors",
   };
 
-function placementNumPDUs(feature) {
-let n = 0;
-let nearestDistance = 9999999;
-let nearestPDU = null;
-  for (const item of layerPowerGrid.getLayers()) {
-    if (item.feature.properties.type != 'power_grid_pdu') {
-      continue;
-    }
-    const distance = map.distance(PolyUtil.centroid(feature.geometry.coordinates[0]), item.feature.geometry.coordinates);
-    if (distance < placementPDUDistance) {
-      n++;
-    }
-    if (distance < nearestDistance) {
-nearestDistance = distance;
-nearestPDU = item.feature.id;
-    }
-}
-if (nearestPDU) {
-    feature.properties.nearest_pdu_distance = Math.round(nearestDistance);
-    feature.properties.nearest_pdu_id = nearestPDU;
+  interface SearchboxItem {
+    label: string;
+    value: string;
+    icon: IconType;
   }
-  return n;
-}
+
+  let searchItems: SearchboxItem[] = $derived(
+    layerPowerGrid ? layerPowerGrid?.getLayers().map((l) => ({
+      label: l.feature.id.replaceAll('_', ' ').trim(),
+      value: l.feature.id,
+      icon: l.feature.properties.type == 'power_grid_cable' ? Cable : SmartphoneCharging,
+    })) : []
+  );
+  let searchValue = $state();
+  function searchValueChange(e) {
+    let id = e.value;
+    for (const item of layerPowerGrid.getLayers()) {
+      if (item.feature.id == id) {
+        selectFeature(layerPowerGrid, item);
+        break;
+      }
+    }
+  }
+
+  function placementNumPDUs(feature) {
+    let n = 0;
+    let nearestDistance = 9999999;
+    let nearestPDU = null;
+    for (const item of layerPowerGrid.getLayers()) {
+      if (item.feature.properties.type != 'power_grid_pdu') {
+        continue;
+      }
+      const distance = map.distance(PolyUtil.centroid(feature.geometry.coordinates[0]), item.feature.geometry.coordinates);
+      if (distance < placementPDUDistance) {
+        n++;
+      }
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestPDU = item.feature.id;
+      }
+    }
+    if (nearestPDU) {
+      feature.properties.nearest_pdu_distance = Math.round(nearestDistance);
+      feature.properties.nearest_pdu_id = nearestPDU;
+    }
+    return n;
+  }
 
   const placementStyleDefault = {
     weight: 0.5,
@@ -134,14 +161,29 @@ const powerGridFeatureStyle = {
   },
 };
 
-  function selectFeature(e) {
-    layerSelected = e.target;
+  function selectFeature(baseLayer, layer) {
+    resetSelectedFeature();
+    layer.setStyle({
+      weight: 5,
+      color: '#01FF00',
+      fillColor: '#01FF00',
+      fillOpacity: 1
+    });
+    layer.bringToFront();
+    layerSelected = layer;
+    layerSelectedBase = baseLayer;
   }
-  
-  function highlightFeature(e) {
-    const layer = e.target;
-    layerHighlightedSavedStyle = layer.options.style;
-    console.log("before save: ", layerHighlightedSavedStyle);
+
+  function resetSelectedFeature() {
+    if (!layerSelected)
+      return;
+    layerSelectedBase.resetStyle(layerSelected);
+    layerSelected = null;
+  }
+
+  function highlightFeature(baseLayer, layer) {
+    if (layerSelected == layer)
+      return;
     layer.setStyle({
       weight: 5,
       color: '#FFFD00',
@@ -150,57 +192,58 @@ const powerGridFeatureStyle = {
     });
     layer.bringToFront();
     layerHighlighted = layer;
+    layerHighlightedBase = baseLayer;
   }
 
-  function resetHighlightedFeature(layer, e) {
-    layer.resetStyle(e.target);
-    console.log("after restore: ", layer.options.style);
+  function resetHighlightedFeature() {
+    if (!layerHighlighted || layerSelected == layerHighlighted)
+      return;
+    layerHighlightedBase.resetStyle(layerHighlighted);
     layerHighlighted = null;
   }
 
   function onEachPowerArea(feature, layer) {
     layer.on({
-      click: selectFeature,
+      click: (e) => selectFeature(layerPowerAreas, e.target),
       /*
       mouseover: highlightFeature,
-      mouseout: (e) => resetHighlightedFeature(layerPowerAreas, e)
+      mouseout: resetHighlightedFeature,
       */
     })
   }
 
   function onEachPowerGridItem(feature, layer) {
     layer.on({
-      click: selectFeature,
-      mouseover: highlightFeature,
-      mouseout: (e) => resetHighlightedFeature(layerPowerGrid, e)
+      click: (e) => selectFeature(layerPowerGrid, e.target),
+      mouseover: (e) => highlightFeature(layerPowerGrid, e.target),
+      mouseout: resetHighlightedFeature,
     })
   }
 
   function onEachPlacementItem(feature, layer) {
     layer.on({
-      click: selectFeature,
-      mouseover: highlightFeature,
-      mouseout: (e) => resetHighlightedFeature(layerPlacement, e)
+      click: (e) => selectFeature(layerPlacement, e.target),
+      mouseover: (e) => highlightFeature(layerPlacement, e.target),
+      mouseout: resetHighlightedFeature,
     })
-}
-
-function getFeatureProperties(feature) {
-  let exclude = ['name', 'type'];
-  return Object.entries(feature.properties).filter(([k, v]) => (!exclude.includes(k)));
-}
-
-function getFeatureTitle(feature) {
-  if (feature.properties.type) {
-    if (feature.properties.type == 'power_grid_cable') {
-      return `⚡Cable: ${feature.properties.name}`;
-    } else if (feature.properties.type = 'power_grid_pdu') {
-      return `⚡PDU: ${feature.properties.name}`;
-    }
-  } else {
-    return `${feature.properties.name}`
   }
-}
 
+  function getFeatureProperties(feature) {
+    let exclude = ['name', 'type'];
+    return Object.entries(feature.properties).filter(([k, v]) => (!exclude.includes(k)));
+  }
+
+  function getFeatureTitle(feature) {
+    if (feature.properties.type) {
+      if (feature.properties.type == 'power_grid_cable') {
+        return `⚡Cable: ${feature.properties.name}`;
+      } else if (feature.properties.type = 'power_grid_pdu') {
+        return `⚡PDU: ${feature.properties.name}`;
+      }
+    } else {
+      return `${feature.properties.name}`
+    }
+  }
 </script>
 
 {#snippet propertyTable(items)}
@@ -234,7 +277,6 @@ function getFeatureTitle(feature) {
                   fillOpacity: 0.1
                 }
               },
-                onEachFeature: onEachPowerArea
             }}
           />
         {/await}
@@ -287,9 +329,31 @@ function getFeatureTitle(feature) {
       <LayerGroup name='Power grid coverage' layerType='overlayer' checked={showGridCoverage} bind:instance={layerPowerGridCoverage}>
       </LayerGroup>
 
+    <Control options={{position: 'topleft'}} class="flex map-overlay-box">
+      <Combobox
+        data={searchItems}
+        value={searchValue}
+        onValueChange={searchValueChange}
+        placeholder="Search..."
+        width="w-100"
+      >
+        <!-- This is optional. Combobox will render label by default -->
+        {#snippet item(item)}
+          {@const Icon = item.icon}
+          <div class="flex grow w-150 justify-between space-x-2">
+            <span>{@html item.label}</span>
+            <Icon />
+          </div>
+        {/snippet}
+      </Combobox>
+      {#if layerSelected && searchValue}
+        <button type="button" class="btn preset-outlined-surface-500" onclick={() => {searchValue = null; resetSelectedFeature();}}>X</button>
+      {/if}
+    </Control>
+
     <Control options={{position: 'bottomleft'}} class="map-overlay-box">
-      {#if layerHighlighted}
-        {@const feature = layerHighlighted.feature}
+      {#if layerHighlighted || layerSelected}
+        {@const feature = layerSelected ? layerSelected.feature : layerHighlighted.feature}
         <div class="h4">{getFeatureTitle(feature)}</div>
         <span class="text-xs text-surface-500">id: {feature.id}</span>
         {@render propertyTable(getFeatureProperties(feature))}
