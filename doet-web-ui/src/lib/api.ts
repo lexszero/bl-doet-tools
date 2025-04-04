@@ -20,25 +20,27 @@ export class API {
     return await fetch(url).then(x=>x.json());
   };
 
-  async getCollectionGeoJSON(collection: string, timestamp?: Date) {
+  async getCollectionGeoJSON(collection: string, timeStart?: Date, timeEnd?: Date) {
+    console.log(timeStart, timeEnd)
     return this.fetchJSON(
       `data/${collection}/items.geojson`,
-      timestamp ? {
-        time_end: getUnixTime(timestamp)
-      } : {}
+      {
+        time_start: timeStart ? getUnixTime(timeStart) : 0,
+        time_end: getUnixTime(timeEnd ? timeEnd : Date())
+      }
     );
   }
 
-  async getPowerAreasGeoJSON(timestamp?: Date) {
-    return this.getCollectionGeoJSON('power_areas', timestamp);
+  async getPowerAreasGeoJSON(timeStart?: Date, timeEnd?: Date) {
+    return this.getCollectionGeoJSON('power_areas', timeStart, timeEnd);
   };
 
-  async getPowerGridGeoJSON(timestamp?: Date) {
-    return this.getCollectionGeoJSON('power_grid', timestamp);
+  async getPowerGridGeoJSON(timeStart?: Date, timeEnd?: Date) {
+    return this.getCollectionGeoJSON('power_grid', timeStart, timeEnd);
   };
 
-  async getPlacementEntitiesGeoJSON(timestamp?: Date) {
-    return this.getCollectionGeoJSON('placement', timestamp);
+  async getPlacementEntitiesGeoJSON(timeStart?: Date, timeEnd?: Date) {
+    return this.getCollectionGeoJSON('placement', timeStart, timeEnd);
   }
 
   async getChangeTimestamps() {
