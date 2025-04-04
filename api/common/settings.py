@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     db_password: str
     secret_key: str
 
-    log_level: str = 'DEBUG'
+    log_level: str = 'INFO'
 
     model_config = SettingsConfigDict(
             env_file="../.env",
@@ -15,6 +15,5 @@ class Settings(BaseSettings):
             )
 
 settings = Settings()
-print(settings)
 
 __all__ = ['Settings', 'settings']

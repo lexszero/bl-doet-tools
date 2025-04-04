@@ -77,6 +77,7 @@ class StoreCollection(DBModel, AsyncAttrs):
     items: Mapped[Dict[str, List[StoreItemRevision]]] = relationship('StoreItemRevision',
             collection_class=attribute_keyed_dict('item_id'),
             back_populates='collection',
+            viewonly=True
             )
 
     def __repr__(self) -> str:
@@ -140,6 +141,8 @@ class VersionedCollection(ABC, Generic[ModelT]):
             self._time_start = time_start.replace(tzinfo=None)
         if time_end:
             self._time_end = time_end.replace(tzinfo=None)
+
+        #log.info(f"{self.__class__.__name__}: time interval {self._time_start} - {self._time_end}")
 
     def _from_dict(self, value: dict[str, Any]) -> Optional[ModelT]:
         #log.info(f"{self.__class__.__name__}: from_dict {self.store_item_class=} {value=}")
@@ -297,7 +300,7 @@ class VersionedCollection(ABC, Generic[ModelT]):
         result = await self._all_last_revisions(db)
         for item in result:
             if not item.data:
-                log.debug(f"{self.__class__.__name__}: Item {item.item_id} is missing data")
+                #log.debug(f"{self.__class__.__name__}: Item {item.item_id} is missing data")
                 continue
             value = self._from_dict(item.data)
             if value:

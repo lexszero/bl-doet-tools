@@ -24,10 +24,8 @@ async def get_change_timestamps(db: DBSessionDep, project: ProjectDep):
     result = []
     for item in await project.get_all_changes(db):
         ts = ceil(item.timestamp.timestamp())
-        debug(ts)
         if ts not in result:
             result.append(ts)
-    debug(result)
     return {'timestamps': result}
 
 @router.get("/{collection_name}/items")
