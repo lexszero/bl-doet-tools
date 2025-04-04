@@ -7,6 +7,7 @@ from power_map.power_grid_base import PowerGridItemPropertiesBase, PowerItemBase
 
 class PowerGridPDUProperties(PowerGridItemPropertiesBase):
     type: Literal['power_grid_pdu'] = Field('power_grid_pdu', repr=False)
+    power_source: bool = False
 
 class PowerGridPDUPropertiesWithStats(PowerGridPDUProperties):
     nr_consumers: int

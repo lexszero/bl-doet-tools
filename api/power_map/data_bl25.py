@@ -15,7 +15,8 @@ class PowerGrid_BL25(Loader):
             'WEST_Grid',
             'WEST_Grid_PDUs',
             'EAST_Grid',
-            'PDUs_EAST_Grid'
+            'EAST_Grid_PDUs',
+            'HV_and_trafos'
             ]
 
     GRID_MISC_ITEMS = {
@@ -26,6 +27,11 @@ class PowerGrid_BL25(Loader):
         'Generator, 35kva': PowerGridItemSize.ThreePhase_63A,
         'Generator 35-40kva': PowerGridItemSize.ThreePhase_63A,
         }
+
+    GRID_POWER_SOURCES = [
+        '200 KvA transformer 1',
+        '200 KvA transformer 2',
+        ]
 
     GRID_AREAS_TOPLEVEL = [
             '½Playa',

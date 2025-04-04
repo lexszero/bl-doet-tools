@@ -78,6 +78,7 @@ class Loader():
 
     GRID_AREAS_TOPLEVEL = []
     GRID_MISC_ITEMS: dict[str, PowerGridItemSize] = {}
+    GRID_POWER_SOURCES: list[str] = []
 
     PLACEMENT_ENTITIES_URL: str
     PLACEMENT_ENTITIES_FILENAME: str
@@ -101,6 +102,12 @@ class Loader():
     @classmethod
     def is_grid_native(cls, feature) -> bool:
         return bool(re.search(r'native', feature.description or '', re.IGNORECASE))
+
+    @classmethod
+    def is_power_source(cls, feature) -> bool:
+        if feature.name in cls.GRID_POWER_SOURCES:
+            return True
+        return bool(re.search(r'power_source', feature.description or '', re.IGNORECASE))
 
     @classmethod
     def grid_feature_size(cls, feature) -> PowerGridItemSize:
@@ -188,7 +195,8 @@ class Loader():
                                 name=name,
                                 description=desc,
                                 power_size=self.grid_feature_size(feature),
-                                power_native=self.is_grid_native(feature)
+                                power_native=self.is_grid_native(feature),
+                                power_source=self.is_power_source(feature)
                                 )
                             )
                 elif feature.geometry.geom_type == 'LineString':
