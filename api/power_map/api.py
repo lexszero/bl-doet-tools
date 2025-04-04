@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 from typing import Annotated, Any, Callable, Iterable, Optional
 
 import io
@@ -13,7 +14,7 @@ from common.geometry import Feature, FeatureCollection, Polygon, Point, LineStri
 from core.dependencies import get_project
 from power_map.power_area import PowerArea, PowerAreaStats, PowerAreaInfo
 from power_map.power_consumer import PowerConsumerColoringMode, PowerConsumerPropertiesWithStatsStyled
-from power_map.power_grid import PowerGrid, get_power_grid
+from power_map.power_grid import PowerGrid, PowerGridData, get_power_grid
 from power_map.power_grid_base import PowerGridItemSizeOrder, PowerItemBase
 from power_map.power_grid_cable import PowerGridCable, PowerGridCablePropertiesWithStats, PowerGridCablePropertiesWithStatsStyled
 from power_map.power_grid_pdu import PowerGridPDU, PowerGridPDUPropertiesWithStats, PowerGridPDUPropertiesWithStatsStyled
@@ -28,13 +29,13 @@ def write_csv(f, collection: Iterable[Any], properties_fn: Callable[[Any], list[
     for item in collection:
         writer.writerow(properties_fn(item))
 
-@cached(TTLCache(10, 30))
-async def get_power_grid_dep(project_name: str, timestamp: Optional[datetime] = None):
+@cached(TTLCache(maxsize=64, ttl=30))
+async def get_power_grid_cached(project_name: str, time_end: Optional[datetime] = None):
     async with await get_db_session() as db:
         project = await get_project(db, project_name)
-        return await get_power_grid(db, project, timestamp=timestamp)
+        return await get_power_grid(db, project, timestamp=time_end)
 
-PowerGridDep = Annotated[PowerGrid, Depends(get_power_grid_dep)]
+PowerGridDep = Annotated[PowerGrid, Depends(get_power_grid_cached)]
 
 @router.get("/areas.geojson")
 async def get_power_areas_geojson(
@@ -73,6 +74,21 @@ async def get_power_grid_geojson(
             power_grid.grid_items,
             PowerItemBase.feature_properties,
             )
+
+@router.get("/grid")
+async def get_power_grid_full(
+        power_grid: PowerGridDep,
+        log_level: str = 'WARNING'
+        ) -> PowerGridData:
+    min_level = logging.getLevelNamesMapping().get(log_level, logging.WARNING)
+    return PowerGridData(
+            timestamp=power_grid._timestamp,
+            log=[x for x in power_grid._log.entries if x.level >= min_level],
+            features=to_geojson_feature_collection(
+                power_grid.grid_items,
+                PowerItemBase.feature_properties,
+                ))
+
 
 @router.get("/grid_styled.geojson")
 async def get_power_grid_styled_geojson(

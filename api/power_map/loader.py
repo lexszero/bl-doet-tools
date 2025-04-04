@@ -243,8 +243,7 @@ class Loader():
         for f in self.power_area_features():
             grid.add_area_feature(f)
 
-        for f in self.power_grid_features():
-            grid.add_grid_feature(f)
+        grid.add_grid_features(self.power_grid_features())
 
         for f in self.placement_features():
             grid.add_placement_feature(f)

@@ -66,6 +66,9 @@ class GeoObject(BaseModel, Generic[Geom, ShapelyGeometryT, StyleT]):
     def shape_proj(self) -> ShapelyGeometryT:
         return coord_transform(XFRM_GEO_TO_PROJ, self.shape)
 
+    def distance_m(self, other) -> float:
+        return self.shape_proj.distance(other.shape_proj)
+
     def to_geojson_feature(self, properties_fn: Callable[[Any], Props]) -> Feature[Geom, Props]:
         props = properties_fn(self)
         if self.geometry:

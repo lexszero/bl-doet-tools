@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, select
+from sqlalchemy import ForeignKey, func, select
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, attribute_keyed_dict, mapped_column, relationship
 
@@ -52,7 +52,17 @@ class Project(DBModel, AsyncAttrs):
                 )
         return await db.execute(revisions)
 
-
+    async def get_last_change_timestamp(self, db: DBSessionDep, time_end: Optional[datetime] = None) -> Optional[datetime]:
+        subquery = (
+                select(StoreCollection.id)
+                .where(StoreCollection.project_id == self.id)
+                .subquery()
+                )
+        return await db.scalar(
+                select(func.max(StoreItemRevision.timestamp))
+                .join(subquery, StoreItemRevision.collection_id == subquery.c.id)
+                .where(StoreItemRevision.timestamp < (time_end or datetime.now(tz=None)))
+                )
 
 async def create_project(db: DBSessionDep, name: str, owner: User, data: Optional[ProjectData] = None):
         p = Project(
