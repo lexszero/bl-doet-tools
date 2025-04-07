@@ -1,7 +1,7 @@
 import { SvelteMap } from 'svelte/reactivity';
 import type {Feature, FeatureCollection} from '$lib/api';
 
-import { type Layer, GeoJSON, FeatureGroup, LatLng} from 'leaflet';
+import { GeoJSON, FeatureGroup, LatLng} from 'leaflet';
 import type {Geometry} from 'geojson';
 
 import {
@@ -15,7 +15,14 @@ export interface SearchboxItem {
   label: string;
   value: string;
   icon: IconType;
-}
+};
+
+export interface InfoItem {
+  label: string;
+  value: any;
+  icon?: IconType;
+  classes?: string;
+};
 
 export type MapLayer<G extends Geometry, P, F = FeatureCollection<G, P>> = GeoJSON<P> & {
   feature: F;

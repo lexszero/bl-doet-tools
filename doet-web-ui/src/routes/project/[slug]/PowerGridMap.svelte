@@ -7,7 +7,10 @@
   import { PowerGridLayer } from './PowerGridLayer.svelte';
   import { PlacementLayer } from './PlacementLayer.svelte';
   import { PowerAreasLayer } from './PowerAreasLayer.svelte';
+  import { type InfoItem } from './InteractiveLayer.svelte';
 	import {onMount} from 'svelte';
+	import type {Feature} from '$lib/api';
+	import type {Geometry} from 'geojson';
 
   let {
     api,
@@ -69,9 +72,12 @@
     grid?.selectFeature(id);
   }
 
- function getFeatureProperties(feature) {
+ function getFeatureProperties(feature: Feature<Geometry, any>) {
     let exclude = ['name', 'type'];
-    return Object.entries(feature.properties).filter(([k, v]) => (!exclude.includes(k)));
+    return (Object.entries(feature.properties)
+      .filter(([k, v]) => (!exclude.includes(k)))
+      .map(([k, v]) => ({label: k, value: v} as InfoItem))
+      )
   }
 
   function getFeatureTitle(feature) {
@@ -91,16 +97,21 @@
 
 </script>
 
-{#snippet propertyTable(items)}
-  <table class="table">
-    <tbody>
-      {#each items as [k, v]}
-        {#if v}
-          <tr><td>{k}</td><td>{v}</td></tr>
-        {/if}
-      {/each}
-    </tbody>
-  </table>
+{#snippet propertyTable(items: Array<InfoItem>)}
+<table class="table">
+  <tbody>
+    {#each items as it}
+      {@const Icon = it.icon}
+      {#if it.value}
+        <tr class={it.classes || ""}>
+          <td>{#if Icon}<Icon />{/if}</td>
+          <td>{it.label}</td>
+          <td>{it.value}</td>
+        </tr>
+      {/if}
+    {/each}
+  </tbody>
+</table>
 {/snippet}
 
 {#if browser}
@@ -227,7 +238,7 @@
         <Control options={{position: 'bottomright'}} class="map-overlay-box">
           <div class="h4">Path info</div>
           <span class="text-xs text-surface-500">id: {grid.highlightedGridPath[0].feature.id}</span>
-          {@render propertyTable(table)}
+          {@render propertyTable(info)}
         </Control>
       {/if}
   </Map>

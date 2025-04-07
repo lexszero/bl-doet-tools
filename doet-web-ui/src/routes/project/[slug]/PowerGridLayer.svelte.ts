@@ -9,13 +9,17 @@ import {
 import L from 'leaflet';
 import * as geojson from "geojson";
 
-import { InteractiveLayer, IconFeatureDefault } from './InteractiveLayer.svelte';
+import { InteractiveLayer, IconFeatureDefault, type InfoItem } from './InteractiveLayer.svelte';
 
 import {
   Cable as IconCable,
   SmartphoneCharging as IconPDU,
+  Ruler as IconRuler,
+  Omega as IconResistance,
+  Zap as IconPower,
 } from '@lucide/svelte';
 import type {LatLng} from "leaflet";
+import infinity from "@lucide/svelte/icons/infinity";
 
 type GridMapFeatureLayer = L.FeatureGroup<GridFeatureProperties> & {
   feature: Feature<geojson.Point | geojson.LineString, GridFeatureProperties>;
@@ -227,36 +231,74 @@ export class PowerGridLayer extends InteractiveLayer<
     this.highlightedGridPath = undefined;
   }
 
-  getHighlightedPathInfo(): Array<{label: string, value: any}> {
-    let result: Array<{label: string, value: any}> = [];
+  getHighlightedPathInfo(): Array<InfoItem> {
+    const loadLevels = [100, 75, 50];
+    let result: Array<InfoItem> = [];
     const cables = this.highlightedGridPath?.filter((l) => (l.feature.properties.type == 'power_grid_cable'));
     let totalLength = 0;
     let totalResistance = 0;
-    let totalVDrop = 0;
-    for (const l of cables) {
+    let totalVdrop = [0, 0, 0]
+    let totalPloss = [0, 0, 0]
+    let pathPmax = 9999999999;
+
+    const Vref = 400;
+
+    for (const l of cables || []) {
       const sizeData = gridItemSizeData(l.feature.properties.power_size);
       const length = l.feature.properties.length_m || 0;
-      const resistance = length * sizeData.ohm_per_km / 1000.0;
+      const R = length * sizeData.ohm_per_km / 1000.0;
       totalLength += length;
-      totalResistance += resistance;
-      totalVDrop += (sizeData.phases == 3) ?
-        (resistance * sizeData.max_amps * Math.sqrt(3)) :
-        (resistance * sizeData.max_amps * 2);
+      totalResistance += R;
+
+      const Pmax = (sizeData.phases == 3) ?
+        (3 * Vref * sizeData.max_amps) : (Vref * sizeData.max_amps);
+      if (Pmax < pathPmax)
+        pathPmax = Pmax;
+
+      for (const [i, loadLevel] of loadLevels.entries()) {
+        const I = sizeData.max_amps * loadLevel / 100.0;
+        const Vdrop = 
+          (sizeData.phases == 3) ?
+          (R * I * Math.sqrt(3)) :
+          (R * I * 2);
+        totalVdrop[i] += Vdrop;
+        totalPloss[i] += Vdrop * I;
+      }
     }
 
-      result.push({
-        label: "Length",
-        value: totalLength.toFixed(1)
-      },
-      {
-        label: "Resistance",
-        value: totalResistance.toFixed(2)
-      },
-      {
-        label: "V drop",
-        value: totalVDrop.toFixed(1)
-      }
+    result.push({
+      label: "Length",
+      value: `${totalLength.toFixed(1)} m`,
+      icon: IconRuler
+    },
+    {
+      label: "Resistance",
+      value: `${totalResistance.toFixed(2)} Ω`,
+      icon: IconResistance
+    },
+    {
+      label: "Pmax",
+      value: `${(pathPmax/1000).toFixed(1)} kW`,
+      icon: IconPower
+    }
+    );
+
+    for (const [i, loadLevel] of loadLevels.entries()) {
+      const Vdrop = totalVdrop[i];
+      const Ploss = totalPloss[i];
+      const VdropPercent = Vdrop / Vref * loadLevel;
+      result.push(
+        {
+          label: `Loss @ ${loadLevel}%`,
+          value: `${Vdrop.toFixed(1)} V (${VdropPercent.toFixed(0)}%), ${(Ploss/1000.0).toFixed(1)} kW`,
+          classes: (
+            (VdropPercent < 5) ? ""
+            : (VdropPercent < 10) ? "text-warning-500"
+            : "text-error-500"
+          )
+        },
       );
+    }
     console.log(result);
     return result;
   }
