@@ -19,7 +19,8 @@ import {
   Zap as IconPower,
 } from '@lucide/svelte';
 import type {LatLng} from "leaflet";
-import infinity from "@lucide/svelte/icons/infinity";
+
+export * from '@lucide/svelte';
 
 type GridMapFeatureLayer = L.FeatureGroup<GridFeatureProperties> & {
   feature: Feature<geojson.Point | geojson.LineString, GridFeatureProperties>;

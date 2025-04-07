@@ -45,6 +45,8 @@
     placement.mapRoot = mapRoot;
   })
 
+  let searchItems = $derived([...grid.searchItems, ...placement.searchItems]);
+
   let warningsControlColor = $derived(grid._data?.log ? "warning" : undefined);
 
   let containerShowingDetails = $derived.by(() => (
@@ -77,13 +79,6 @@
     grid?.selectFeature(id);
   }
 
- function getFeatureProperties(feature: Feature<Geometry, any>) {
-    let exclude = ['name', 'type'];
-    return (Object.entries(feature.properties)
-      .filter(([k, v]) => (!exclude.includes(k)))
-      .map(([k, v]) => ({label: k, value: v} as InfoItem))
-      )
-  }
 </script>
 
 {#snippet featureInfoHeader(container, feature, prefix="")}
@@ -154,9 +149,9 @@
       </LayerGroup>
 
     <Control options={{position: 'topleft'}} class="flex map-overlay-box">
-    {#key grid.searchItems}
+    {#key searchItems}
       <Combobox
-        data={grid.searchItems}
+        data={searchItems}
         value={searchValue}
         onValueChange={searchValueChange}
         placeholder="Search..."
@@ -182,7 +177,7 @@
         {@const c = containerShowingDetails}
         {@const feature = c.layerHighlighted?.feature}
         {@render featureInfoHeader(containerShowingDetails, feature)}
-        {@render propertyTable(getFeatureProperties(feature))}
+        {@render propertyTable(containerShowingDetails.featureProperties(feature))}
       {:else}
         Hover over a feature to see details
       {/if}
@@ -279,7 +274,6 @@
         {@const feature = grid.highlightedGridPath[0].feature}
         <Control options={{position: 'bottomright'}} class="map-overlay-box">
           {@render featureInfoHeader(grid, feature, "⚡")}
-          <span class="text-xs text-surface-500">id: {feature.id}</span>
           {@render propertyTable(info)}
         </Control>
       {/if}

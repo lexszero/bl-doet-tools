@@ -1,11 +1,13 @@
 import type {Polygon} from 'geojson';
 import * as L from "leaflet";
 
-import type {PlacementFeature, PlacementEntityProperties} from '$lib/api';
+import { Tent as IconPlacementEntity } from '@lucide/svelte';
+
+import type {PlacementFeature, PlacementEntityProperties, GridPDUFeature} from '$lib/api';
 import colormap from '$lib/colormap';
 
-import { InteractiveLayer } from './InteractiveLayer.svelte';
-import { PowerGridLayer } from './PowerGridLayer.svelte';
+import { InteractiveLayer, type InfoItem } from './InteractiveLayer.svelte';
+import { PowerGridLayer, IconRuler, IconPDU, IconPower } from './PowerGridLayer.svelte';
 
 const defaultStyle = {
   weight: 0.5,
@@ -24,11 +26,10 @@ const styleFuncs = {
     return {...defaultStyle, color, fillColor: color};
   },
   grid_coverage: (params: PlacementLayer, feature: PlacementFeature) => {
-    let nr_pdus = 0;
     let color = '#000';
     if (feature.properties.powerNeed) {
-      nr_pdus = params.findNearestPDUs(feature);
-      color = colormap('plasma', nr_pdus, 0, 5, true);
+      const [n, pdu] = params.findNearestPDUs(feature);
+      color = colormap('plasma', n, 0, 5, true);
     }
     return {...defaultStyle, color, fillColor: color}
   },
@@ -49,7 +50,15 @@ export class PlacementLayer extends InteractiveLayer<
   }
 
   async load(timeStart?: Date, timeEnd?: Date) {
-    this.geojson = await this._grid._api.getPlacementEntitiesGeoJSON(timeStart, timeEnd);
+    const data = await this._grid._api.getPlacementEntitiesGeoJSON(timeStart, timeEnd);
+    console.log(this._grid.features)
+    for (const feature of data.features) {
+      const [n, pdu] = this.findNearestPDUs(feature);
+      if (pdu) {
+        feature.properties._nearestPduId = pdu.id;
+      }
+    }
+    this.geojson = data;
   }
 
   mode: 'power_need' | 'grid_coverage' = $state('power_need');
@@ -57,8 +66,40 @@ export class PlacementLayer extends InteractiveLayer<
   pduSearchRadius: number = $state(100);
 
   style = (f: PlacementFeature) => styleFuncs[this.mode](this, f);
+  featureIcon = (f: PlacementFeature) => IconPlacementEntity;
 
-  findNearestPDUs(feature: PlacementFeature) {
+  featureLabel = (f: PlacementFeature) => `${f.properties.name} (${f.id})`;
+  featureProperties = (f: PlacementFeature) => {
+    const exclude = ['name', 'type', '_nearestPduId', 'powerNeed'];
+    const props = f.properties;
+    const result = (Object.entries(props)
+      .filter(([k, v]) => (!exclude.includes(k)))
+      .map(([k, v]) => ({label: k, value: v} as InfoItem))
+      )
+
+    result.push({
+      label: 'Power need',
+      value: props.powerNeed,
+      icon: IconPower
+    });
+
+    const pduId = props._nearestPduId;
+    const pdu = pduId ? this._grid.features.get(pduId) : this.findNearestPDUs(f)[1];
+    if (pdu) {
+      result.push({
+        label: "Nearest PDU",
+        value: pdu.properties.name,
+        icon: IconPDU,
+        selectId: f.properties._nearestPduId
+      },
+      
+      );
+    }
+
+    return result;
+  };
+
+  findNearestPDUs(feature: PlacementFeature): [number, GridPDUFeature | null] {
     let n = 0;
     let nearestDistance = 9999999;
     let nearestPDU = null;
@@ -67,20 +108,25 @@ export class PlacementLayer extends InteractiveLayer<
       if (item.properties.type != 'power_grid_pdu') {
         continue;
       }
-      const distance = this.mapRoot?.distance(itemCenter, item.geometry.coordinates);
+      const pdu = item as GridPDUFeature;
+      const distance = this.mapRoot?.distance(itemCenter, pdu.geometry.coordinates) || Infinity;
       if (distance < this.pduSearchRadius) {
         n++;
       }
       if (distance < nearestDistance) {
         nearestDistance = distance;
-        nearestPDU = item.id;
+        nearestPDU = pdu;
       }
     }
+    console.log(nearestPDU);
+    return [n, nearestPDU];
+    /*
     if (nearestPDU) {
-      feature.properties.nearest_pdu_distance = Math.round(nearestDistance);
-      feature.properties.nearest_pdu_id = nearestPDU;
+      feature.properties._nearestPduDistance = Math.round(nearestDistance);
+      feature.properties._nearestPduId = nearestPDU;
     }
     return n;
+    */
   }
 
 };

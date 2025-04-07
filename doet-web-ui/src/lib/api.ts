@@ -11,7 +11,7 @@ import type {
 const API_BASE_URL = 'https://bl.skookum.cc/api';
 //const API_BASE_URL = 'http://localhost:8000';
 
-interface ItemizedLogEntry {
+export interface ItemizedLogEntry {
   item_id?: string;
   level: number;
   message: string;
@@ -40,6 +40,9 @@ export interface PlacementEntityProperties {
   name: string;
   description?: string;
   powerNeed?: number;
+
+  _nearestPduId?: string;
+  _nearestPduDistance?: number;
 };
 
 export type PlacementFeature = Feature<Polygon, PlacementEntityProperties>;
@@ -66,6 +69,7 @@ export interface GridCableProperties extends GridFeatureCommonProperties {
   type: "power_grid_cable"
   pdu_from?: string;
   pdu_to?: string;
+  length_m?: number;
 }
 
 export type GridCableFeature = Feature<LineString, GridCableProperties>;
@@ -119,7 +123,7 @@ export class API {
   };
 
   async getPlacementEntitiesGeoJSON(timeStart?: Date, timeEnd?: Date) {
-    return await this.getCollectionGeoJSON('placement', timeStart, timeEnd) as PlacementFeatureCollection;
+    return {features: await this.getCollectionGeoJSON('placement', timeStart, timeEnd)} as PlacementFeatureCollection;
   }
 
   async getChangeTimestamps() {

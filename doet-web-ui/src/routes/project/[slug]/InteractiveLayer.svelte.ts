@@ -1,5 +1,5 @@
 import { SvelteMap } from 'svelte/reactivity';
-import type {Feature, FeatureCollection} from '$lib/api';
+import type {Feature, FeatureCollection, PlacementFeature} from '$lib/api';
 
 import { GeoJSON, FeatureGroup, LatLng} from 'leaflet';
 import type {Geometry} from 'geojson';
@@ -22,6 +22,7 @@ export interface InfoItem {
   value: any;
   icon?: IconType;
   classes?: string;
+  selectId?: string;
 };
 
 export type MapLayer<G extends Geometry, P, F = FeatureCollection<G, P>> = GeoJSON<P> & {
@@ -43,7 +44,7 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
 
   public features: SvelteMap<string, F> = $derived(this.geojson ?
     new SvelteMap<string, F>(
-      this.geojson.features.map(
+      this.geojson.features?.map(
         (x: F) => [x.id as string, x]
       ))
     : new SvelteMap());
@@ -52,15 +53,25 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
   featureIcon = (f: F) => IconFeatureDefault;
   featureColorForStatus = (f: F) => "surface";
 
-  searchItems?: Array<SearchboxItem> = $derived.by(() => {
-    const items = [...this.features.values().map(
+  featureProperties = (f: F) => {
+    let exclude = ['name', 'type'];
+    return (Object.entries(f.properties)
+      .filter(([k, v]) => (!exclude.includes(k)))
+      .map(([k, v]) => ({label: k, value: v} as InfoItem))
+      )
+  };
+
+  searchItems: Array<SearchboxItem> = $derived.by(() => {
+    if (!this.features)
+      return [];
+    const items = [...this.features?.values().map(
       (f: F) => ({
         label: this.featureLabel(f),
         value: f.id,
         icon: this.featureIcon(f),
       } as SearchboxItem)
     )];
-    //console.log("searchItems: ", items);
+    console.log("searchItems: ", items);
     return items;
   });
 
