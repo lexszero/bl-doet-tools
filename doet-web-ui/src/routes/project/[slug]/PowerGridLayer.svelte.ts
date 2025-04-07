@@ -1,26 +1,25 @@
 import {
   API,
   type Feature,
+  type GridCableFeature,
   type GridFeature,
   type GridFeatureProperties,
-  type ItemizedLogEntry,
+  type GridPDUFeature,
   type PowerGridData,
 } from "$lib/api";
 import L from 'leaflet';
 import * as geojson from "geojson";
 
-import { InteractiveLayer, IconFeatureDefault, type InfoItem } from './InteractiveLayer.svelte';
-
+import { InteractiveLayer, type InfoItem } from './InteractiveLayer.svelte';
 import {
-  Cable as IconCable,
-  SmartphoneCharging as IconPDU,
-  Ruler as IconRuler,
-  Omega as IconResistance,
-  Zap as IconPower,
-} from '@lucide/svelte';
-import type {LatLng} from "leaflet";
-
-export * from '@lucide/svelte';
+  IconFeatureDefault,
+  IconPDU,
+  IconCable,
+  IconRuler,
+  IconPower,
+  IconResistance,
+  IconPlug
+} from "./Icons.svelte";
 
 type GridMapFeatureLayer = L.FeatureGroup<GridFeatureProperties> & {
   feature: Feature<geojson.Point | geojson.LineString, GridFeatureProperties>;
@@ -142,22 +141,26 @@ export class PowerGridLayer extends InteractiveLayer<
     if (layer) {
       this.highlightGridPathUp(layer);
     }
-    this.layerSelected = undefined;
+    //this.layerSelected = undefined;
   }
 
   async load(timeStart?: Date, timeEnd?: Date) {
     this._data = await this._api.getPowerGridProcessed(timeEnd);
+    const features = new Map<string, GridFeature>(this._data.features.features.map((it: GridFeature) => ([it.id, it])));
     if (this._data?.log) {
       this._data.log.sort((a, b) => (b.level - a.level));
       for (const entry of (this._data?.log || [])) {
         if (entry.item_id) {
-          const props = this.features.get(entry.item_id)?.properties;
+          const props = features.get(entry.item_id)?.properties;
           if (props) {
             if (props._drc) {
               props._drc.push(entry);
             } else {
               props._drc = [entry]
             }
+          }
+          else {
+            console.log(`No props for ${entry.item_id}`);
           }
         }
       }
@@ -189,8 +192,68 @@ export class PowerGridLayer extends InteractiveLayer<
   featureColorForStatus(f: GridFeature) {
     return `${this.featureStatus(f)}`;
   }
+  featureProperties = (f: GridFeature) => {
+    const exclude = ['name', 'type', 'power_size', 'length_m', 'pdu_from', 'pdu_to', 'cable_in', 'cables_out', '_drc'];
+    const props = f.properties;
+    let result = [];
+    result.push({
+      label: 'Size',
+      value: props.power_size,
+      icon: IconPlug
+    });
 
-  pointToLayer(feature: GridFeature, latlng: LatLng) {
+    if (props.type == 'power_grid_cable') {
+      if (props.length_m) {
+        result.push({
+          label: 'Length',
+          value: `${props.length_m} m`,
+          icon: IconRuler
+        });
+      }
+      if (props.pdu_from) {
+        result.push({
+          label: 'From',
+          value: `${this.features.get(props.pdu_from)?.properties.name}`,
+          icon: IconPDU,
+          selectId: props.pdu_from
+        });
+      }
+      if (props.pdu_to) {
+        result.push({
+          label: 'To',
+          value: `${this.features.get(props.pdu_to)?.properties.name}`,
+          icon: IconPDU,
+          selectId: props.pdu_from
+        });
+      }
+    }
+    else if (props.type == 'power_grid_pdu') {
+      if (props.cable_in) {
+        const cableIn = this.features.get(props.cable_in) as GridCableFeature;
+        const pduFrom = this.features.get(cableIn?.properties.pdu_from) as GridPDUFeature;
+        result.push({
+          label: 'Feed line',
+          value: `${cableIn.properties.name}`,
+          icon: IconCable,
+          selectId: props.cable_in
+        });
+        result.push({
+          label: 'From',
+          value: `${pduFrom.properties.name}`,
+          icon: IconPDU,
+          selectId: pduFrom.id
+        });
+      }
+    }
+    return [...result, ...(Object.entries(props)
+      .filter(([k]) => (!exclude.includes(k)))
+      .map(([k, v]) => ({label: k, value: v} as InfoItem))
+      )];
+  };
+
+
+
+  pointToLayer(feature: GridFeature, latlng: L.LatLng) {
     const style = gridItemSizeData(feature.properties.power_size)?.style;
     return L.circleMarker(latlng, {
       radius: style.weight,
@@ -250,23 +313,24 @@ export class PowerGridLayer extends InteractiveLayer<
     if (!this.highlightedGridPath || !this.mapBaseLayer)
       return;
     for (const l of this.highlightedGridPath) {
-      super.mapBaseLayer.resetStyle(l);
+      this.mapBaseLayer.resetStyle(l);
     }
     this.highlightedGridPath = undefined;
   }
 
   getHighlightedPathInfo(): Array<InfoItem> {
     const loadLevels = [100, 75, 50];
-    let result: Array<InfoItem> = [];
-    const cables = this.highlightedGridPath?.filter((l) => (l.feature.properties.type == 'power_grid_cable'));
+    const result: Array<InfoItem> = [];
+
     let totalLength = 0;
     let totalResistance = 0;
-    let totalVdrop = [0, 0, 0]
-    let totalPloss = [0, 0, 0]
-    let pathPmax = 9999999999;
+    const totalVdrop = [0, 0, 0]
+    const totalPloss = [0, 0, 0]
+    let pathPmax = Infinity;
 
     const Vref = 400;
 
+    const cables = this.highlightedGridPath?.filter((l) => (l.feature.properties.type == 'power_grid_cable'));
     for (const l of cables || []) {
       const sizeData = gridItemSizeData(l.feature.properties.power_size);
       const length = l.feature.properties.length_m || 0;
@@ -323,7 +387,6 @@ export class PowerGridLayer extends InteractiveLayer<
         },
       );
     }
-    console.log(result);
     return result;
   }
 

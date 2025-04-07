@@ -49,14 +49,14 @@
 
   let warningsControlColor = $derived(grid._data?.log ? "warning" : undefined);
 
-  let containerShowingDetails = $derived.by(() => (
-    (grid.layerHighlighted) ? 
-      grid
-      : (placement.layerHighlighted) ?
-        placement
-        : (areas.layerHighlighted) ?
-        areas
-        : undefined
+  let details = $derived.by(() => (
+    (grid.layerHighlighted) ? [grid, grid.layerHighlighted]
+      : (grid.layerSelected) ? [grid, grid.layerSelected]
+        : (placement.layerSelected) ? [placement, placement.layerSelected]
+          : (areas.layerSelected) ? [areas, areas.layerSelected]
+            : (placement.layerHighlighted) ? [placement, placement.layerHighlighted]
+              : (areas.layerHighlighted) ? [areas, areas.layerHighlighted]
+                : undefined
         ));
 
   const mapOptions = {
@@ -74,11 +74,17 @@
   };
 
   let searchValue = $state();
-  function searchValueChange(e) {
-    let id = e.value[0];
-    grid?.selectFeature(id);
-  }
 
+  function selectFeature(id?: string) {
+    if (!id)
+      return;
+    if (grid.features.has(id)) {
+      grid.selectFeature(id);
+    }
+    else if (placement.features.has(id)) {
+      placement.selectFeature(id);
+    }
+  }
 </script>
 
 {#snippet featureInfoHeader(container, feature, prefix="")}
@@ -101,9 +107,39 @@
         <tr class={it.classes || ""}>
           <td>{#if Icon}<Icon />{/if}</td>
           <td>{it.label}</td>
-          <td>{it.value}</td>
+          <td>
+            {#if it.selectId}
+              <button type="button" class="btn btn-sm preset-outlined-surface-500"
+                onclick={() => selectFeature(it.selectId)}>{it.value}</button>
+            {:else}
+              {it.value}
+            {/if}
+          </td>
         </tr>
       {/if}
+    {/each}
+  </tbody>
+</table>
+{/snippet}
+
+{#snippet warningsTable(items: ItemizedLogEntry[])}
+<table class="table">
+  <tbody>
+    {#each (items || []) as r}
+      {@const feature = r.item_id ? grid.features.get(r.item_id) : undefined}
+      {@const color = logLevelToColor(r.level)}
+      <tr class="fill-{color}-300 text-{color}-500">
+        <td><TriangleAlert class="stroke-{color}-500"/></td>
+        <td>
+          {#if feature}
+            <button type="button" class="btn btn-sm preset-outlined-surface-500"
+              onclick={() => selectFeature(feature.id)}>{feature.properties.name}</button>
+          {:else}
+            {r.item_id}
+          {/if}
+        </td>
+        <td>{r.message}</td>
+      </tr>
     {/each}
   </tbody>
 </table>
@@ -153,7 +189,7 @@
       <Combobox
         data={searchItems}
         value={searchValue}
-        onValueChange={searchValueChange}
+        onValueChange={(e) => selectFeature(e.value[0])}
         placeholder="Search..."
         width="w-100"
       >
@@ -173,11 +209,14 @@
     </Control>
 
     <Control options={{position: 'bottomleft'}} class="map-overlay-box">
-      {#if containerShowingDetails && containerShowingDetails.layerHighlighted}
-        {@const c = containerShowingDetails}
-        {@const feature = c.layerHighlighted?.feature}
-        {@render featureInfoHeader(containerShowingDetails, feature)}
-        {@render propertyTable(containerShowingDetails.featureProperties(feature))}
+      {#if details}
+        {@const [container, layer] = details}
+        {@const feature = layer.feature}
+        {@render featureInfoHeader(container, feature)}
+        {@render propertyTable(container.featureProperties(feature))}
+        {#if feature.properties._drc}
+          {@render warningsTable(feature.properties._drc)}
+        {/if}
       {:else}
         Hover over a feature to see details
       {/if}
@@ -240,29 +279,7 @@
 
           {#if showWarningsControl}
           <div class="flex overflow-scroll max-h-[500px] card">
-            <table class="table">
-              <tbody>
-                {#each (grid._data?.log || []) as r}
-                  {@const feature = r.item_id ? grid.features.get(r.item_id) : undefined}
-                  {@const color = logLevelToColor(r.level)}
-                  <tr class="fill-{color}-300 text-{color}-500">
-                    <td><TriangleAlert class="stroke-{color}-500"/></td>
-                    <td>
-                      {#if feature}
-                        <button type="button" class="btn btn-sm preset-outlined-surface-500"
-                          onclick={() => {
-                            grid.selectFeature(r.item_id);
-                            grid.highlightFeature(r.item_id);
-                            }}>{feature.properties.name}</button>
-                      {:else}
-                        {r.item_id}
-                      {/if}
-                    </td>
-                    <td>{r.message}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+          {@render warningsTable(grid._data?.log)}
           </div>
           {:else}
           {/if}

@@ -1,13 +1,13 @@
 import type {Polygon} from 'geojson';
 import * as L from "leaflet";
 
-import { Tent as IconPlacementEntity } from '@lucide/svelte';
 
 import type {PlacementFeature, PlacementEntityProperties, GridPDUFeature} from '$lib/api';
 import colormap from '$lib/colormap';
 
 import { InteractiveLayer, type InfoItem } from './InteractiveLayer.svelte';
-import { PowerGridLayer, IconRuler, IconPDU, IconPower } from './PowerGridLayer.svelte';
+import { PowerGridLayer } from './PowerGridLayer.svelte';
+import { IconPlacementEntity, IconPDU, IconRuler, IconPower } from './Icons.svelte';
 
 const defaultStyle = {
   weight: 0.5,
@@ -51,7 +51,6 @@ export class PlacementLayer extends InteractiveLayer<
 
   async load(timeStart?: Date, timeEnd?: Date) {
     const data = await this._grid._api.getPlacementEntitiesGeoJSON(timeStart, timeEnd);
-    console.log(this._grid.features)
     for (const feature of data.features) {
       const [n, pdu] = this.findNearestPDUs(feature);
       if (pdu) {
@@ -118,7 +117,6 @@ export class PlacementLayer extends InteractiveLayer<
         nearestPDU = pdu;
       }
     }
-    console.log(nearestPDU);
     return [n, nearestPDU];
     /*
     if (nearestPDU) {

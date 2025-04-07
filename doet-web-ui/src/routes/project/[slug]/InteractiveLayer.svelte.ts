@@ -4,12 +4,7 @@ import type {Feature, FeatureCollection, PlacementFeature} from '$lib/api';
 import { GeoJSON, FeatureGroup, LatLng} from 'leaflet';
 import type {Geometry} from 'geojson';
 
-import {
-  type Icon as IconType,
-  MapPin
-} from '@lucide/svelte';
-
-export const IconFeatureDefault = MapPin;
+import { type IconType, IconFeatureDefault } from './Icons.svelte';
 
 export interface SearchboxItem {
   label: string;
