@@ -371,11 +371,12 @@ export class PowerGridLayer extends InteractiveLayer<
 
     let totalLength = 0;
     let totalResistance = 0;
-    const totalVdrop = [0, 0, 0]
-    const totalPloss = [0, 0, 0]
-    let pathPmax = Infinity;
+    const totalVdrop = [0, 0, 0];
+    const totalPloss = [0, 0, 0];
+    let pathImax = Infinity;
 
-    const Vref = 400;
+    const Vref_LL = 400;
+    const Vref_LN = 240;
 
     const cables = (this.highlightedGridPath?.filter(
       (l) => (l.feature.properties.type == 'power_grid_cable')
@@ -389,10 +390,11 @@ export class PowerGridLayer extends InteractiveLayer<
       totalLength += length;
       totalResistance += R;
 
+      const Imax = sizeData.max_amps;
       const Pmax = (sizeData.phases == 3) ?
-        (3 * Vref * sizeData.max_amps) : (Vref * sizeData.max_amps);
-      if (Pmax < pathPmax)
-        pathPmax = Pmax;
+        (3 * Vref_LN * Imax) : (Vref_LN * Imax);
+      if (Imax < pathImax)
+        pathImax = Imax;
 
       for (const [i, loadLevel] of loadLevels.entries()) {
         const I = sizeData.max_amps * loadLevel / 100.0;
@@ -404,6 +406,7 @@ export class PowerGridLayer extends InteractiveLayer<
         totalPloss[i] += Vdrop * I;
       }
     }
+
 
     result.push({
       label: "Length",
@@ -417,15 +420,15 @@ export class PowerGridLayer extends InteractiveLayer<
     },
     {
       label: "Pmax",
-      value: `${(pathPmax/1000).toFixed(1)} kW`,
+      value: `${(pathImax*Vref_LN*3/1000).toFixed(1)} kW`,
       icon: IconPower
     }
     );
 
     for (const [i, loadLevel] of loadLevels.entries()) {
-      const Vdrop = totalVdrop[i];
+      const Vdrop = totalVdrop[i] / Math.sqrt(3);
       const Ploss = totalPloss[i];
-      const VdropPercent = Vdrop / Vref * loadLevel;
+      const VdropPercent = Vdrop / Vref_LL * loadLevel;
       result.push(
         {
           label: `Loss @ ${loadLevel}%`,
@@ -438,6 +441,22 @@ export class PowerGridLayer extends InteractiveLayer<
         },
       );
     }
+
+    const Vdrop = pathImax * totalResistance;
+    const Ploss = Vdrop * pathImax;
+    const VdropPercent = Vdrop / Vref_LL * 100;
+    result.push(
+      {
+        label: `Loss @ path`,
+        value: `${Vdrop.toFixed(1)} V (${VdropPercent.toFixed(0)}%), ${(Ploss/1000.0).toFixed(1)} kW`,
+        classes: (
+          (VdropPercent < 5) ? ""
+          : (VdropPercent < 10) ? "text-warning-500"
+          : "text-error-500"
+        )
+      },
+    );
+
     return result;
   }
 
