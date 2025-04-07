@@ -6,10 +6,10 @@ import type {Geometry} from 'geojson';
 
 import {
   type Icon as IconType,
-  MapPinCheckInside
+  MapPin
 } from '@lucide/svelte';
 
-export const IconFeatureDefault = MapPinCheckInside;
+export const IconFeatureDefault = MapPin;
 
 export interface SearchboxItem {
   label: string;
@@ -50,6 +50,7 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
 
   featureLabel = (f: F) => (f.id as string).replaceAll('_', ' ').trim();
   featureIcon = (f: F) => IconFeatureDefault;
+  featureColorForStatus = (f: F) => "surface";
 
   searchItems?: Array<SearchboxItem> = $derived.by(() => {
     const items = [...this.features.values().map(

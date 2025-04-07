@@ -1,10 +1,10 @@
 import {
   API,
   type Feature,
-  type FeatureCollection,
   type GridFeature,
-  type PowerGridData,
   type GridFeatureProperties,
+  type ItemizedLogEntry,
+  type PowerGridData,
 } from "$lib/api";
 import L from 'leaflet';
 import * as geojson from "geojson";
@@ -36,6 +36,12 @@ interface GridItemSizeData {
   ohm_per_km: number;
   style: StyleWeightColor;
 }
+
+export const logLevelToColor = (level: number) => (
+  (level >= 40) ? 'error'
+  : (level >= 30) ? 'warning'
+    : (level >= 20) ? 'success'
+      : 'surface');
 
 const gridItemSizeData = (size: string) => ({
     '250': {
@@ -140,20 +146,23 @@ export class PowerGridLayer extends InteractiveLayer<
 
   async load(timeStart?: Date, timeEnd?: Date) {
     this._data = await this._api.getPowerGridProcessed(timeEnd);
-    for (const entry of (this._data?.log || [])) {
-      if (entry.item_id) {
-        const props = super.features.get(entry.item_id)?.properties;
-        if (props) {
-          if (props._drc) {
-            props._drc.push(entry);
-          } else {
-            props._drc = [entry]
+    if (this._data?.log) {
+      this._data.log.sort((a, b) => (b.level - a.level));
+      for (const entry of (this._data?.log || [])) {
+        if (entry.item_id) {
+          const props = this.features.get(entry.item_id)?.properties;
+          if (props) {
+            if (props._drc) {
+              props._drc.push(entry);
+            } else {
+              props._drc = [entry]
+            }
           }
         }
       }
     }
     console.log("Loaded data");
-    super.geojson = this._data.features;
+    this.geojson = this._data.features;
   }
 
   style = (feature: GridFeature) => {
@@ -165,6 +174,20 @@ export class PowerGridLayer extends InteractiveLayer<
     power_grid_pdu: IconPDU,
     power_grid_cable: IconCable
   }[feature.properties.type] || IconFeatureDefault);
+
+  featureStatus(f: GridFeature) {
+    const props = f.properties;
+    const maxLevel = (props._drc) ? Math.max(...props._drc.map((r) => (r.level))) : undefined;
+    if (maxLevel) {
+      return logLevelToColor(maxLevel)
+    }
+    return (props.type == 'power_grid_pdu') ?
+      (props.cable_in ? 'success' : 'warning')
+      : ((props.pdu_from && props.pdu_to) ? 'success' : 'warning');
+  }
+  featureColorForStatus(f: GridFeature) {
+    return `${this.featureStatus(f)}`;
+  }
 
   pointToLayer(feature: GridFeature, latlng: LatLng) {
     const style = gridItemSizeData(feature.properties.power_size)?.style;

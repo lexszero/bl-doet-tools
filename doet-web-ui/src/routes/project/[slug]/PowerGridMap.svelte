@@ -4,13 +4,15 @@
   import {Map, TileLayer, GeoJSON, Control, LayerGroup} from 'sveaflet?client';
   import 'leaflet/dist/leaflet.css'
 
-  import { PowerGridLayer } from './PowerGridLayer.svelte';
+  import { logLevelToColor, PowerGridLayer } from './PowerGridLayer.svelte';
   import { PlacementLayer } from './PlacementLayer.svelte';
   import { PowerAreasLayer } from './PowerAreasLayer.svelte';
   import { type InfoItem } from './InteractiveLayer.svelte';
 	import {onMount} from 'svelte';
 	import type {Feature} from '$lib/api';
 	import type {Geometry} from 'geojson';
+
+  import { Eye, TriangleAlert } from '@lucide/svelte';
 
   let {
     api,
@@ -19,6 +21,7 @@
   } = $props();
 
   let showMapOptionsControl = $state(false);
+  let showWarningsControl = $state(false);
 
   let mapRoot: L.Map = $state();
 
@@ -41,6 +44,8 @@
     grid.mapRoot = mapRoot;
     placement.mapRoot = mapRoot;
   })
+
+  let warningsControlColor = $derived(grid._data?.log ? "warning" : undefined);
 
   let containerShowingDetails = $derived.by(() => (
     (grid.layerHighlighted) ? 
@@ -79,23 +84,18 @@
       .map(([k, v]) => ({label: k, value: v} as InfoItem))
       )
   }
-
-  function getFeatureTitle(feature) {
-    if (feature.properties.type) {
-      if (feature.properties.type == 'power_grid_cable') {
-        return `⚡Cable: ${feature.properties.name}`;
-      } else if (feature.properties.type == 'power_grid_pdu') {
-        return `⚡PDU: ${feature.properties.name}`;
-      }
-    } else {
-      return `${feature.properties.name}`
-    }
-  }
-
-  function getFeatureIcon(feature) {
-  }
-
 </script>
+
+{#snippet featureInfoHeader(container, feature, prefix="")}
+  {@const FeatureIcon = container.featureIcon(feature)}
+  {@const statusColor = container.featureColorForStatus(feature)}
+  <div class="flex grow h4 justify-start">
+    <span>{prefix}</span>
+    <FeatureIcon class="w-auto h-auto stroke-{statusColor}-500"/>
+    <span> {feature.properties.name}</span>
+  </div>
+  <span class="text-xs text-surface-500">id: {feature.id}</span>
+{/snippet}
 
 {#snippet propertyTable(items: Array<InfoItem>)}
 <table class="table">
@@ -178,11 +178,10 @@
     </Control>
 
     <Control options={{position: 'bottomleft'}} class="map-overlay-box">
-      {#if containerShowingDetails}
-        {@const layer = containerShowingDetails.layerHighlighted}
-        {@const feature = layer?.feature}
-        <div class="h4">{getFeatureTitle(feature)}</div>
-        <span class="text-xs text-surface-500">id: {feature.id}</span>
+      {#if containerShowingDetails && containerShowingDetails.layerHighlighted}
+        {@const c = containerShowingDetails}
+        {@const feature = c.layerHighlighted?.feature}
+        {@render featureInfoHeader(containerShowingDetails, feature)}
         {@render propertyTable(getFeatureProperties(feature))}
       {:else}
         Hover over a feature to see details
@@ -228,16 +227,59 @@
             {/if}
             -->
         {:else}
-          <h5>Options</h5>
+          <Eye class="w-2x h-2x"/>
         {/if}
       </Control>
 
+      {#if warningsControlColor}
+        <Control options={{position: 'topright'}} class="map-overlay-box grid card"
+          onmouseenter={() => (showWarningsControl = true)}
+          onmouseleave={() => (showWarningsControl = false)}
+        >
+          <div class="flex grow h4">
+            <TriangleAlert class="w-auto h-auto stroke-{warningsControlColor}-500" />
+            {#if showWarningsControl}
+            <h5>Validation warnings</h5>
+            {/if}
+          </div>
+
+          {#if showWarningsControl}
+          <div class="flex overflow-scroll max-h-[500px] card">
+            <table class="table">
+              <tbody>
+                {#each (grid._data?.log || []) as r}
+                  {@const feature = r.item_id ? grid.features.get(r.item_id) : undefined}
+                  {@const color = logLevelToColor(r.level)}
+                  <tr class="fill-{color}-300 text-{color}-500">
+                    <td><TriangleAlert class="stroke-{color}-500"/></td>
+                    <td>
+                      {#if feature}
+                        <button type="button" class="btn btn-sm preset-outlined-surface-500"
+                          onclick={() => {
+                            grid.selectFeature(r.item_id);
+                            grid.highlightFeature(r.item_id);
+                            }}>{feature.properties.name}</button>
+                      {:else}
+                        {r.item_id}
+                      {/if}
+                    </td>
+                    <td>{r.message}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+          {:else}
+          {/if}
+        </Control>
+      {/if}
+
       {#if grid?.highlightedGridPath}
         {@const info = grid.getHighlightedPathInfo()}
-        {@const table = info.map((item) => ([item.label, item.value]))}
+        {@const feature = grid.highlightedGridPath[0].feature}
         <Control options={{position: 'bottomright'}} class="map-overlay-box">
-          <div class="h4">Path info</div>
-          <span class="text-xs text-surface-500">id: {grid.highlightedGridPath[0].feature.id}</span>
+          {@render featureInfoHeader(grid, feature, "⚡")}
+          <span class="text-xs text-surface-500">id: {feature.id}</span>
           {@render propertyTable(info)}
         </Control>
       {/if}
