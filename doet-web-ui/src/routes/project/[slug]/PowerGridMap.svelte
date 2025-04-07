@@ -62,7 +62,8 @@
   const mapOptions = {
     center: [57.62377, 14.92715],
     zoom: 15,
-    zoomControl: false
+    zoomControl: false,
+    attributionControl: false
   };
 
   const layerBasemapTileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
@@ -103,7 +104,7 @@
   <tbody>
     {#each items as it}
       {@const Icon = it.icon}
-      {#if it.value}
+      {#if it.chips || it.value}
         <tr class={`justify-items-start ${it.classes}`}>
           <td>{#if Icon}<Icon />{/if}</td>
           <td>{it.label}</td>
@@ -111,6 +112,13 @@
             {#if it.selectId}
               <button type="button" class="btn btn-sm preset-outlined-surface-500"
                 onclick={() => selectFeature(it.selectId)}>{it.value}</button>
+            {:else if it.chips}
+              {#each it.chips as chip}
+                <button type="button" class="chip preset-outlined-surface-500"
+                  onclick={() => selectFeature(chip.id)}>
+                  {chip.label}
+                </button>
+              {/each}
             {:else}
               {it.value}
             {/if}

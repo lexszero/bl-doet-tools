@@ -89,10 +89,8 @@ export class PlacementLayer extends InteractiveLayer<
         label: "Nearest PDU",
         value: pdu.properties.name,
         icon: IconPDU,
-        selectId: f.properties._nearestPduId
-      },
-      
-      );
+        chips: [{id: pdu.id, label: pdu.properties.name}]
+      });
     }
 
     return result;

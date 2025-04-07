@@ -49,7 +49,7 @@ export type PlacementFeature = Feature<Polygon, PlacementEntityProperties>;
 export type PlacementFeatureCollection = FeatureCollection<Polygon, PlacementEntityProperties>;
 
 interface GridFeatureCommonProperties {
-  name?: string;
+  name: string;
   description?: string;
   power_size: string;
   power_native?: boolean;

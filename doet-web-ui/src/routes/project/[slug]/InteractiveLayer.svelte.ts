@@ -1,7 +1,7 @@
 import { SvelteMap } from 'svelte/reactivity';
 import type {Feature, FeatureCollection, PlacementFeature} from '$lib/api';
 
-import { GeoJSON, FeatureGroup, LatLng} from 'leaflet';
+import { GeoJSON, FeatureGroup, LatLng, extend} from 'leaflet';
 import type {Geometry} from 'geojson';
 
 import { type IconType, IconFeatureDefault } from './Icons.svelte';
@@ -12,12 +12,21 @@ export interface SearchboxItem {
   icon: IconType;
 };
 
+export interface ChipItem {
+  id: string;
+  label: string;
+}
+
+export function featureChip<G extends Geometry, P extends {name: string}>(f: Feature<G, P>): ChipItem {
+  return {id: f.id, label: f.properties.name};
+}
+
 export interface InfoItem {
   label: string;
   value: any;
   icon?: IconType;
   classes?: string;
-  selectId?: string;
+  chips?: ChipItem[];
 };
 
 export type MapLayer<G extends Geometry, P, F = FeatureCollection<G, P>> = GeoJSON<P> & {
@@ -50,7 +59,7 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
 
   featureProperties = (f: F) => {
     let exclude = ['name', 'type'];
-    return (Object.entries(f.properties)
+    return (Object.entries<F>(f.properties)
       .filter(([k, v]) => (!exclude.includes(k)))
       .map(([k, v]) => ({label: k, value: v} as InfoItem))
       )
@@ -66,7 +75,7 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
         icon: this.featureIcon(f),
       } as SearchboxItem)
     )];
-    console.log("searchItems: ", items);
+    //console.log("searchItems: ", items);
     return items;
   });
 
@@ -109,7 +118,7 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
     if (!layer)
       return;
 
-    console.log("Select ", layer.feature.id);
+    //console.log("Select ", layer.feature.id);
     layer.setStyle(this.styleSelected);
     this.layerSelected = layer;
   }
