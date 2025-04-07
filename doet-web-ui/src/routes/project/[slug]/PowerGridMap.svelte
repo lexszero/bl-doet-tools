@@ -33,7 +33,7 @@
   let areas: PowerAreasLayer = new PowerAreasLayer(grid);
   let placement: PlacementLayer = new PlacementLayer(grid);
 
-  onMount(async () => {
+  $effect(async () => {
     await areas.load(timeStart, timeEnd);
     await grid.load(timeStart, timeEnd);
     await placement.load(timeStart, timeEnd);
@@ -104,7 +104,7 @@
     {#each items as it}
       {@const Icon = it.icon}
       {#if it.value}
-        <tr class={it.classes || ""}>
+        <tr class={`justify-items-start ${it.classes}`}>
           <td>{#if Icon}<Icon />{/if}</td>
           <td>{it.label}</td>
           <td>
@@ -213,9 +213,13 @@
         {@const [container, layer] = details}
         {@const feature = layer.feature}
         {@render featureInfoHeader(container, feature)}
-        {@render propertyTable(container.featureProperties(feature))}
+        <div class="flex justify-start justify-items-start">
+          {@render propertyTable(container.featureProperties(feature))}
+        </div>
         {#if feature.properties._drc}
+        <div class="flex">
           {@render warningsTable(feature.properties._drc)}
+        </div>
         {/if}
       {:else}
         Hover over a feature to see details
