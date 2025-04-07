@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { browser } from '$app/environment'
   import { onMount } from 'svelte';
   import type { PageProps } from './$types';
-  import PowerGridMap from './PowerGridMap.svelte';
+  import PowerGridMap from './PowerGridMap.svelte?client';
   import TimeTravelSlider from './TimeTravelSlider.svelte';
   import { API } from '$lib/api';
   import { fromUnixTime, getUnixTime } from "date-fns";
@@ -11,13 +12,6 @@
   let timeEnd = $state(null);
 
   let api = new API(props.data.project_name);
-  let data = $derived.by(() => {
-    return {
-      powerAreas: api.getPowerAreasGeoJSON(timeStart, timeEnd),
-      powerGrid: api.getPowerGridGeoJSON(timeStart, timeEnd),
-      placementEntities: api.getPlacementEntitiesGeoJSON(timeStart, timeEnd),
-    }
-  });
   function sliderMouseWheel(e) {
     console.log(e)
   }
@@ -34,5 +28,9 @@
     />
   {/await}
   </div>
-  <PowerGridMap data={data} />
+  {#if browser}
+    <PowerGridMap api={api} timeStart={timeStart} timeEnd={timeEnd}/>
+  {/if}
 </div>
+
+

@@ -1,7 +1,83 @@
 import { getUnixTime } from "date-fns";
+import type {
+  Feature as GJFeature,
+  FeatureCollection as GJFeatureCollection,
+  Point,
+  LineString,
+  Geometry,
+  Polygon
+} from "geojson";
 
 const API_BASE_URL = 'https://bl.skookum.cc/api';
 //const API_BASE_URL = 'http://localhost:8000';
+
+interface ItemizedLogEntry {
+  item_id?: string;
+  level: number;
+  message: string;
+};
+
+export interface Feature<G extends Geometry, P> extends GJFeature<G, P> {
+  id: string;
+}
+
+export interface FeatureCollection<G extends Geometry, P> extends GJFeatureCollection<G, P> {
+  features: Array<Feature<G, P>>;
+}
+
+export interface PowerAreaProperties {
+  name: string;
+  description?: string;
+  population?: number;
+  total_power?: number;
+  area?: number;
+}
+
+export type PowerAreaFeature = Feature<Polygon, PowerAreaProperties>;
+export type PowerAreaFeatureCollection = FeatureCollection<Polygon, PowerAreaProperties>;
+
+export interface PlacementEntityProperties {
+  name: string;
+  description?: string;
+  powerNeed?: number;
+};
+
+export type PlacementFeature = Feature<Polygon, PlacementEntityProperties>;
+export type PlacementFeatureCollection = FeatureCollection<Polygon, PlacementEntityProperties>;
+
+interface GridFeatureCommonProperties {
+  name?: string;
+  description?: string;
+  power_size: string;
+  power_native?: boolean;
+  _drc?: ItemizedLogEntry[];
+}
+
+export interface GridPDUProperties extends GridFeatureCommonProperties {
+  type: "power_grid_pdu"
+  power_source?: boolean
+  cable_in?: string;
+  cables_out?: string[];
+}
+
+export type GridPDUFeature = Feature<Point, GridPDUProperties>;
+
+export interface GridCableProperties extends GridFeatureCommonProperties {
+  type: "power_grid_cable"
+  pdu_from?: string;
+  pdu_to?: string;
+}
+
+export type GridCableFeature = Feature<LineString, GridCableProperties>;
+
+export type GridFeatureProperties = GridPDUProperties | GridCableProperties;
+export type GridFeature = GridPDUFeature | GridCableFeature;
+
+export interface PowerGridData {
+  timestamp: string;
+  log: ItemizedLogEntry[];
+  features: FeatureCollection<Point | LineString, GridPDUProperties | GridCableProperties>;
+}
 
 export class API {
   baseUrl: string;
@@ -21,7 +97,6 @@ export class API {
   };
 
   async getCollectionGeoJSON(collection: string, timeStart?: Date, timeEnd?: Date) {
-    console.log(timeStart, timeEnd)
     return this.fetchJSON(
       `data/${collection}/items.geojson`,
       {
@@ -32,15 +107,19 @@ export class API {
   }
 
   async getPowerAreasGeoJSON(timeStart?: Date, timeEnd?: Date) {
-    return this.getCollectionGeoJSON('power_areas', timeStart, timeEnd);
+    return await this.getCollectionGeoJSON('power_areas', timeStart, timeEnd) as PowerAreaFeatureCollection;
   };
 
   async getPowerGridGeoJSON(timeStart?: Date, timeEnd?: Date) {
-    return this.getCollectionGeoJSON('power_grid', timeStart, timeEnd);
+    return await this.getCollectionGeoJSON('power_grid', timeStart, timeEnd);
+  };
+
+  async getPowerGridProcessed(timeEnd?: Date): Promise<PowerGridData> {
+    return await this.fetchJSON('power_map/grid', {time_end: getUnixTime(timeEnd ? timeEnd : Date())}) as PowerGridData;
   };
 
   async getPlacementEntitiesGeoJSON(timeStart?: Date, timeEnd?: Date) {
-    return this.getCollectionGeoJSON('placement', timeStart, timeEnd);
+    return await this.getCollectionGeoJSON('placement', timeStart, timeEnd) as PlacementFeatureCollection;
   }
 
   async getChangeTimestamps() {
