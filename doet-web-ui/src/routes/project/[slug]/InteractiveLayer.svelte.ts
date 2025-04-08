@@ -1,7 +1,7 @@
 import { SvelteMap } from 'svelte/reactivity';
-import type {Feature, FeatureCollection, PlacementFeature} from '$lib/api';
+import type {Feature, FeatureCollection} from '$lib/api';
 
-import { GeoJSON, FeatureGroup, LatLng, extend} from 'leaflet';
+import L from 'leaflet';
 import type {Geometry} from 'geojson';
 
 import { type IconType, IconFeatureDefault } from './Icons.svelte';
@@ -13,12 +13,12 @@ export interface SearchboxItem {
 };
 
 export interface ChipItem {
-  id: string;
+  id?: string;
   label: string;
 }
 
-export function featureChip<G extends Geometry, P extends {name: string}>(f: Feature<G, P>): ChipItem {
-  return {id: f.id, label: f.properties.name};
+export function featureChip<G extends Geometry, P extends {name: string}>(f?: Feature<G, P>): ChipItem{
+  return f ? {id: f.id, label: f.properties.name} : {label: "<unknown>"}
 }
 
 export interface InfoItem {
@@ -29,38 +29,37 @@ export interface InfoItem {
   chips?: ChipItem[];
 };
 
-export type MapLayer<G extends Geometry, P, F = FeatureCollection<G, P>> = GeoJSON<P> & {
+export type MapLayer<G extends Geometry, P extends object, F = FeatureCollection<G, P>> = L.GeoJSON<P> & {
   feature: F;
 };
 
-export type MapFeatureLayer<G extends Geometry, P, F = Feature<G, P>> = FeatureGroup<P> & {
+export type MapFeatureLayer<G extends Geometry, P extends object, F = Feature<G, P>> = L.FeatureGroup<P> & {
   feature: F;
 }
 
-export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = Feature<G, P>> {
-  geojson?: FeatureCollection<G, P> = $state();
-  constructor(geojson?: FeatureCollection<G, P>) {
-    this.geojson = geojson;
-  }
-
+export class InteractiveLayer<G extends Geometry, P extends object, F extends Feature<G, P> = Feature<G, P>> {
   public mapRoot?: L.Map = $state();
   public mapBaseLayer?: MapLayer<G, P> = $state();
 
-  public features: SvelteMap<string, F> = $derived(this.geojson ?
+  public features: SvelteMap<string, F> = $state(new SvelteMap<string, F>());
+  /*
+  $derived(this.geojson ?
     new SvelteMap<string, F>(
       this.geojson.features?.map(
-        (x: F) => [x.id as string, x]
+        (x) => [x.id as string, x]
       ))
     : new SvelteMap());
+  */
+  geojson: FeatureCollection<G, P> = $derived({type: 'FeatureCollection', features: [...this.features.values()]});
 
   featureLabel = (f: F) => (f.id as string).replaceAll('_', ' ').trim();
   featureIcon = (f: F) => IconFeatureDefault;
   featureColorForStatus = (f: F) => "surface";
 
   featureProperties = (f: F) => {
-    let exclude = ['name', 'type'];
-    return (Object.entries<F>(f.properties)
-      .filter(([k, v]) => (!exclude.includes(k)))
+    const exclude = ['name', 'type'];
+    return (Object.entries(f.properties)
+      .filter(([k]) => (!exclude.includes(k)))
       .map(([k, v]) => ({label: k, value: v} as InfoItem))
       )
   };
@@ -68,7 +67,7 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
   searchItems: Array<SearchboxItem> = $derived.by(() => {
     if (!this.features)
       return [];
-    const items = [...this.features?.values().map(
+    const items = [...this.features.values().map(
       (f: F) => ({
         label: this.featureLabel(f),
         value: f.id,
@@ -81,8 +80,8 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
 
   mapLayers?: SvelteMap<string, MapFeatureLayer<G, P, F>> = $derived.by(() => (this.mapBaseLayer ?
     new SvelteMap<string, MapFeatureLayer<G, P, F>> (
-      this.mapBaseLayer.getLayers().map(
-        (l: MapFeatureLayer<G, P, F>) => [
+      (this.mapBaseLayer.getLayers() as MapFeatureLayer<G, P, F>[]).map(
+        (l) => [
           l.feature.id as string,
           l
         ]))
@@ -90,7 +89,7 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
 
   mapLayerOptions() {
     return {
-      onEachFeature: (feature: F, layer: MapFeatureLayer) => {
+      onEachFeature: (feature: F, layer: MapFeatureLayer<G, P, F>) => {
         layer.on({
           click: (e) => this.selectFeature(e.target.feature.id),
           mouseover: (e) => this.highlightFeature(e.target),
@@ -98,11 +97,21 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
         });
       },
       style: this.style,
-      pointToLayer: (f: F, latlng: LatLng) => this.pointToLayer(f, latlng),
+      pointToLayer: (f: F, latlng: L.LatLng) => this.pointToLayer(f, latlng),
     }
   }
-  style = (feature: F) => {}
-  pointToLayer(feature: F, latlng: LatLng) {}
+  style = (feature: F): L.PathOptions => {
+    if (this.layerHighlighted?.feature.id == feature.id) {
+      return this.styleHighlighted;
+    }
+    else if (this.layerSelected?.feature.id == feature.id) {
+      return this.styleSelected;
+    }
+    else {
+      return {};
+    }
+  }
+  pointToLayer(feature: F, latlng: L.LatLng) {}
 
   updateStyle() {
     this.mapBaseLayer?.setStyle(this.style);
@@ -110,7 +119,7 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
 
   layerSelected?: MapFeatureLayer<G, P, F> = $state();
   styleSelected = {
-    weight: 5,
+    weight: 7,
     color: '#01FF00',
     fillColor: '#01FF00',
     fillOpacity: 1
@@ -157,6 +166,4 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
     }
     this.layerHighlighted = undefined;
   }
-  
-
 }

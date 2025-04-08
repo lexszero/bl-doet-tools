@@ -1,3 +1,4 @@
+import { SvelteMap } from 'svelte/reactivity';
 import type {Polygon} from 'geojson';
 import type {PowerAreaFeature, PowerAreaProperties} from '$lib/api';
 
@@ -16,7 +17,11 @@ export class PowerAreasLayer extends InteractiveLayer<
   }
 
   async load(timeStart?: Date, timeEnd?: Date) {
-    this.geojson = await this._grid._api.getPowerAreasGeoJSON(timeStart, timeEnd);
+    this.features = new SvelteMap<string, PowerAreaFeature>(
+      (await this._grid.data.api.getPowerAreasGeoJSON(timeStart, timeEnd))?.features.map(
+        (f: PowerAreaFeature) => ([f.id, f])
+      )
+    );
   }
 
   mode: 'power_need' | 'grid_coverage' = $state('power_need');

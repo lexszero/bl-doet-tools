@@ -1,3 +1,8 @@
+import { SvelteMap } from 'svelte/reactivity';
+import colormap from '$lib/colormap';
+import * as geojson from "geojson";
+import L from 'leaflet';
+
 import {
   API,
   type Feature,
@@ -5,18 +10,14 @@ import {
   type GridFeature,
   type GridFeatureProperties,
   type GridPDUFeature,
-  type GridPDUProperties,
-  type PowerGridData,
 } from "$lib/api";
-import colormap from '$lib/colormap';
-import * as geojson from "geojson";
-import L from 'leaflet';
 
 import {
-  featureChip, 
-  InteractiveLayer,
-  type InfoItem,
-} from './InteractiveLayer.svelte';
+  GridData,
+  Vref_LN,
+  gridItemSizeData,
+  gridItemSizes,
+} from '$lib/GridData.svelte';
 
 import {
   IconFeatureDefault,
@@ -27,22 +28,17 @@ import {
   IconResistance,
   IconPlug
 } from "./Icons.svelte";
-import alarmClockPlus from "@lucide/svelte/icons/alarm-clock-plus";
+
+import {
+  featureChip, 
+  InteractiveLayer,
+  type ChipItem,
+  type InfoItem,
+} from './InteractiveLayer.svelte';
+
 
 type GridMapFeatureLayer = L.FeatureGroup<GridFeatureProperties> & {
   feature: Feature<geojson.Point | geojson.LineString, GridFeatureProperties>;
-}
-
-interface StyleWeightColor {
-  weight: number;
-  color: string;
-}
-
-interface GridItemSizeData {
-  phases: 3 | 1;
-  max_amps: number;
-  ohm_per_km: number;
-  style: StyleWeightColor;
 }
 
 export const logLevelToColor = (level: number) => (
@@ -51,112 +47,27 @@ export const logLevelToColor = (level: number) => (
     : (level >= 20) ? 'success'
       : 'surface');
 
-const gridItemSizes = ['250', '125', '63', '32', '16', '1f'];
-const gridItemSizeData = (size: string) => ({
-    '250': {
-      phases: 3,
-      max_amps: 250,
-      ohm_per_km: 0.366085,
-      style: {
-        weight: 6,
-        color: '#B50E85',
-      }
-    },
-    '125': {
-      phases: 3,
-      max_amps: 125,
-      ohm_per_km: 0.522522,
-      style: {
-        weight: 5,
-        color: '#C4162A',
-      }
-    },
-    '63': {
-      phases: 3,
-      max_amps: 63,
-      ohm_per_km: 1.14402,
-      style: {
-        weight: 4,
-        color: '#F2495C',
-      }
-    },
-    '32': {
-      phases: 3,
-      max_amps: 32,
-      ohm_per_km: 3.05106,
-      style: {
-        weight: 3,
-        color: '#FF9830',
-      }
-    },
-    '16': {
-      phases: 3,
-      max_amps: 16,
-      ohm_per_km: 7.32170,
-      style: {
-        weight: 2,
-        color: '#FADE2A'
-      }
-    },
-    '1f': {
-      phases: 1,
-      max_amps: 16,
-      ohm_per_km: 7.32170,
-      style: {
-        weight: 1,
-        color: '#5794F2'
-      }
-    },
-    'unknown': {
-      phases: undefined,
-      max_amps: undefined,
-      ohm_per_km: undefined,
-      style: {
-        weight: 5,
-        color: '#FF0000'
-      }
-    },
-  }[size] as GridItemSizeData);
-
-const styleGridPath = {
-  weight: 5,
-  color: '#0151FF',
-  fillColor: '#0151FF',
-  fillOpacity: 1,
+const styleDefault = {
+  opacity: 0.6,
+  fillOpacity: 0.6
 };
-
-const Vref_LL = 400;
-const Vref_LN = Vref_LL / Math.sqrt(3);
-
-interface LossCalculationParams {
-  loadAmps?: number;
-  loadPercentage?: number;
-};
-
-interface LossCalculationResult {
-  Phases: 3 | 1;
-  L: number;
-  R: number;
-  I: number;
-  Vdrop: number;
-  VdropPercent: number;
-  Ploss: number;
-}
 
 export class PowerGridLayer extends InteractiveLayer<
   geojson.Point | geojson.LineString,
   GridFeatureProperties
 > {
-  _api: API;
-  _data?: PowerGridData = $state();
+  data: GridData;
 
   constructor (api: API) {
     super();
-    this._api = api;
+    this.data = new GridData(api);
     $effect(() => {
+      /* this.resetSelectedFeature();*/
       this.updateStyle();
     })
   }
+
+  features = $derived(this.data?.features || new SvelteMap<string, GridFeature>());
 
   displayMode: string = $state('processed');
   coloringMode: 'size' | 'loss' = $state('size');
@@ -177,61 +88,38 @@ export class PowerGridLayer extends InteractiveLayer<
     //this.layerSelected = undefined;
   }
 
-  async load(timeStart?: Date, timeEnd?: Date) {
-    this._data = await this._api.getPowerGridProcessed(timeEnd);
-    const features = new Map<string, GridFeature>(this._data.features.features.map((it: GridFeature) => ([it.id, it])));
-    for (const f of features.values()) {
-      if (f.properties.type == 'power_grid_cable') {
-        const props = f.properties;
-        if (props.pdu_from) {
-          const p = features.get(props.pdu_from)?.properties as GridPDUProperties;
-          if (p.cables_out?.indexOf(f.id)) {
-            continue;
-          }
-          if (!p.cables_out) {
-            p.cables_out = []
-          }
-          p.cables_out.push(f.id);
-        }
-      }
-    }
-    if (this._data?.log) {
-      this._data.log.sort((a, b) => (b.level - a.level));
-      for (const entry of (this._data?.log || [])) {
-        if (entry.item_id) {
-          const props = features.get(entry.item_id)?.properties;
-          if (props) {
-            if (props._drc) {
-              props._drc.push(entry);
-            } else {
-              props._drc = [entry]
-            }
-          }
-        }
-      }
-    }
-    console.log("Loaded data");
-    this.geojson = this._data.features;
+  async load(timeEnd?: Date) {
+    this.data.load(timeEnd);
   }
 
-  style = (feature: GridFeature) => {
-    switch (this.coloringMode) {
-      case 'size': {
-        if (feature.properties.type == 'power_grid_cable') {
-          return gridItemSizeData(feature.properties.power_size)?.style;
-        }
-        break;
-      }
+  styleByLoss = (feature: GridFeature) => {
+    const r = this.data?.calculatePathLoss(
+      this.data.findGridPathToSource(feature),
+      { loadPercentage: this.coloringLossAtLoadLevel })
+    const color = r ? colormap('plasma', r.VdropPercent, 0, 10, false) : '#808080';
+    return {...gridItemSizeData(feature.properties.power_size)?.style, color, fillColor: color}
+  };
 
-      case 'loss': {
-        const r = this.calculatePathLoss(
-          this.findGridPathToSourceFeatures(feature),
-          { loadPercentage: this.coloringLossAtLoadLevel })
-        const color = colormap('plasma', r.VdropPercent, 0, 10, false);
-        return {...gridItemSizeData(feature.properties.power_size)?.style, color, fillColor: color}
-      }
+  style = (feature: GridFeature) => {
+    if (this.layerHighlighted?.feature.id == feature.id) {
+      return this.styleHighlighted;
+    }
+    else if (this.layerSelected?.feature.id == feature.id) {
+      return this.styleSelected;
+    }
+    else if (this.isFeatureOnHighlightedGridPath(feature)) {
+      return this.styleGridPath(feature);
+    }
+    switch (this.coloringMode) {
+      case 'size':
+        return {...styleDefault, ...gridItemSizeData(feature.properties.power_size)?.style};
+
+      case 'loss':
+        return {...styleDefault, ...this.styleByLoss(feature)};
     }
   };
+
+  styleGridPath = (feature: GridFeature) => ({...this.styleByLoss(feature), weight: 7, opacity: 1, fillOpacity: 1});
 
   featureIcon = (feature: GridFeature) => ({
     power_grid_pdu: IconPDU,
@@ -265,7 +153,7 @@ export class PowerGridLayer extends InteractiveLayer<
       if (props.length_m) {
         result.push({
           label: 'Length',
-          value: `${this.cableLength(f).toFixed(1)} m`,
+          value: `${this.data.cableLength(f as GridCableFeature).toFixed(1)} m`,
           icon: IconRuler
         });
       }
@@ -280,40 +168,48 @@ export class PowerGridLayer extends InteractiveLayer<
       }
       if (props.pdu_to) {
         const p = this.features.get(props.pdu_to);
-        result.push({
-          label: 'To',
-          icon: IconPDU,
-          chips: [featureChip(p)]
-        });
+        if (p) {
+          result.push({
+            label: 'To',
+            icon: IconPDU,
+            chips: [featureChip(p)]
+          });
+        }
       }
     }
     else if (f.properties.type == 'power_grid_pdu') {
       const props = f.properties;
       if (props.cable_in) {
         const cableIn = this.features.get(props.cable_in) as GridCableFeature;
-        result.push({
-          label: 'Feed line',
-          icon: IconCable,
-          chips: [featureChip(cableIn)]
-        });
-        const pduFrom = this.features.get(cableIn?.properties.pdu_from) as GridPDUFeature;
-        result.push({
-          label: 'From PDU',
-          icon: IconPDU,
-          chips: [featureChip(pduFrom)]
-        });
+        if (cableIn) {
+          result.push({
+            label: 'Feed line',
+            icon: IconCable,
+            chips: [featureChip(cableIn)]
+          });
+          if (cableIn.properties.pdu_from) {
+            const pduFrom = this.features.get(cableIn.properties.pdu_from) as GridPDUFeature;
+            if (pduFrom) {
+              result.push({
+                label: 'From PDU',
+                icon: IconPDU,
+                chips: [featureChip(pduFrom)]
+              });
+            }
+          }
+        }
       }
       if (props.cables_out) {
         const pdus = props.cables_out.map(
           (cableId: string) => {
-            const c = this.features.get(cableId) as GridCableFeature;
-            return this.features.get(c?.properties.pdu_to) as GridPDUFeature;
+            const cable = this.features.get(cableId) as GridCableFeature;
+            return cable.properties.pdu_to ? this.features.get(cable.properties.pdu_to) : undefined;
           });
         //console.log(pdus);
         result.push({
           label: 'To PDUs',
           icon: IconPDU,
-          chips: pdus.map((f: GridPDUFeature) => ({id: f.id, label: f.properties.name}))
+          chips: pdus.reduce((chips: ChipItem[], f) => (f ? [...chips, featureChip(f)] : chips), [])
         })
       }
     }
@@ -324,7 +220,7 @@ export class PowerGridLayer extends InteractiveLayer<
   };
 
   pointToLayer(feature: GridFeature, latlng: L.LatLng) {
-    const style = gridItemSizeData(feature.properties.power_size)?.style;
+    const style = this.style(feature);
     return L.circleMarker(latlng, {
       radius: style.weight,
       fillColor: style.color,
@@ -335,55 +231,36 @@ export class PowerGridLayer extends InteractiveLayer<
     });
   }
 
-  getGridPreviousId(item: string | GridFeature): string | undefined {
-    const feature = (typeof item === 'string') ? this.features.get(item) : item;
-    const props = feature?.properties;
-    if (props?.type == 'power_grid_pdu') {
-      const id = props.cable_in;
-      if (!props.power_source)
-        return id;
-    } else if (props?.type == 'power_grid_cable') {
-      return props.pdu_from;
-    }
-    return undefined;
-  }
-
-  findGridPathToSourceFeatures(feature: GridFeature): Array<GridFeature> {
-    const idNext = this.getGridPreviousId(feature);
-    const next = idNext ? this.features?.get(idNext) : undefined;
-    //console.log(layer.feature.id, "->", idNext);
-    if (next)
-      return [feature, ...this.findGridPathToSourceFeatures(next)];
-    else 
-      return [feature];
-  }
-
   findGridPathToSourceLayers(layer: GridMapFeatureLayer): Array<GridMapFeatureLayer> {
-    return this.findGridPathToSourceFeatures(layer.feature).map((f) => this.mapLayers?.get(f.id))
+    return this.data.findGridPathToSource(layer.feature).map((f) => this.mapLayers?.get(f.id))
   }
-
 
   highlightedGridPath?: Array<GridMapFeatureLayer> = $state();
 
-  isLayerOnHighlightedGridPath(layer: GridMapFeatureLayer) {
+  isFeatureOnHighlightedGridPath(feature: GridFeature) {
     if (!this.highlightedGridPath)
       return false;
     for (const l of this.highlightedGridPath) {
-      if (l.feature.id == layer.feature.id) {
+      if (l.feature.id == feature.id) {
         return true;
       }
     }
     return false;
   }
 
+  isLayerOnHighlightedGridPath(layer: GridMapFeatureLayer) {
+    return this.isFeatureOnHighlightedGridPath(layer.feature);
+  }
+
   highlightGridPathUp(layer: GridMapFeatureLayer) {
     const path = this.findGridPathToSourceLayers(layer);
+
     for (const l of path) {
       if (!(
         (this.layerSelected && this.layerSelected.feature.id == l.feature.id) ||
         (this.layerHighlighted && this.layerHighlighted.feature.id == l.feature.id)
       )) {
-        l.setStyle(styleGridPath);
+        l.setStyle(this.styleGridPath(l.feature));
         l.bringToFront();
       }
     }
@@ -399,92 +276,22 @@ export class PowerGridLayer extends InteractiveLayer<
     this.highlightedGridPath = undefined;
   }
 
-  cableLength(feature: readonly GridCableFeature): number {
-    let length = 0;
-    for (let i = 0; i < feature.geometry.coordinates.length - 1; i++) {
-      const p1 = feature.geometry.coordinates[i];
-      const p2 = feature.geometry.coordinates[i+1];
-      length += this.mapRoot?.distance(new L.LatLng(p1[1], p1[0]), new L.LatLng(p2[1], p2[0]));
-    }
-    return length;
-  }
-
-  calculateCableLoss(cable: GridCableFeature, params: LossCalculationParams): LossCalculationResult {
-    const sizeData = gridItemSizeData(cable.properties.power_size);
-    const L = this.cableLength(cable);
-    const R = L * sizeData.ohm_per_km / 1000.0;
-    const I = (
-       (params.loadAmps) ? Math.min(sizeData.max_amps, params.loadAmps)
-       : (params.loadPercentage) ? sizeData.max_amps * params.loadPercentage / 100.0
-         : 0
-     );
-
-    const Vdrop = 
-       (sizeData.phases == 3) ?
-       (R * I * Math.sqrt(3)) :
-       (R * I * 2);
-    const Ploss = Vdrop * I;
-    return {
-      Phases: sizeData.phases,
-      L,
-      R,
-      I,
-      Vdrop,
-      VdropPercent: Vdrop/Vref_LL*100.0,
-      Ploss };
-  }
-
-  calculatePathLoss(path: Iterable<GridFeature>, params: LossCalculationParams): LossCalculationResult {
-    let Length = 0;
-    let Resistance = 0;
-    let Imax = Infinity;
-    let Phases = 3;
-    let pathVdrop = 0;
-    let pathPloss = 0;
-
-    for (const feature of path) {
-      if (feature.properties.type == 'power_grid_cable') {
-        const cable = feature as GridCableFeature;
-        const sizeData = gridItemSizeData(cable.properties.power_size);
-        const { phases, L, R, Vdrop, Ploss } = this.calculateCableLoss(cable, params)
-        Phases = phases < Phases ? phases : Phases;
-        Length += L;
-        Resistance += R;
-
-        const cableImax = sizeData.max_amps;
-        if (cableImax < Imax)
-          Imax = cableImax;
-
-        pathVdrop += Vdrop;
-        pathPloss += Ploss;
-      }
-    }
-
-    return {
-      Phases,
-      L: Length,
-      R: Resistance,
-      I: Imax,
-      Vdrop: pathVdrop / Math.sqrt(3),
-      VdropPercent: pathVdrop / Vref_LL / Math.sqrt(3) * 100.0,
-      Ploss: pathPloss
-    };
-
-  }
-
   getHighlightedPathInfo(): Array<InfoItem> {
     const loadLevels = [100, 75, 50];
+    if (!this.data) {
+      return []
+    }
     const result: Array<InfoItem> = [];
 
     const path = this.highlightedGridPath?.map((l) => this.features.get(l.feature.id)) || [];
-    const pathResult = this.calculatePathLoss(path,
+    const pathResult = this.data?.calculatePathLoss(path,
       { loadAmps: Math.min(...path.map((f) => gridItemSizeData(f.properties.power_size).max_amps)) }
     );
 
     const allResults = [
       ...loadLevels.map((loadPercentage) => [
         `${loadPercentage}%`,
-        this.calculatePathLoss(path, { loadPercentage })
+        this.data?.calculatePathLoss(path, { loadPercentage })
       ]),
       [ 'path', pathResult ]
     ] as Array<[string, LossCalculationResult]>;
@@ -534,9 +341,9 @@ export class PowerGridLayer extends InteractiveLayer<
       layer = this.layerHighlighted;
     }
     if (this.isLayerOnHighlightedGridPath(layer)) {
-      console.log(`Feature ${layer.feature.id}: highlighted -> selected`)
+      //console.log(`Feature ${layer.feature.id}: highlighted -> selected`)
       layer.setStyle((layer.feature.id == this.layerSelected.feature.id) ?
-        this.styleSelected : styleGridPath);
+        this.styleSelected : this.styleGridPath(layer.feature));
       this.layerHighlighted = undefined;
     } else {
       super.resetHighlightedFeature(layer);
@@ -545,22 +352,50 @@ export class PowerGridLayer extends InteractiveLayer<
 
   getStatistics(): InfoItem[] {
     const result: InfoItem[] = [];
-    const totalCableLength = new Map(gridItemSizes.map((size) => [size, 0]));
+    const totalCableLength = new Map<string, number>(gridItemSizes.map((size) => [size, 0]));
     let totalAllCableLength = 0;
+    let maxDistanceToSource: [number, GridFeature?] = [0, undefined];
+    let maxResistanceToSource: [number, GridFeature?] = [0, undefined];
+
     for (const f of this.features.values()) {
       if (f.properties.type == 'power_grid_cable') {
         const size = f.properties.power_size;
-        const length = this.cableLength(f);
+        const length = this.data.cableLength(f as GridCableFeature);
         totalCableLength.set(size, (totalCableLength.get(size) || 0) + length);
         totalAllCableLength += length;
       }
+      if (f.properties.type == 'power_grid_pdu') {
+        const loss = this.data.calculatedLossToSource.get(f.id);
+        //console.log(`PDU ${f.id} loss `, loss);
+        if (loss) {
+          if (loss.L > maxDistanceToSource[0]) {
+            maxDistanceToSource = [loss.L, f];
+          }
+          if (loss.R > maxResistanceToSource[0]) {
+            maxResistanceToSource = [loss.R, f];
+          }
+        }
+      }
     }
 
-      result.push({
-        label: `Total cable length`,
-        value: `${totalAllCableLength.toFixed(0)} m`,
-        icon: IconRuler
-      });
+    result.push(
+      {
+        label: "Max path length to source",
+        value: `${maxDistanceToSource[0].toFixed(0)} m`,
+        icon: IconRuler,
+        chips: [featureChip(maxDistanceToSource[1])]
+      },
+      {
+        label: "Max path resistance to source",
+        value: `${maxResistanceToSource[0].toFixed(1)} Ω`,
+        icon: IconResistance,
+        chips: [featureChip(maxResistanceToSource[1])]
+      },
+      {
+      label: `Total cable length`,
+      value: `${totalAllCableLength.toFixed(0)} m`,
+      icon: IconRuler
+    });
 
     for (const [size, length] of totalCableLength.entries()) {
       if (length) {

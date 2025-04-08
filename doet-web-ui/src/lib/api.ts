@@ -61,6 +61,7 @@ export interface GridPDUProperties extends GridFeatureCommonProperties {
   power_source?: boolean
   cable_in?: string;
   cables_out?: string[];
+  _lossToSource?: LossCalculationResult;
 }
 
 export type GridPDUFeature = Feature<Point, GridPDUProperties>;
@@ -70,6 +71,7 @@ export interface GridCableProperties extends GridFeatureCommonProperties {
   pdu_from?: string;
   pdu_to?: string;
   length_m?: number;
+  _loss: LossCalculationResult;
 }
 
 export type GridCableFeature = Feature<LineString, GridCableProperties>;
@@ -111,7 +113,7 @@ export class API {
   }
 
   async getPowerAreasGeoJSON(timeStart?: Date, timeEnd?: Date) {
-    return await this.getCollectionGeoJSON('power_areas', timeStart, timeEnd) as PowerAreaFeatureCollection;
+    return {features: await this.getCollectionGeoJSON('power_areas', timeStart, timeEnd)} as PowerAreaFeatureCollection;
   };
 
   async getPowerGridGeoJSON(timeStart?: Date, timeEnd?: Date) {

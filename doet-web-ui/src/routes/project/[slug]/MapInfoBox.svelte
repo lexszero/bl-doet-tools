@@ -6,6 +6,7 @@ import { type Icon } from '@lucide/svelte';
 let {
   title,
   icon,
+  position = 'topright',
   classButton,
   classBody = "flex overflow-scroll max-h-[300px] card",
   visible = $bindable(true),
@@ -14,33 +15,45 @@ let {
 }: {
   title?: string,
   icon: Icon,
-  visible: boolean,
-  open: boolean,
+  position: 'topleft' | 'topright' | 'bottomleft' | 'bottomright';
   classButton?: string,
   classBody: string;
+  visible: boolean,
+  open: boolean,
   children?: Snippet,
   } = $props();
 
 </script>
 
-{#if visible}
+{#snippet header()}
   {@const ButtonIcon = icon}
-  <Control options={{position: 'topright'}} class="map-info-box">
-    <div class="flex grow h3 justify-between">
-      {#if open}
-        <span>{title}</span>
-      {/if}
-      <button type="button" class="btn btn-sm preset-outlined-surface-500 {classButton}"
-        onclick={() => {open = !open}}>
-        <ButtonIcon class="w-auto h-auto" />
-      </button>
-    </div>
+  <div class="flex grow h3 justify-between">
+    {#if open}
+      <span>{title}</span>
+    {/if}
+    <button type="button" class="btn btn-sm preset-outlined-surface-500 {classButton}"
+      onclick={() => {open = !open}}>
+      <ButtonIcon class="w-auto h-auto" />
+    </button>
+  </div>
+{/snippet}
+
+{#if visible}
+  <Control options={{position: position}} class="map-info-box">
+    {#if position == 'topright'}
+    {@render header()}
     <hr class="hr" />
+    {/if}
     
     {#if open}
       <div class="{classBody} m-2">
       {@render children?.()}
       </div>
+    {/if}
+
+    {#if position == 'bottomright' || position == 'bottomleft'}
+      <hr class="hr" />
+      {@render header()}
     {/if}
   </Control>
 {/if}

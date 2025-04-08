@@ -1,3 +1,4 @@
+import { SvelteMap } from 'svelte/reactivity';
 import type {Polygon} from 'geojson';
 import * as L from "leaflet";
 
@@ -50,14 +51,16 @@ export class PlacementLayer extends InteractiveLayer<
   }
 
   async load(timeStart?: Date, timeEnd?: Date) {
-    const data = await this._grid._api.getPlacementEntitiesGeoJSON(timeStart, timeEnd);
+    const data = await this._grid.data.api.getPlacementEntitiesGeoJSON(timeStart, timeEnd);
     for (const feature of data.features) {
       const [n, pdu] = this.findNearestPDUs(feature);
       if (pdu) {
         feature.properties._nearestPduId = pdu.id;
       }
     }
-    this.geojson = data;
+    this.features = new SvelteMap<string, PlacementFeature>(data.features.map(
+      (f: PlacementFeature) => ([f.id, f])
+    ));
   }
 
   mode: 'power_need' | 'grid_coverage' = $state('power_need');

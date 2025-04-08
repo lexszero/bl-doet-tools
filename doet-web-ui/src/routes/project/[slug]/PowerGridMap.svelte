@@ -10,7 +10,7 @@
   import { PowerAreasLayer } from './PowerAreasLayer.svelte';
   import { type InfoItem } from './InteractiveLayer.svelte';
 
-  import { Info as IconInfo, Eye, TriangleAlert } from '@lucide/svelte';
+  import { Info as IconInfo, Waypoints as IconPathInfo, Eye, TriangleAlert } from '@lucide/svelte';
 
   let {
     api,
@@ -18,13 +18,7 @@
     timeEnd,
   } = $props();
 
-  let showMapOptionsControl = $state(false);
-  let showWarningsControl = $state(false);
-  let showStatsControl = $state(false);
-
   let mapRoot: L.Map = $state();
-
-  let showGridCoverage: boolean = $state(false);
 
   let layerSelected = $state();
 
@@ -105,18 +99,19 @@
           <td>{#if Icon}<Icon />{/if}</td>
           <td>{it.label}</td>
           <td>
+            {#if it.value}
+            <span>{it.value}</span>
+            {/if}
             {#if it.selectId}
               <button type="button" class="btn btn-sm preset-outlined-surface-500"
                 onclick={() => selectFeature(it.selectId)}>{it.value}</button>
             {:else if it.chips}
               {#each it.chips as chip}
                 <button type="button" class="chip preset-outlined-surface-500"
-                  onclick={() => selectFeature(chip.id)}>
+                  onclick={() => {if (chip.id) selectFeature(chip.id); }}>
                   {chip.label}
                 </button>
               {/each}
-            {:else}
-              {it.value}
             {/if}
           </td>
         </tr>
@@ -260,8 +255,8 @@
       {/if}
     </MapInfoBox>
 
-    <MapInfoBox title="Warnings" position="topright" icon={TriangleAlert}>
-      {@render warningsTable(grid._data?.log)}
+    <MapInfoBox title="Warnings" position="topright" icon={TriangleAlert} classBody="max-w-[500px]">
+      {@render warningsTable(grid.data.log)}
     </MapInfoBox>
 
     <MapInfoBox title="Statistics" position="topright" icon={IconInfo}>
@@ -286,16 +281,15 @@
       {/if}
     </Control>
 
-    {#if grid?.highlightedGridPath}
-      {@const info = grid.getHighlightedPathInfo()}
-      {@const feature = grid.highlightedGridPath[0].feature}
-      <Control options={{position: 'bottomright'}} class="map-info-box max-w-[500px]">
+    <MapInfoBox visible={grid?.highlightedGridPath || false} open={true} position="bottomright" icon={IconPathInfo} classBody="max-w-[500px]">
+      {#if grid?.highlightedGridPath}
+        {@const feature = grid.highlightedGridPath[0].feature}
         {@render featureInfoHeader(grid, feature, "⚡")}
         {@render propertyTable(grid.featureProperties(feature))}
         <hr class="hr" />
         <div class="h5">Metrics</div>
         {@render propertyTable(grid.getHighlightedPathInfo())}
-      </Control>
-    {/if}
+      {/if}
+    </MapInfoBox>
   </Map>
 {/if}

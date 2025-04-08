@@ -7,7 +7,7 @@ export {
   Omega as IconResistance,
   Zap as IconPower,
   Tent as IconPlacementEntity,
-  Plug as IconPlug
+  Plug as IconPlug,
 } from '@lucide/svelte';
 
 
