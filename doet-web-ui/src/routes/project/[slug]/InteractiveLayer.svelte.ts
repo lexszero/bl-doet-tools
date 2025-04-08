@@ -97,12 +97,16 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
           mouseout: (e) => this.resetHighlightedFeature(e.target),
         });
       },
-      style: (f: F) => this.style(f),
+      style: this.style,
       pointToLayer: (f: F, latlng: LatLng) => this.pointToLayer(f, latlng),
     }
   }
-  style(feature: F) {}
+  style = (feature: F) => {}
   pointToLayer(feature: F, latlng: LatLng) {}
+
+  updateStyle() {
+    this.mapBaseLayer?.setStyle(this.style);
+  }
 
   layerSelected?: MapFeatureLayer<G, P, F> = $state();
   styleSelected = {
@@ -153,4 +157,6 @@ export class InteractiveLayer<G extends Geometry, P, F extends Feature<G, P> = F
     }
     this.layerHighlighted = undefined;
   }
+  
+
 }

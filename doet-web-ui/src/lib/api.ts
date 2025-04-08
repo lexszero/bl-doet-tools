@@ -75,7 +75,7 @@ export interface GridCableProperties extends GridFeatureCommonProperties {
 export type GridCableFeature = Feature<LineString, GridCableProperties>;
 
 export type GridFeatureProperties = GridPDUProperties | GridCableProperties;
-export type GridFeature = GridPDUFeature | GridCableFeature;
+export type GridFeature = Feature<Point | LineString, GridFeatureProperties>;
 
 export interface PowerGridData {
   timestamp: string;

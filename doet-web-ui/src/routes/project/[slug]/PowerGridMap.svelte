@@ -1,18 +1,16 @@
 <script lang="ts">
   import { browser } from '$app/environment'
-  import { Segment, Switch, Combobox } from '@skeletonlabs/skeleton-svelte';
+  import { Segment, Switch, Slider, Combobox } from '@skeletonlabs/skeleton-svelte';
   import {Map, TileLayer, GeoJSON, Control, LayerGroup} from 'sveaflet?client';
   import 'leaflet/dist/leaflet.css'
 
+  import MapInfoBox from './MapInfoBox.svelte';
   import { logLevelToColor, PowerGridLayer } from './PowerGridLayer.svelte';
   import { PlacementLayer } from './PlacementLayer.svelte';
   import { PowerAreasLayer } from './PowerAreasLayer.svelte';
   import { type InfoItem } from './InteractiveLayer.svelte';
-	import {onMount} from 'svelte';
-	import type {Feature} from '$lib/api';
-	import type {Geometry} from 'geojson';
 
-  import { Eye, TriangleAlert } from '@lucide/svelte';
+  import { Info as IconInfo, Eye, TriangleAlert } from '@lucide/svelte';
 
   let {
     api,
@@ -22,6 +20,7 @@
 
   let showMapOptionsControl = $state(false);
   let showWarningsControl = $state(false);
+  let showStatsControl = $state(false);
 
   let mapRoot: L.Map = $state();
 
@@ -47,15 +46,12 @@
 
   let searchItems = $derived([...grid.searchItems, ...placement.searchItems]);
 
-  let warningsControlColor = $derived(grid._data?.log ? "warning" : undefined);
-
   let details = $derived.by(() => (
-    (grid.layerHighlighted) ? [grid, grid.layerHighlighted]
-      : (grid.layerSelected) ? [grid, grid.layerSelected]
-        : (placement.layerSelected) ? [placement, placement.layerSelected]
-          : (areas.layerSelected) ? [areas, areas.layerSelected]
-            : (placement.layerHighlighted) ? [placement, placement.layerHighlighted]
-              : (areas.layerHighlighted) ? [areas, areas.layerHighlighted]
+    (grid.layerHighlighted) ? {container: grid, layer: grid.layerHighlighted}
+        : (placement.layerSelected) ? {container: placement, layer: placement.layerSelected}
+          : (areas.layerSelected) ? {container: areas, layer: areas.layerSelected}
+            : (placement.layerHighlighted) ? {container: placement, layer: placement.layerHighlighted}
+              : (areas.layerHighlighted) ? {container: areas, layer: areas.layerHighlighted}
                 : undefined
         ));
 
@@ -91,7 +87,7 @@
 {#snippet featureInfoHeader(container, feature, prefix="")}
   {@const FeatureIcon = container.featureIcon(feature)}
   {@const statusColor = container.featureColorForStatus(feature)}
-  <div class="flex grow h4 justify-start">
+  <div class="flex grow h3 justify-start">
     <span>{prefix}</span>
     <FeatureIcon class="w-auto h-auto stroke-{statusColor}-500"/>
     <span> {feature.properties.name}</span>
@@ -192,7 +188,7 @@
         {/key}
       </LayerGroup>
 
-    <Control options={{position: 'topleft'}} class="flex map-overlay-box">
+    <Control options={{position: 'topleft'}} class="flex map-info-box">
     {#key searchItems}
       <Combobox
         data={searchItems}
@@ -216,9 +212,65 @@
       {/key}
     </Control>
 
-    <Control options={{position: 'bottomleft'}} class="map-overlay-box">
+    <MapInfoBox title="Display options" position="topright" icon={Eye}
+      classBody="grid">
+      <div class="flex justify-between items-center gap-4 p-1">
+        <p>Show grid coverage</p>
+        <Switch checked={grid.showCoverage} onCheckedChange={(e) => (showGridCoverage = e.checked)} />
+      </div>
+
+      <hr class="hr" />
+      <div class="flex justify-between items-center gap-4 p-1">
+        <p>Grid</p>
+        <Segment value={grid.displayMode} onValueChange={(e) => (grid.displayMode = e.value)}>
+          <Segment.Item value="off">Off</Segment.Item>
+          <Segment.Item value="raw">Raw</Segment.Item>
+          <Segment.Item value="processed">Processed</Segment.Item>
+        </Segment>
+      </div>
+
+      <hr class="hr" />
+      <div class="flex justify-between items-center gap-4 p-1">
+        <p>Grid coloring</p>
+        <Segment value={grid.coloringMode} onValueChange={(e) => (grid.coloringMode = e.value)}>
+          <Segment.Item value="size">Cable size</Segment.Item>
+          <Segment.Item value="loss">Loss</Segment.Item>
+        </Segment>
+      </div>
+
+      <hr class="hr" />
+      <div class="flex justify-between items-center gap-4 p-1">
+        <p>Placement</p>
+        <Segment value={placement.mode} onValueChange={(e) => (placement.mode = e.value)}>
+          <Segment.Item value="off">Off</Segment.Item>
+          <Segment.Item value="grid_coverage">Coverage</Segment.Item>
+          <Segment.Item value="power_need">Consumption</Segment.Item>
+        </Segment>
+      </div>
+
+      {#if placement?.mode == 'power_need'}
+        <div class="flex justify-between items-center gap-4 p-1">
+          <p>Power thresholds</p>
+          <Slider value={placement.powerNeedThresholds} onValueChangeEnd={(e) => {
+            placement.powerNeedThresholds = e.value as [number, number];
+            }}
+            min={0} max={20000} step={500} />
+        </div>
+      {:else if placement.mode == 'grid_coverage'}
+      {/if}
+    </MapInfoBox>
+
+    <MapInfoBox title="Warnings" position="topright" icon={TriangleAlert}>
+      {@render warningsTable(grid._data?.log)}
+    </MapInfoBox>
+
+    <MapInfoBox title="Statistics" position="topright" icon={IconInfo}>
+      {@render propertyTable(grid.getStatistics())}
+    </MapInfoBox>
+
+    <Control options={{position: 'bottomleft'}} class="map-info-box">
       {#if details}
-        {@const [container, layer] = details}
+        {@const {container, layer} = details}
         {@const feature = layer.feature}
         {@render featureInfoHeader(container, feature)}
         <div class="flex justify-start justify-items-start">
@@ -234,91 +286,16 @@
       {/if}
     </Control>
 
-    <Control options={{position: 'topright'}} class="map-overlay-box grid"
-      onmouseenter={() => (showMapOptionsControl = true)}
-      onmouseleave={() => (showMapOptionsControl = false)}
-    >
-        {#if showMapOptionsControl}
-            <div class="flex justify-between items-center gap-4">
-              <p>Show grid coverage</p>
-              <Switch checked={showGridCoverage} onCheckedChange={(e) => (showGridCoverage = e.checked)} />
-            </div>
-
-            <hr class="hr" />
-            <div class="flex justify-between items-center gap-4">
-              <p>Grid</p>
-              <Segment value={grid.displayMode} onValueChange={(e) => (grid.displayMode = e.value)}>
-                <Segment.Item value="off">Off</Segment.Item>
-                <Segment.Item value="raw">Raw</Segment.Item>
-                <Segment.Item value="processed">Processed</Segment.Item>
-              </Segment>
-            </div>
-
-            <hr class="hr" />
-            <div class="flex justify-between items-center gap-4">
-              <p>Placement</p>
-              <Segment value={placement.mode} onValueChange={(e) => (placement.mode = e.value)}>
-                <Segment.Item value="off">Off</Segment.Item>
-                <Segment.Item value="grid_coverage">Coverage</Segment.Item>
-                <Segment.Item value="power_need">Consumption</Segment.Item>
-              </Segment>
-            </div>
-            <!--
-            {#if placement?.mode == 'power_need'}
-              <div class="flex justify-between items-center gap-4">
-                <p>Power thresholds</p>
-                <Slider value={placementDisplayPowerNeedThresholds} onValueChangeEnd={placementDisplayParamsChanged} min={0} max={20000} step={500}/>
-              </div>
-            {:else if placementDisplayMode == 'grid_coverage'}
-            {/if}
-            -->
-        {:else}
-          <Eye class="w-2x h-2x"/>
-        {/if}
+    {#if grid?.highlightedGridPath}
+      {@const info = grid.getHighlightedPathInfo()}
+      {@const feature = grid.highlightedGridPath[0].feature}
+      <Control options={{position: 'bottomright'}} class="map-info-box max-w-[500px]">
+        {@render featureInfoHeader(grid, feature, "⚡")}
+        {@render propertyTable(grid.featureProperties(feature))}
+        <hr class="hr" />
+        <div class="h5">Metrics</div>
+        {@render propertyTable(grid.getHighlightedPathInfo())}
       </Control>
-
-      {#if warningsControlColor}
-        <Control options={{position: 'topright'}} class="map-overlay-box grid card"
-          onmouseenter={() => (showWarningsControl = true)}
-          onmouseleave={() => (showWarningsControl = false)}
-        >
-          <div class="flex grow h4">
-            <TriangleAlert class="w-auto h-auto stroke-{warningsControlColor}-500" />
-            {#if showWarningsControl}
-            <h5>Validation warnings</h5>
-            {/if}
-          </div>
-
-          {#if showWarningsControl}
-          <div class="flex overflow-scroll max-h-[500px] card">
-          {@render warningsTable(grid._data?.log)}
-          </div>
-          {:else}
-          {/if}
-        </Control>
-      {/if}
-
-      {#if grid?.highlightedGridPath}
-        {@const info = grid.getHighlightedPathInfo()}
-        {@const feature = grid.highlightedGridPath[0].feature}
-        <Control options={{position: 'bottomright'}} class="map-overlay-box">
-          {@render featureInfoHeader(grid, feature, "⚡")}
-          {@render propertyTable(info)}
-        </Control>
-      {/if}
+    {/if}
   </Map>
 {/if}
-
-<style>
-  :global(.map-overlay-box) {
-    border: 2px solid gray;
-    padding: 6px 8px;
-    font:
-      14px/16px Arial,
-      Helvetica,
-      sans-serif;
-    background: rgba(0, 0, 0, 0.8);
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-    border-radius: 5px;
-  }
-</style>

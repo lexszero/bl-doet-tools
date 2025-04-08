@@ -45,7 +45,7 @@ export class PlacementLayer extends InteractiveLayer<
     super();
     this._grid = grid;
     $effect(() => {
-      this.mapBaseLayer?.setStyle((f: PlacementFeature) => styleFuncs[this.mode](this, f));
+      this.updateStyle();
     })
   }
 
@@ -66,6 +66,10 @@ export class PlacementLayer extends InteractiveLayer<
 
   style = (f: PlacementFeature) => styleFuncs[this.mode](this, f);
   featureIcon = (f: PlacementFeature) => IconPlacementEntity;
+  
+  updateStyle() {
+    this.mapBaseLayer?.setStyle(this.style);
+  }
 
   featureLabel = (f: PlacementFeature) => `${f.properties.name} (${f.id})`;
   featureProperties = (f: PlacementFeature) => {
