@@ -119,7 +119,7 @@ export class PowerGridLayer extends InteractiveLayer<
     }
   };
 
-  styleGridPath = (feature: GridFeature) => ({...this.styleByLoss(feature), weight: 7, opacity: 1, fillOpacity: 1});
+  styleGridPath = (feature: GridFeature) => ({color: '#0151FF', weight: 7, opacity: 1, fillOpacity: 1});
 
   featureIcon = (feature: GridFeature) => ({
     power_grid_pdu: IconPDU,
