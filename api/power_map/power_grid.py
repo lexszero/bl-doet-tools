@@ -210,6 +210,7 @@ class PowerGrid(PowerArea):
             self.add_item(pdu)
 
         for cable in cables:
+            cable.orient(self._log)
             self.add_item(cable)
 
     def print_stats(self):

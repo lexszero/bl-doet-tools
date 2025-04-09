@@ -1,6 +1,7 @@
 from functools import cached_property
 from typing import Any, ClassVar, Literal, Optional
 
+from shapely import distance
 from pydantic import Field, PrivateAttr, computed_field
 
 from common.geometry import Feature, GeometryLineString, LineStyle, LineString, ShapelyPoint, coord_transform, XFRM_GEO_TO_PROJ
@@ -86,6 +87,26 @@ class PowerGridCable(
 
         return any(results)
 
+    def orient(self, log):
+        if not self._pdu_from and not self._pdu_to:
+            log.error(self.id, "Can't orient cable that doesn't have neither pdu_from or pdu_to")
+            return False
+
+        p_first, p_last = self.end_points_proj
+        reverse = False
+        if self._pdu_from and distance(self._pdu_from.shape_proj, p_last) < 1:
+            log_default.debug(f"Cable {self.id} points order reversed: p_last is near pdu_from")
+            reverse = True
+        elif self._pdu_to and distance(self._pdu_to.shape_proj, p_first) < 1:
+            log_default.debug(f"Cable {self.id} points order reversed: p_first is near pdu_to")
+            reverse = True
+
+        if reverse:
+            self.geometry.coordinates.reverse()
+            del(self.shape)
+            del(self.shape_proj)
+
+        return reverse
 
 __all__ = [
         'PowerGridCableProperties',
