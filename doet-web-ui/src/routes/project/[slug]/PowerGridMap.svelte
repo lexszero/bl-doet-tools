@@ -53,7 +53,7 @@
 
   $effect(async () => {
     await areas.load(timeStart, timeEnd);
-    await grid.load(timeStart, timeEnd);
+    await grid.load(timeEnd);
     await placement.load(timeStart, timeEnd);
   });
 
@@ -321,9 +321,9 @@
       {/if}
     </Control>
 
-    <MapInfoBox visible={grid?.highlightedGridPath || false} open={true} position="bottomright" icon={IconPathInfo} classBody="max-w-[500px]">
-      {#if grid?.highlightedGridPath}
-        {@const feature = grid.highlightedGridPath[0].feature}
+    <MapInfoBox visible={grid?.layerSelected || false} open={true} position="bottomright" icon={IconPathInfo} classBody="max-w-[500px]">
+      {#if grid?.layerSelected}
+        {@const feature = grid.layerSelected.feature}
         {@render featureInfoHeader(grid, feature, "⚡")}
         {@render propertyTable(grid.featureProperties(feature))}
         <hr class="hr" />

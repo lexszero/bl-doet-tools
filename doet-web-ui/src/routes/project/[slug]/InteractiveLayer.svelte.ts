@@ -42,6 +42,14 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
   public mapBaseLayer?: MapLayer<G, P> = $state();
 
   public features: SvelteMap<string, F> = $state(new SvelteMap<string, F>());
+  constructor() {
+    $effect(() => {
+      if (this.features) {
+        this.updateStyle();
+      }
+    });
+  }
+
   /*
   $derived(this.geojson ?
     new SvelteMap<string, F>(
@@ -121,6 +129,7 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
   pointToLayer(feature: F, latlng: L.LatLng) {}
 
   updateStyle() {
+    console.log("update style");
     this.mapBaseLayer?.setStyle(this.style);
   }
 

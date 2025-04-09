@@ -13,6 +13,10 @@ import {
 } from "$lib/api";
 
 import {
+  isSamePoint
+} from "$lib/utils";
+
+import {
   GridData,
   Vref_LN,
   gridItemSizeData,
@@ -56,6 +60,21 @@ const styleDefault = {
 function logLayerEvent(e) {
   console.log(`event ${e.type} for feature ${e.layer.feature.id}`);
 }
+
+function isCableStart(cable: GridCableFeature, point: L.LatLng): boolean {
+  const p = cable.geometry.coordinates[0];
+  return isSamePoint(L.GeoJSON.coordsToLatLng(p), point);
+}
+
+function isCableEnd(cable: GridCableFeature, point: L.LatLng): boolean {
+  const p = cable.geometry.coordinates[cable.geometry.coordinates.length - 1];
+  return isSamePoint(L.GeoJSON.coordsToLatLng(p), point);
+}
+
+function isCableStartOrEnd(cable: GridCableFeature, point: L.LatLng): boolean {
+  return isCableStart(cable, point) || isCableEnd(cable, point);
+}
+
 export class PowerGridLayer extends InteractiveLayer<
   geojson.Point | geojson.LineString,
   GridFeatureProperties
@@ -63,14 +82,12 @@ export class PowerGridLayer extends InteractiveLayer<
   data: GridData;
   onDataChanged?: (() => undefined);
 
+  editEnabled: boolean = $state(true);
+  editInProgress: boolean = $state(false);
+
   constructor (api: API) {
     super();
-    this.changedFeatures = new Map<string, GridFeature>();
     this.data = new GridData(api);
-    $effect(() => {
-      /* this.resetSelectedFeature();*/
-      this.updateStyle();
-    });
     $effect(() => {
       if (!this.mapRoot?.pm) {
         return;
@@ -94,7 +111,7 @@ export class PowerGridLayer extends InteractiveLayer<
         map.on("pm:globaldragmodetoggled", (e) => {
           console.log(`drag mode: ${e.enabled}`);
           if (e.enabled) {
-            for (const l of this.mapBaseLayer?.pm.getLayers() || []) {
+            for (const l of (this.mapBaseLayer?.pm.getLayers() || []) as GridMapFeatureLayer[]) {
               const f = l.feature as GridFeature;
               if (!f)
                 continue;
@@ -109,25 +126,54 @@ export class PowerGridLayer extends InteractiveLayer<
         });
         map.on("pm:globaleditmodetoggled", (e) => {
           console.log(`edit mode: ${e.enabled}`);
-          if (e.enabled) {
-            for (const l of this.mapBaseLayer?.pm.getLayers() || []) {
-              const f = l.feature as GridFeature;
-              if (!f)
-                continue;
-              if (f.properties.type == 'power_grid_pdu') {
-                l.pm.disable();
-              }
-              else {
-                l.pm.enable();
-              }
-            }
-          }
-
+          this.editInProgress = e.enabled;
         });
       } else {
+        this.editInProgress = false;
         map.pm.disableGlobalDragMode();
         map.pm.disableGlobalEditMode();
         map.pm.removeControls();
+      }
+    });
+
+    $effect(() => {
+      for (const l of (this.mapBaseLayer?.pm.getLayers() || []) as GridMapFeatureLayer[]) {
+        const f = l.feature as GridFeature;
+        if (!f)
+          continue;
+        if (this.editInProgress && f.id == this.layerSelected?.feature.id) {
+          switch (f.properties.type) {
+            case 'power_grid_pdu': {
+              break;
+            }
+
+            case 'power_grid_cable': {
+              l.pm.enable({
+                allowCutting: false,
+                allowRotation: false,
+                draggable: false,
+                removeVertexValidation: (e) => {
+                  console.log(e);
+                  return true;
+                },
+                moveVertexValidation: (e) => {
+                  console.log(e);
+                  const feature = (e.layer as GridMapFeatureLayer).feature;
+                  const p = e.marker.getLatLng();
+                  if (feature.properties.type == 'power_grid_cable') {
+                    if (isCableStartOrEnd(feature as GridCableFeature, p)) {
+                      console.log("Move cable start/end point");
+                    }
+                  }
+                  return true;
+                }
+              });
+              break;
+            }
+          }
+        } else {
+          l.pm.disable();
+        }
       }
     });
   }
@@ -136,7 +182,6 @@ export class PowerGridLayer extends InteractiveLayer<
   features = $derived(this.data?.features || new SvelteMap<string, GridFeature>());
 
   displayMode: string = $state('processed');
-  editEnabled: boolean = $state(true);
   coloringMode: 'size' | 'loss' = $state('size');
   coloringLossAtLoadLevel: number = $state(50);
   showCoverage: boolean = $state(false);
@@ -167,6 +212,43 @@ export class PowerGridLayer extends InteractiveLayer<
   onEachFeature(feature: GridFeature, layer: GridMapFeatureLayer): void {
     super.onEachFeature(feature, layer);
 
+    layer.on("pm:snap", (e) => {
+      logLayerEvent(e);
+      const layer = e.layer as GridMapFeatureLayer;
+      const layerOther = e.layerInteractedWith as GridMapFeatureLayer;
+      const feature = layer.feature as GridFeature;
+      const featureOther = layerOther.feature as GridFeature;
+      if (!featureOther)
+        return;
+      console.log(`Snap ${feature.properties.type} ${feature.id} to ${featureOther.properties.type} ${featureOther.id}`);
+      if ((feature.properties.type == 'power_grid_cable') && (featureOther.properties.type == 'power_grid_pdu')) {
+        this.data.connectCableToPDU(feature as GridCableFeature, featureOther as GridPDUFeature);
+        this.onDataChanged?.();
+      }
+    });
+    layer.on("pm:unsnap", (e) => {
+      logLayerEvent(e);
+      const layer = e.layer as GridMapFeatureLayer;
+      const layerOther = e.layerInteractedWith as GridMapFeatureLayer;
+      const feature = layer.feature as GridFeature;
+      const featureOther = layerOther.feature as GridFeature;
+      if (!featureOther)
+        return;
+      console.log(`Unsnap ${feature.properties.type} ${feature.id} to ${featureOther.properties.type} ${featureOther.id}`);
+      if ((feature.properties.type == 'power_grid_cable') && (featureOther.properties.type == 'power_grid_pdu')) {
+        this.data.disconnectCableFromPDU(feature as GridCableFeature, featureOther as GridPDUFeature);
+        this.onDataChanged?.();
+      }
+    });
+    layer.on("pm:remove", (e) => {
+      const l = e.layer as GridMapFeatureLayer;
+      const feature = layer.feature as GridFeature;
+      if (!feature)
+        return;
+      this.data.deleteFeature(feature);
+      this.onDataChanged?.();
+    })
+
     switch (feature.properties.type) {
       case 'power_grid_pdu': {
         layer.on("pm:drag", (e) => {
@@ -180,16 +262,18 @@ export class PowerGridLayer extends InteractiveLayer<
             l.redraw();
           }
         });
+
         layer.on("pm:dragend", (e) => {
           this.onDataChanged?.();
-        })
+        });
+
         break;
       }
 
       case 'power_grid_cable': {
         layer.on("pm:change", (e) => {
-          const l = e.layer as GridMapFeatureLayer;
-          const cable = l.feature as GridCableFeature;
+          const layer = e.layer as GridMapFeatureLayer;
+          const cable = layer.feature as GridCableFeature;
           this.data.changeCablePath(cable, e.latlngs);
         });
         layer.on("pm:markerdragend", (e) => {
@@ -198,7 +282,6 @@ export class PowerGridLayer extends InteractiveLayer<
         break;
       }
     }
-
   }
   styleByLoss = (feature: GridFeature) => {
     const r = this.data?.calculatePathLoss(
@@ -338,7 +421,7 @@ export class PowerGridLayer extends InteractiveLayer<
   }
 
   findGridPathToSourceLayers(layer: GridMapFeatureLayer): Array<GridMapFeatureLayer> {
-    return this.data.getGridPathToSourceIds(layer.feature).map((id) => (this.mapLayers?.get(id) as GridMapFeatureLayer))
+    return this.data.getGridPathToSourceIds(layer.feature)?.map((id) => (this.mapLayers?.get(id) as GridMapFeatureLayer)) || [];
   }
 
   highlightedGridPath?: Array<GridMapFeatureLayer> = $state();
@@ -389,9 +472,9 @@ export class PowerGridLayer extends InteractiveLayer<
     }
     const result: Array<InfoItem> = [];
 
-    const path = this.highlightedGridPath?.map((l) => this.features.get(l.feature.id)) || [];
+    const path = this.highlightedGridPath?.map((l) => this.features.get(l.feature.id));
     const pathResult = this.data?.calculatePathLoss(path,
-      { loadAmps: Math.min(...path.map((f) => gridItemSizeData(f.properties.power_size).max_amps)) }
+      { loadAmps: Math.min(...(path?.map((f) => f ? gridItemSizeData(f.properties.power_size).max_amps : 0) || [])) }
     );
 
     const allResults = [
