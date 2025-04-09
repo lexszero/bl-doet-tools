@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 import re
-from devtools import debug
 from math import inf
 from typing import Any, Optional
 import asyncstdlib as A

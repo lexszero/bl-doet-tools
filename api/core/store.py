@@ -1,6 +1,5 @@
 from abc import ABC
 from datetime import datetime
-from devtools import debug
 from typing import Any, AsyncGenerator, ClassVar, Dict, Generic, Iterable, List, Optional, Self, TypeVar
 from pydantic import BaseModel, TypeAdapter
 from sqlalchemy import ForeignKey, Index, delete, func, select
