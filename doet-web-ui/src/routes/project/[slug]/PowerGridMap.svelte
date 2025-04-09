@@ -99,9 +99,6 @@
           <td>{#if Icon}<Icon />{/if}</td>
           <td>{it.label}</td>
           <td>
-            {#if it.value}
-            <span>{it.value}</span>
-            {/if}
             {#if it.selectId}
               <button type="button" class="btn btn-sm preset-outlined-surface-500"
                 onclick={() => selectFeature(it.selectId)}>{it.value}</button>
@@ -112,6 +109,9 @@
                   {chip.label}
                 </button>
               {/each}
+            {/if}
+            {#if it.value}
+              <span>{it.value}</span>
             {/if}
           </td>
         </tr>
@@ -224,7 +224,6 @@
         </Segment>
       </div>
 
-      <hr class="hr" />
       <div class="flex justify-between items-center gap-4 p-1">
         <p>Grid coloring</p>
         <Segment value={grid.coloringMode} onValueChange={(e) => (grid.coloringMode = e.value)}>
@@ -233,15 +232,23 @@
         </Segment>
       </div>
 
+      {#if grid.coloringMode == 'loss'}
+      {/if}
+
       <hr class="hr" />
+
       <div class="flex justify-between items-center gap-4 p-1">
         <p>Placement</p>
         <Segment value={placement.mode} onValueChange={(e) => (placement.mode = e.value)}>
           <Segment.Item value="off">Off</Segment.Item>
-          <Segment.Item value="grid_coverage">Coverage</Segment.Item>
+          <Segment.Item value="grid_n_pdus"># PDUs</Segment.Item>
+          <Segment.Item value="grid_distance">Distance to PDU</Segment.Item>
+          <Segment.Item value="grid_loss">Path resistance</Segment.Item>
           <Segment.Item value="power_need">Consumption</Segment.Item>
         </Segment>
       </div>
+
+
 
       {#if placement?.mode == 'power_need'}
         <div class="flex justify-between items-center gap-4 p-1">
@@ -251,7 +258,15 @@
             }}
             min={0} max={20000} step={500} />
         </div>
-      {:else if placement.mode == 'grid_coverage'}
+      {:else if placement.mode == 'grid_n_pdus'}
+         <div class="flex justify-between items-center gap-4 p-1">
+          <p>PDU range, m</p>
+          <Slider value={[placement.pduSearchRadius]} onValueChangeEnd={(e) => {
+            placement.pduSearchRadius = e.value[0];
+            }}
+            min={0} max={300} step={5} />
+        </div>
+
       {/if}
     </MapInfoBox>
 

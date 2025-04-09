@@ -41,8 +41,7 @@ export interface PlacementEntityProperties {
   description?: string;
   powerNeed?: number;
 
-  _nearestPduId?: string;
-  _nearestPduDistance?: number;
+  _nearPDUs: [GridPDUFeature, number][];
 };
 
 export type PlacementFeature = Feature<Polygon, PlacementEntityProperties>;
@@ -53,6 +52,8 @@ interface GridFeatureCommonProperties {
   description?: string;
   power_size: string;
   power_native?: boolean;
+
+  _pathToSource?: string[];
   _drc?: ItemizedLogEntry[];
 }
 

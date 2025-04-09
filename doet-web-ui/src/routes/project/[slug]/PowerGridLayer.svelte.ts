@@ -48,7 +48,7 @@ export const logLevelToColor = (level: number) => (
       : 'surface');
 
 const styleDefault = {
-  opacity: 0.6,
+  opacity: 0.8,
   fillOpacity: 0.6
 };
 
@@ -94,7 +94,7 @@ export class PowerGridLayer extends InteractiveLayer<
 
   styleByLoss = (feature: GridFeature) => {
     const r = this.data?.calculatePathLoss(
-      this.data.findGridPathToSource(feature),
+      this.data.getGridPathToSource(feature),
       { loadPercentage: this.coloringLossAtLoadLevel })
     const color = r ? colormap('plasma', r.VdropPercent, 0, 10, false) : '#808080';
     return {...gridItemSizeData(feature.properties.power_size)?.style, color, fillColor: color}
@@ -140,7 +140,7 @@ export class PowerGridLayer extends InteractiveLayer<
   featureColorForStatus= (f: GridFeature) => `${this.featureStatus(f)}`;
   
   featureProperties = (f: GridFeature) => {
-    const exclude = ['name', 'type', 'power_size', 'length_m', 'pdu_from', 'pdu_to', 'cable_in', 'cables_out', '_drc'];
+    const exclude = ['name', 'type', 'power_size', 'length_m', 'pdu_from', 'pdu_to', 'cable_in', 'cables_out', '_drc', '_pathToSource'];
     const result: InfoItem[] = [];
     result.push({
       label: 'Size',
@@ -232,7 +232,7 @@ export class PowerGridLayer extends InteractiveLayer<
   }
 
   findGridPathToSourceLayers(layer: GridMapFeatureLayer): Array<GridMapFeatureLayer> {
-    return this.data.findGridPathToSource(layer.feature).map((f) => this.mapLayers?.get(f.id))
+    return this.data.getGridPathToSourceIds(layer.feature).map((id) => (this.mapLayers?.get(id) as GridMapFeatureLayer))
   }
 
   highlightedGridPath?: Array<GridMapFeatureLayer> = $state();

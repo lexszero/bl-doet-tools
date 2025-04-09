@@ -188,6 +188,15 @@ export class GridData {
     }
   }
 
+  getLossToSource(
+    feature: GridFeature,
+  ) {
+    let loss = this.calculatedLossToSource.get(feature.id);
+    if (!loss) {
+      loss = this.calculateLossToSource(feature)
+    }
+  }
+
   calculateLossToSource(
     feature: GridFeature,
     params: LossCalculationParams = { loadPercentage: 50 },
@@ -196,12 +205,15 @@ export class GridData {
     return this.calculatedLossToSource.set(
       feature.id,
       this.calculatePathLoss(
-        this.findGridPathToSource(feature, allFeatures),
+        this.getGridPathToSource(feature, allFeatures),
         params)
     );
   }
 
   cableLength(feature: GridCableFeature): number {
+    if (feature.properties.length_m) {
+      return feature.properties.length_m;
+    }
     let length = 0;
     for (let i = 0; i < feature.geometry.coordinates.length - 1; i++) {
       const p1 = feature.geometry.coordinates[i];
@@ -283,6 +295,30 @@ export class GridData {
     };
   }
 
+  getGridPathToSource(
+    feature: GridFeature,
+    allFeatures: Map<string, GridFeature> = this.features
+  ): GridFeature[] {
+    if (feature.properties._pathToSource) {
+      return feature.properties._pathToSource.map((id) => (allFeatures.get(id) as GridFeature));
+    } else {
+      const path = this.findGridPathToSource(feature);
+      feature.properties._pathToSource = path.map((f) => f.id);
+      return path;
+    }
+  }
+
+  getGridPathToSourceIds(
+    feature: GridFeature,
+    allFeatures: Map<string, GridFeature> = this.features
+  ): string[] {
+    if (!feature.properties._pathToSource) {
+      const path = this.findGridPathToSource(feature);
+      feature.properties._pathToSource = path.map((f) => f.id);
+    }
+    return feature.properties._pathToSource;
+  }
+
   getGridPreviousId(item: string | GridFeature): string | undefined {
     const feature = (typeof item === 'string') ? this.features.get(item) : item;
     const props = feature?.properties;
@@ -309,7 +345,4 @@ export class GridData {
     else 
       return [feature];
   }
-
-
-
 }

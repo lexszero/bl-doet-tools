@@ -125,7 +125,9 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
     fillOpacity: 1
   };
 
-  selectFeature(item: string | MapLayer<G, P, F>) {
+  flyToOptions: L.FitBoundsOptions = { maxZoom: 17 };
+
+  selectFeature(item: string | MapFeatureLayer<G, P, F>) {
     this.resetSelectedFeature();
     const layer = (typeof item === 'string') ? this.mapLayers?.get(item) : item;
     if (!layer)
@@ -134,6 +136,11 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
     //console.log("Select ", layer.feature.id);
     layer.setStyle(this.styleSelected);
     this.layerSelected = layer;
+    if (layer.getLatLng) {
+      this.mapRoot?.flyTo(layer.getLatLng(), 17, this.flyToOptions);
+    } else {
+      this.mapRoot?.flyToBounds(layer.getBounds(), this.flyToOptions);
+    }
   }
   resetSelectedFeature() {
     this.mapBaseLayer?.resetStyle(this.layerSelected);

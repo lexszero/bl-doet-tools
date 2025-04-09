@@ -1,12 +1,12 @@
 import { SvelteMap } from 'svelte/reactivity';
-import type {Polygon} from 'geojson';
-import * as L from "leaflet";
+import geojson from 'geojson';
+import L from "leaflet";
 
-
-import type {PlacementFeature, PlacementEntityProperties, GridPDUFeature} from '$lib/api';
+import type {PlacementFeature, PlacementEntityProperties, GridCableFeature, GridPDUFeature} from '$lib/api';
 import colormap from '$lib/colormap';
+import { distance } from '$lib/utils';
 
-import { InteractiveLayer, type InfoItem } from './InteractiveLayer.svelte';
+import { featureChip, InteractiveLayer, type InfoItem } from './InteractiveLayer.svelte';
 import { PowerGridLayer } from './PowerGridLayer.svelte';
 import { IconPlacementEntity, IconPDU, IconRuler, IconPower } from './Icons.svelte';
 
@@ -16,28 +16,8 @@ const defaultStyle = {
   fillOpacity: 0.6
 };
 
-const styleFuncs = {
-  power_need: (params: PlacementLayer, feature: PlacementFeature) => {
-    const power = feature.properties.powerNeed;
-    const color = (!power) ?
-      '#000' :
-      (power < params.powerNeedThresholds[0]) ?
-      colormap('winter', power, 0, params.powerNeedThresholds[0]*1.25, true) :
-      colormap('plasma', power, 0, params.powerNeedThresholds[1]);
-    return {...defaultStyle, color, fillColor: color};
-  },
-  grid_coverage: (params: PlacementLayer, feature: PlacementFeature) => {
-    let color = '#000';
-    if (feature.properties.powerNeed) {
-      const [n, pdu] = params.findNearestPDUs(feature);
-      color = colormap('plasma', n, 0, 5, true);
-    }
-    return {...defaultStyle, color, fillColor: color}
-  },
-};
-
 export class PlacementLayer extends InteractiveLayer<
-  Polygon,
+  geojson.Polygon,
   PlacementEntityProperties
 > {
   _grid: PowerGridLayer;
@@ -46,6 +26,9 @@ export class PlacementLayer extends InteractiveLayer<
     super();
     this._grid = grid;
     $effect(() => {
+    })
+    $effect(() => {
+      this.mapBaseLayer?.setZIndex(-1000);
       this.updateStyle();
     })
   }
@@ -53,83 +36,123 @@ export class PlacementLayer extends InteractiveLayer<
   async load(timeStart?: Date, timeEnd?: Date) {
     const data = await this._grid.data.api.getPlacementEntitiesGeoJSON(timeStart, timeEnd);
     for (const feature of data.features) {
-      const [n, pdu] = this.findNearestPDUs(feature);
-      if (pdu) {
-        feature.properties._nearestPduId = pdu.id;
-      }
+      feature.properties._nearPDUs = this.findNearPDUs(feature);
     }
     this.features = new SvelteMap<string, PlacementFeature>(data.features.map(
       (f: PlacementFeature) => ([f.id, f])
     ));
   }
 
-  mode: 'power_need' | 'grid_coverage' = $state('power_need');
+  mode: 'power_need' | 'grid_n_pdus' | 'grid_distance' | 'grid_loss' = $state('power_need');
   powerNeedThresholds: [number, number] = $state([2000, 10000]);
-  pduSearchRadius: number = $state(100);
+  pduSearchRadius: number = $state(50);
 
-  style = (f: PlacementFeature) => styleFuncs[this.mode](this, f);
-  featureIcon = (f: PlacementFeature) => IconPlacementEntity;
-  
-  updateStyle() {
-    this.mapBaseLayer?.setStyle(this.style);
-  }
+  style = (f: PlacementFeature): L.PathOptions => {
+    let color = '#303030';
+    const power = f.properties.powerNeed;
+    if (power) {
+      switch (this.mode) {
+        case 'power_need': {
+          const [lowPower, highPower] = this.powerNeedThresholds;
+          color = (
+            (power < lowPower)
+            ? colormap('winter', power, 0, lowPower*1.25, true)
+            : colormap('plasma', power, 0, highPower)
+          );
+          break;
+        }
 
+        case 'grid_n_pdus': {
+          color = colormap('plasma', this.getNearPDUs(f).length, 0, 5, true);
+          break;
+        }
+
+        case 'grid_distance': {
+          const near = this.getNearPDUs(f);
+          if (near.length) {
+            const [pdu, d] = near[0];
+            color = colormap('plasma', d, 5, this.pduSearchRadius, false);
+          } else {
+            color = '#ff0000';
+          }
+          break;
+        }
+
+        case 'grid_loss': {
+          const near = this.getNearPDUs(f);
+          if (near.length) {
+            const [pdu, d] = near[0];
+            const path = [
+              ...this._grid.data.getGridPathToSource(pdu),
+              { properties: {
+                power_size: '1f',
+                length_m: d
+              }} as GridCableFeature
+            ];
+            const loss = this._grid.data.calculatePathLoss(path);
+            color = colormap('plasma', loss.R, 0, 1.0);
+          } else {
+            color = '#ff0000'
+          }
+        }
+      }
+    }
+    return {...defaultStyle, color, fillColor: color}
+  };
+  highlightBringsToFront = false;
+
+  featureIcon = () => IconPlacementEntity;
   featureLabel = (f: PlacementFeature) => `${f.properties.name} (${f.id})`;
   featureProperties = (f: PlacementFeature) => {
-    const exclude = ['name', 'type', '_nearestPduId', 'powerNeed'];
     const props = f.properties;
-    const result = (Object.entries(props)
-      .filter(([k, v]) => (!exclude.includes(k)))
-      .map(([k, v]) => ({label: k, value: v} as InfoItem))
-      )
-
+    const result = [];
     result.push({
       label: 'Power need',
       value: props.powerNeed,
       icon: IconPower
     });
 
-    const pduId = props._nearestPduId;
-    const pdu = pduId ? this._grid.features.get(pduId) : this.findNearestPDUs(f)[1];
-    if (pdu) {
+    const near = this.getNearPDUs(f);
+    //console.log(nearestPDU, nearestDistance);
+    if (near?.length) {
+      const [nearestPDU, nearestDistance] = near[0];
       result.push({
         label: "Nearest PDU",
-        value: pdu.properties.name,
+        value: `${nearestDistance.toFixed(0)} m`,
         icon: IconPDU,
-        chips: [{id: pdu.id, label: pdu.properties.name}]
+        chips: [featureChip(nearestPDU)]
       });
     }
 
-    return result;
+    const exclude = ['name', 'type', '_nearPDUs', 'powerNeed'];
+    return [...result, ...(Object.entries(props)
+      .filter(([k, v]) => (!exclude.includes(k)))
+      .map(([k, v]) => ({label: k, value: v} as InfoItem))
+    )]
   };
 
-  findNearestPDUs(feature: PlacementFeature): [number, GridPDUFeature | null] {
-    let n = 0;
-    let nearestDistance = 9999999;
-    let nearestPDU = null;
-    const itemCenter = L.PolyUtil.centroid(feature.geometry.coordinates[0])
+  getNearPDUs(feature: PlacementFeature): [GridPDUFeature, number][] {
+    if (!feature.properties._nearPDUs?.length) {
+      feature.properties._nearPDUs = this.findNearPDUs(feature);
+    }
+    return feature.properties._nearPDUs;
+  }
+
+  findNearPDUs(feature: PlacementFeature): [GridPDUFeature, number][] {
+    let pdusInRange = [];
+    const itemCenter = L.PolyUtil.centroid(L.GeoJSON.coordsToLatLngs(feature.geometry.coordinates[0]));
     for (const item of this._grid.features.values()) {
       if (item.properties.type != 'power_grid_pdu') {
         continue;
       }
       const pdu = item as GridPDUFeature;
-      const distance = this.mapRoot?.distance(itemCenter, pdu.geometry.coordinates) || Infinity;
-      if (distance < this.pduSearchRadius) {
-        n++;
-      }
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestPDU = pdu;
+      const d = distance(itemCenter, L.GeoJSON.coordsToLatLng(pdu.geometry.coordinates)) || Infinity;
+      if (d < this.pduSearchRadius) {
+        pdusInRange.push([pdu, d] as [GridPDUFeature, number]);
       }
     }
-    return [n, nearestPDU];
-    /*
-    if (nearestPDU) {
-      feature.properties._nearestPduDistance = Math.round(nearestDistance);
-      feature.properties._nearestPduId = nearestPDU;
-    }
-    return n;
-    */
+    pdusInRange.sort(([ap, ad], [bp, bd]) => (bd - bp));
+    return pdusInRange;
   }
 
 };
