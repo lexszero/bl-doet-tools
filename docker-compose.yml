@@ -16,23 +16,18 @@ services:
       - db-data:/var/lib/postgresql/data:cached
       - ./api/init_db.sh:/docker-entrypoint-initdb.d/init_db.sh
 
-#  backend:
-#    build:
-#      context: backend
-#      dockerfile: Dockerfile
-#    command: python app/main.py
-#    tty: true
-#    volumes:
-#      - ./backend:/backend/:cached
-#      - ./.docker/.ipython:/root/.ipython:cached
-#    environment:
-#      PYTHONPATH: .
-#      DATABASE_URL: "postgresql+asyncpg://dev-user:password@postgres:5432/dev_db"
-#    depends_on:
-#      - "postgres"
-#    ports:
-#      - 8000:8000
-#
+  api:
+    build:
+      context: api
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    depends_on:
+      - postgres
+    ports:
+      - 8888:8888
+
 #  frontend:
 #    build:
 #      context: frontend

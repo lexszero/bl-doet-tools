@@ -4,28 +4,23 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-nicegui = "*"
-devtools = "*"
-folium = "*"
-tortoise = "*"
-starlette-auth-toolkit = "*"
-fastapi-users = {extras = ["sqlalchemy"], version = "*"}
 coloredlogs = "*"
-sqlalchemy = {extras = ["asyncpg"], version = "*"}
-pydantic-settings = "*"
+sqlalchemy = {extras = ["asyncpg"] }
 asyncpg = "*"
-passlib = "*"
-fastapi = {extras = ["standard"], version = "*"}
+fastapi = {extras = ["standard"] }
 geojson-pydantic = "*"
 pydantic-extra-types = "*"
+pydantic-settings = "*"
 shapely = "*"
-ipython = "*"
 asyncstdlib = "*"
 cachetools-async = "*"
 matplotlib = "*"
 fastkml = "*"
+pyproj = "*"
 
 [dev-packages]
+devtools = "*"
+ipython = "*"
 
 [requires]
 python_version = "3.13.2"
