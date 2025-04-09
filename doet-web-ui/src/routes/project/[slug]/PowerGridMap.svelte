@@ -1,8 +1,11 @@
 <script lang="ts">
   import { browser } from '$app/environment'
   import { Segment, Switch, Slider, Combobox } from '@skeletonlabs/skeleton-svelte';
-  import {Map, TileLayer, GeoJSON, Control, LayerGroup} from 'sveaflet?client';
+  import {Map, TileLayer, GeoJSON, Control, LayerGroup} from 'sveaflet';
+  import L from 'leaflet';
   import 'leaflet/dist/leaflet.css'
+  import "@geoman-io/leaflet-geoman-free";
+  import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 
   import MapInfoBox from './MapInfoBox.svelte';
   import { logLevelToColor, PowerGridLayer } from './PowerGridLayer.svelte';
@@ -12,6 +15,8 @@
 
   import { Info as IconInfo, Waypoints as IconPathInfo, Eye, TriangleAlert } from '@lucide/svelte';
 
+  L.PM.setOptIn(false);
+
   let {
     api,
     timeStart,
@@ -20,11 +25,31 @@
 
   let mapRoot: L.Map = $state();
 
+  $effect(() => {
+    if (!mapRoot)
+      return;
+    mapRoot.on("pm:create", (e) => {
+      console.log("pm:create: ", e);
+      e.layer.options.pmIgnore = false;
+    });
+  });
+
+
   let layerSelected = $state();
 
   let grid: PowerGridLayer = new PowerGridLayer(api);
   let areas: PowerAreasLayer = new PowerAreasLayer(grid);
   let placement: PlacementLayer = new PlacementLayer(grid);
+
+  grid.onDataChanged = () => {
+    if (grid.layerHighlighted) {
+      grid.layerHighlighted = grid.layerHighlighted;
+    }
+    if (grid.layerSelected) {
+      grid.selectFeature(grid.layerSelected.feature.id);
+    }
+    placement.updateStyle();
+  };
 
   $effect(async () => {
     await areas.load(timeStart, timeEnd);
@@ -148,7 +173,7 @@
   <Map options={mapOptions} bind:instance={mapRoot}>
     <TileLayer url={layerBasemapTileUrl} options={layerBasemapOptions}/>
 
-      <LayerGroup name='Areas' layerType='overlayer' checked={true}>
+      <LayerGroup name='Areas' layerType='overlay' checked={true}>
         {#key areas.geojson}
           {#if areas?.geojson}
             <GeoJSON
@@ -159,7 +184,7 @@
           {/if}
         {/key}
       </LayerGroup>
-      <LayerGroup name='Placement' layerType='overlayer' checked={placement?.mode != 'off'}>
+      <LayerGroup name='Placement' layerType='overlay' checked={placement?.mode != 'off'}>
         {#key placement.geojson}
           {#if placement?.geojson && placement?.mode != "off"}
             <GeoJSON
@@ -171,7 +196,7 @@
         {/key}
       </LayerGroup>
 
-      <LayerGroup name='Power grid' layerType='overlayer' checked={true}>
+      <LayerGroup name='Power grid' layerType='overlay' checked={true}>
         {#key grid.geojson}
           {#if grid?.geojson}
             <GeoJSON

@@ -66,7 +66,8 @@ export interface GridPDUProperties extends GridFeatureCommonProperties {
   power_source?: boolean
   cable_in?: string;
   cables_out?: string[];
-  _lossToSource?: LossCalculationResult;
+
+  _consumers: string[];
 }
 
 export type GridPDUFeature = Feature<Point, GridPDUProperties>;
@@ -76,7 +77,8 @@ export interface GridCableProperties extends GridFeatureCommonProperties {
   pdu_from?: string;
   pdu_to?: string;
   length_m?: number;
-  _loss: LossCalculationResult;
+
+  _length?: number;
 }
 
 export type GridCableFeature = Feature<LineString, GridCableProperties>;
@@ -137,3 +139,5 @@ export class API {
     return this.fetchJSON('data/change_timestamps')
   }
 };
+
+

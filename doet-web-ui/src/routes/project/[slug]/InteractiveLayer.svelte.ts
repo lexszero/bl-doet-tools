@@ -53,7 +53,7 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
   geojson: FeatureCollection<G, P> = $derived({type: 'FeatureCollection', features: [...this.features.values()]});
 
   featureLabel = (f: F) => (f.id as string).replaceAll('_', ' ').trim();
-  featureIcon = (f: F) => IconFeatureDefault;
+  featureIcon: ((f: F) => IconType) = () => IconFeatureDefault;
   featureColorForStatus = (f: F) => "surface";
 
   featureProperties = (f: F) => {
@@ -78,28 +78,35 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
     return items;
   });
 
-  mapLayers?: SvelteMap<string, MapFeatureLayer<G, P, F>> = $derived.by(() => (this.mapBaseLayer ?
-    new SvelteMap<string, MapFeatureLayer<G, P, F>> (
-      (this.mapBaseLayer.getLayers() as MapFeatureLayer<G, P, F>[]).map(
-        (l) => [
-          l.feature.id as string,
-          l
-        ]))
-    : undefined))
+  mapLayers?: SvelteMap<string, MapFeatureLayer<G, P, F>> = $derived.by(() =>
+    (this.mapBaseLayer ?
+      new SvelteMap<string, MapFeatureLayer<G, P, F>> (
+        (this._getLayers() as MapFeatureLayer<G, P, F>[]).map(
+          (l) => [
+            l.feature.id as string,
+            l
+          ]))
+      : undefined))
+
+  _getLayers = () => this.mapBaseLayer?.getLayers();
 
   mapLayerOptions() {
     return {
-      onEachFeature: (feature: F, layer: MapFeatureLayer<G, P, F>) => {
-        layer.on({
-          click: (e) => this.selectFeature(e.target.feature.id),
-          mouseover: (e) => this.highlightFeature(e.target),
-          mouseout: (e) => this.resetHighlightedFeature(e.target),
-        });
-      },
+      pmIgnore: true,
+      onEachFeature: (f: F, layer: MapFeatureLayer<G, P, F>) => this.onEachFeature(f, layer),
       style: this.style,
       pointToLayer: (f: F, latlng: L.LatLng) => this.pointToLayer(f, latlng),
     }
   }
+
+  onEachFeature(feature: F, layer: MapFeatureLayer<G, P, F>) {
+    layer.on({
+      click: (e) => this.selectFeature(e.target.feature.id),
+      mouseover: (e) => this.highlightFeature(e.target),
+      mouseout: (e) => this.resetHighlightedFeature(e.target),
+    });
+  }
+
   style = (feature: F): L.PathOptions => {
     if (this.layerHighlighted?.feature.id == feature.id) {
       return this.styleHighlighted;
@@ -127,7 +134,7 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
 
   flyToOptions: L.FitBoundsOptions = { maxZoom: 17 };
 
-  selectFeature(item: string | MapFeatureLayer<G, P, F>) {
+  selectFeature(item: string | MapFeatureLayer<G, P, F>, fly: boolean = true) {
     this.resetSelectedFeature();
     const layer = (typeof item === 'string') ? this.mapLayers?.get(item) : item;
     if (!layer)
@@ -135,12 +142,14 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
 
     //console.log("Select ", layer.feature.id);
     layer.setStyle(this.styleSelected);
-    this.layerSelected = layer;
-    if (layer.getLatLng) {
-      this.mapRoot?.flyTo(layer.getLatLng(), 17, this.flyToOptions);
-    } else {
-      this.mapRoot?.flyToBounds(layer.getBounds(), this.flyToOptions);
+    if (fly && this.layerSelected?.feature.id != layer.feature.id) {
+      if (layer.getLatLng) {
+        this.mapRoot?.flyTo(layer.getLatLng(), 17, this.flyToOptions);
+      } else {
+        this.mapRoot?.flyToBounds(layer.getBounds(), this.flyToOptions);
+      }
     }
+    this.layerSelected = layer;
   }
   resetSelectedFeature() {
     this.mapBaseLayer?.resetStyle(this.layerSelected);

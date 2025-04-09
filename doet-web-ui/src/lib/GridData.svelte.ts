@@ -6,6 +6,7 @@ import type {
   API,
   GridFeature,
   GridCableFeature,
+  GridPDUFeature,
   GridPDUProperties,
   ItemizedLogEntry
 } from './api';
@@ -120,6 +121,9 @@ export class GridData {
   api: API;
   features: SvelteMap<string, GridFeature> = $state(new SvelteMap<string, GridFeature>);
 
+  featuresLoaded: Map<string, GridFeature>;
+  featuresChanged: Map<string, GridFeature>;
+
   timestamp?: Date;
   log?: ItemizedLogEntry[];
 
@@ -131,13 +135,14 @@ export class GridData {
   constructor(api: API) {
     this.api = api;
     this.features = new SvelteMap<string, GridFeature>();
+    this.featuresChanged = new SvelteMap<string, GridFeature>();
   }
 
   async load(timeEnd?: Date) {
     const data = await this.api.getPowerGridProcessed(timeEnd);
     this.timestamp = parseTimestamp(data.timestamp);
 
-    const features = new SvelteMap<string, GridFeature>(
+    const features = new Map<string, GridFeature>(
       data.features.features.map(
         (it: GridFeature) => ([it.id, it])
       ));
@@ -173,7 +178,14 @@ export class GridData {
       }
     }
     this.updateCalculatedInfo(this.lossCalculationParams);
-    this.features = features;
+    this.featuresLoaded = features;
+    this.resetChanges();
+  }
+
+  resetChanges() {
+    this.features = new SvelteMap<string, GridFeature>(this.featuresLoaded.entries().map(
+      ([k, v]) => ([k, structuredClone(v)])
+    ));
   }
 
   updateCalculatedInfo(
@@ -199,8 +211,8 @@ export class GridData {
   }
 
   cableLength(feature: GridCableFeature): number {
-    if (feature.properties.length_m) {
-      return feature.properties.length_m;
+    if (feature.properties._length) {
+      return feature.properties.length;
     }
     let length = 0;
     for (let i = 0; i < feature.geometry.coordinates.length - 1; i++) {
@@ -332,5 +344,62 @@ export class GridData {
       return [feature, ...this.findGridPathToSource(next)];
     else 
       return [feature];
+  }
+
+  updateFeature(feature: GridFeature): string[] {
+    switch (feature.properties.type) {
+      case 'power_grid_pdu': {
+        break;
+      }
+      case 'power_grid_cable': {
+        feature.properties._pathToSource = undefined;
+        break;
+      }
+    }
+    return [feature.id]
+  }
+
+  markChanged(feature: GridFeature) {
+    this.featuresChanged.set(feature.id, feature);
+  }
+
+  updateCableGeometry(cable: GridCableFeature) {
+    cable.properties._length = undefined;
+    this.markChanged(cable);
+  }
+
+  movePDU(pdu: GridPDUFeature, latlng: L.LatLng): GridCableFeature[] {
+    pdu.geometry.coordinates = L.GeoJSON.latLngToCoords(latlng)
+    this.markChanged(pdu);
+
+    const changed = [];
+
+    if (pdu.properties.cable_in) {
+      const id = pdu.properties.cable_in;
+      const cable = this.features.get(id) as GridCableFeature;
+      if (cable) {
+        const coords = cable.geometry.coordinates;
+        coords[coords.length-1] = pdu.geometry.coordinates;
+        this.updateCableGeometry(cable);
+        changed.push(cable);
+      }
+    }
+
+    for (const id of pdu.properties.cables_out || []) {
+      const cable = this.features.get(id) as GridCableFeature;
+      if (cable) {
+        const coords = cable.geometry.coordinates;
+        coords[0] = pdu.geometry.coordinates;
+        this.updateCableGeometry(cable)
+        changed.push(cable);
+      }
+    }
+
+    return changed;
+  }
+
+  changeCablePath(cable: GridCableFeature, latlngs: L.LatLng[]) {
+    cable.geometry.coordinates = L.GeoJSON.latLngsToCoords(latlngs);
+    this.updateCableGeometry(cable);
   }
 }

@@ -34,6 +34,7 @@ import {
   InteractiveLayer,
   type ChipItem,
   type InfoItem,
+  type MapFeatureLayer,
 } from './InteractiveLayer.svelte';
 
 
@@ -52,33 +53,104 @@ const styleDefault = {
   fillOpacity: 0.6
 };
 
+function logLayerEvent(e) {
+  console.log(`event ${e.type} for feature ${e.layer.feature.id}`);
+}
 export class PowerGridLayer extends InteractiveLayer<
   geojson.Point | geojson.LineString,
   GridFeatureProperties
 > {
   data: GridData;
+  onDataChanged?: (() => undefined);
 
   constructor (api: API) {
     super();
+    this.changedFeatures = new Map<string, GridFeature>();
     this.data = new GridData(api);
     $effect(() => {
       /* this.resetSelectedFeature();*/
       this.updateStyle();
-    })
+    });
+    $effect(() => {
+      if (!this.mapRoot?.pm) {
+        return;
+      }
+      const map = this.mapRoot;
+      map.pm.disableGlobalEditMode();
+      map.pm.disableGlobalDragMode();
+      if (this.editEnabled) {
+        map.pm.addControls({
+          position: 'topleft',
+          drawMarker: false,
+          drawCircleMarker: false,
+          drawPolyline: false,
+          drawPolygon: false,
+          drawRectangle: false,
+          drawCircle: false,
+          drawText: false,
+          rotateMode: false,
+          cutPolygon: false,
+        });
+        map.on("pm:globaldragmodetoggled", (e) => {
+          console.log(`drag mode: ${e.enabled}`);
+          if (e.enabled) {
+            for (const l of this.mapBaseLayer?.pm.getLayers() || []) {
+              const f = l.feature as GridFeature;
+              if (!f)
+                continue;
+              if (f.properties.type == 'power_grid_pdu') {
+                l.pm.enableLayerDrag();
+              }
+              else {
+                l.pm.disableLayerDrag();
+              }
+            }
+          }
+        });
+        map.on("pm:globaleditmodetoggled", (e) => {
+          console.log(`edit mode: ${e.enabled}`);
+          if (e.enabled) {
+            for (const l of this.mapBaseLayer?.pm.getLayers() || []) {
+              const f = l.feature as GridFeature;
+              if (!f)
+                continue;
+              if (f.properties.type == 'power_grid_pdu') {
+                l.pm.disable();
+              }
+              else {
+                l.pm.enable();
+              }
+            }
+          }
+
+        });
+      } else {
+        map.pm.disableGlobalDragMode();
+        map.pm.disableGlobalEditMode();
+        map.pm.removeControls();
+      }
+    });
   }
 
+  _getLayers = () => this.mapBaseLayer?.pm.getLayers();
   features = $derived(this.data?.features || new SvelteMap<string, GridFeature>());
 
   displayMode: string = $state('processed');
+  editEnabled: boolean = $state(true);
   coloringMode: 'size' | 'loss' = $state('size');
   coloringLossAtLoadLevel: number = $state(50);
   showCoverage: boolean = $state(false);
 
+  mapLayerOptions = () => ({
+    ...super.mapLayerOptions(),
+    pmIgnore: false
+  });
+
   allFeatures() {
     return this.features;
   }
-  selectFeature(id: string) {
-    super.selectFeature(id);
+  selectFeature(id: string, ...rest) {
+    super.selectFeature(id, ...rest);
     const layer = this.mapLayers?.get(id);
     this.resetHighlightedFeature(layer)
     this.resetHighlightedPath();
@@ -92,6 +164,42 @@ export class PowerGridLayer extends InteractiveLayer<
     this.data.load(timeEnd);
   }
 
+  onEachFeature(feature: GridFeature, layer: GridMapFeatureLayer): void {
+    super.onEachFeature(feature, layer);
+
+    switch (feature.properties.type) {
+      case 'power_grid_pdu': {
+        layer.on("pm:drag", (e) => {
+          const l = e.layer as GridMapFeatureLayer;
+          const pdu = l.feature as GridPDUFeature;
+          const changedCables = this.data.movePDU(pdu, e.latlng);
+          console.log(`Changed cables: ${changedCables.map((c) => c.id)}`);
+          for (const cable of changedCables) {
+            const l = this.mapLayers?.get(cable.id);
+            l.setLatLngs(L.GeoJSON.coordsToLatLngs(cable.geometry.coordinates));
+            l.redraw();
+          }
+        });
+        layer.on("pm:dragend", (e) => {
+          this.onDataChanged?.();
+        })
+        break;
+      }
+
+      case 'power_grid_cable': {
+        layer.on("pm:change", (e) => {
+          const l = e.layer as GridMapFeatureLayer;
+          const cable = l.feature as GridCableFeature;
+          this.data.changeCablePath(cable, e.latlngs);
+        });
+        layer.on("pm:markerdragend", (e) => {
+          this.onDataChanged?.();
+        });
+        break;
+      }
+    }
+
+  }
   styleByLoss = (feature: GridFeature) => {
     const r = this.data?.calculatePathLoss(
       this.data.getGridPathToSource(feature),
@@ -150,13 +258,11 @@ export class PowerGridLayer extends InteractiveLayer<
 
     if (f.properties.type == 'power_grid_cable') {
       const props = f.properties;
-      if (props.length_m) {
-        result.push({
-          label: 'Length',
-          value: `${this.data.cableLength(f as GridCableFeature).toFixed(1)} m`,
-          icon: IconRuler
-        });
-      }
+      result.push({
+        label: 'Length',
+        value: `${this.data.cableLength(f as GridCableFeature).toFixed(1)} m`,
+        icon: IconRuler
+      });
       if (props.pdu_from) {
         const p = this.features.get(props.pdu_from);
         if (p)
