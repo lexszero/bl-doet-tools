@@ -8,7 +8,7 @@ let {
   icon,
   position = 'topright',
   classButton,
-  classBody = "flex overflow-scroll max-h-[300px] card",
+  classBody = 'max-h-[300px]',
   visible = $bindable(true),
   open = $bindable(false),
   children,
@@ -17,7 +17,7 @@ let {
   icon: Icon,
   position: 'topleft' | 'topright' | 'bottomleft' | 'bottomright';
   classButton?: string,
-  classBody: string;
+  classBody?: string;
   visible: boolean,
   open: boolean,
   children?: Snippet,
@@ -46,7 +46,7 @@ let {
     {/if}
     
     {#if open}
-      <div class="{classBody} m-2">
+      <div class={["flex flex-col overflow-scroll m-2", classBody]}>
       {@render children?.()}
       </div>
     {/if}

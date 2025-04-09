@@ -14,6 +14,9 @@ export class PowerAreasLayer extends InteractiveLayer<
   constructor (grid: PowerGridLayer) {
     super();
     this._grid = grid;
+    $effect(() => {
+      this.mapBaseLayer?.setZIndex(-2000);
+    });
   }
 
   async load(timeStart?: Date, timeEnd?: Date) {

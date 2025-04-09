@@ -39,6 +39,10 @@ export type PowerAreaFeatureCollection = FeatureCollection<Polygon, PowerAreaPro
 export interface PlacementEntityProperties {
   name: string;
   description?: string;
+  contactInfo?: string;
+  nrOfPeople?: number;
+  nrOfVechiles?: number;
+  amplifiedSound?: number;
   powerNeed?: number;
 
   _nearPDUs: [GridPDUFeature, number][];

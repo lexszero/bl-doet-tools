@@ -172,7 +172,6 @@ export class GridData {
         }
       }
     }
-    this.calculatedLossToSource = new SvelteMap<string, LossCalculationResult>();
     this.updateCalculatedInfo(this.lossCalculationParams);
     this.features = features;
   }
@@ -183,30 +182,19 @@ export class GridData {
     this.lossCalculationParams = params;
     for (const f of this.features.values()) {
       if (f.properties.type == 'power_grid_pdu') {
-        this.calculateLossToSource(f, params, allFeatures)
+        this.calculatePathLoss(f, params, allFeatures)
       }
     }
   }
 
   getLossToSource(
     feature: GridFeature,
-  ) {
-    let loss = this.calculatedLossToSource.get(feature.id);
-    if (!loss) {
-      loss = this.calculateLossToSource(feature)
-    }
-  }
-
-  calculateLossToSource(
-    feature: GridFeature,
-    params: LossCalculationParams = { loadPercentage: 50 },
+    params: LossCalculationParams = this.lossCalculationParams,
     allFeatures: Map<string, GridFeature> = this.features
   ) {
-    return this.calculatedLossToSource.set(
-      feature.id,
-      this.calculatePathLoss(
-        this.getGridPathToSource(feature, allFeatures),
-        params)
+    return this.calculatePathLoss(
+      this.getGridPathToSource(feature, allFeatures),
+      params
     );
   }
 
@@ -339,7 +327,7 @@ export class GridData {
     const features = allFeatures || this.features;
     const idNext = this.getGridPreviousId(feature);
     const next = idNext ? features.get(idNext) : undefined;
-    //console.log(layer.feature.id, "->", idNext);
+    //console.log(feature.id, "->", idNext);
     if (next)
       return [feature, ...this.findGridPathToSource(next)];
     else 

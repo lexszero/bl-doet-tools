@@ -365,7 +365,7 @@ export class PowerGridLayer extends InteractiveLayer<
         totalAllCableLength += length;
       }
       if (f.properties.type == 'power_grid_pdu') {
-        const loss = this.data.calculatedLossToSource.get(f.id);
+        const loss = this.data.getLossToSource(f);
         //console.log(`PDU ${f.id} loss `, loss);
         if (loss) {
           if (loss.L > maxDistanceToSource[0]) {

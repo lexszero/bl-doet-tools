@@ -270,7 +270,7 @@
       {/if}
     </MapInfoBox>
 
-    <MapInfoBox title="Warnings" position="topright" icon={TriangleAlert} classBody="max-w-[500px]">
+    <MapInfoBox title="Warnings" position="topright" icon={TriangleAlert} classBody="max-h-[500px]">
       {@render warningsTable(grid.data.log)}
     </MapInfoBox>
 
@@ -278,7 +278,7 @@
       {@render propertyTable(grid.getStatistics())}
     </MapInfoBox>
 
-    <Control options={{position: 'bottomleft'}} class="map-info-box">
+    <Control options={{position: 'bottomleft'}} class="map-info-box max-w-[500px] m-2">
       {#if details}
         {@const {container, layer} = details}
         {@const feature = layer.feature}
