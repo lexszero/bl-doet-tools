@@ -4,7 +4,7 @@ from power_map.loader import Loader
 from power_map.power_grid_base import PowerGridItemSize
 
 class PowerGrid_BL24(Loader):
-    OFFLINE = True
+    #OFFLINE = True
 
     KML_URL = 'http://www.google.com/maps/d/kml?forcekml=1&mid=1oS6UFpJMdwnm7UmkaEBRJrC3Mhp80nQ'
     KML_FILENAME = os.path.dirname(__file__)+'/data/bl24_grid.kml'
@@ -25,6 +25,12 @@ class PowerGrid_BL24(Loader):
         'Generator 35-40kva': PowerGridItemSize.ThreePhase_63A,
         }
 
+    GRID_POWER_SOURCES = [
+        'Transformator',
+        'Generator, 35kva',
+        'Generator 35-40kva',
+        ]
+
     GRID_AREAS_TOPLEVEL = [
             '8kV Pole and Transformer',
             'Native Grid',
@@ -41,7 +47,7 @@ class PowerGrid_BL24(Loader):
             'PNW'
             ]
 
-    PLACEMENT_ENTITIES_URL = 'https://placement.freaks.se/api/v1/mapentities'
+    PLACEMENT_ENTITIES_URL = None #'https://placement.freaks.se/api/v1/mapentities'
     PLACEMENT_ENTITIES_FILENAME = os.path.dirname(__file__)+'/data/bl24_entities.json'
 
     @classmethod

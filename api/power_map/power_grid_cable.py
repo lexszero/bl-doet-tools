@@ -82,7 +82,8 @@ class PowerGridCable(
         results = []
         for pdu in self._pdus:
             if (pdu is not pdu_from) and (not pdu._cable_in) and not (pdu.power_source):
-                pdu.connect(log, self, indent+' → ')
+                return pdu.connect(log, self, indent+' → ')
+
         return any(results)
 
 

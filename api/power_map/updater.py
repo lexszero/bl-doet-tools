@@ -106,7 +106,7 @@ def matching_fields(a: Optional[BaseModel], b: Optional[BaseModel]):
     return n
 
 def feature_changed(old, new):
-    return not (equals(old._shape, new._shape) and (old.properties == new.properties))
+    return not ((old._shape == new._shape) and (old.properties == new.properties))
 
 def make_new_id(all_ids: list[str], s: str):
     prefix = re.sub(r'[^a-zA-Z0-9_]', '_', s).strip('_ ')
@@ -149,7 +149,7 @@ class UpdateContext:
         for item in features_new.copy():
             found = find_exact_matching_feature(item, features_known)
             if found:
-                #log.debug(f"Exact match: {item.properties.name} is {found.id}")
+                log.debug(f"Exact match: {item.properties.name} is {found.id}")
                 match_pair(found, item)
 
         for item in features_new.copy():
@@ -203,9 +203,20 @@ class UpdateContext:
                 )
 
     async def update_all(self):
-        await self.update_areas()
-        await self.update_grid()
-        await self.update_placement()
+        try:
+            await self.update_areas()
+        except Exception as e:
+            log.error(e)
+
+        try:
+            await self.update_grid()
+        except Exception as e:
+            log.error(e)
+
+        try:
+            await self.update_placement()
+        except Exception as e:
+            log.error(e)
 
 class Updater:
     _user_name: str

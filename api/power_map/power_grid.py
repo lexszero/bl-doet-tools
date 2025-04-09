@@ -135,7 +135,7 @@ class PowerGrid(PowerArea):
             if n_pdus > 2:
                 mid_points = []
                 for p in cable._pdus:
-                    if not any([p.shape_proj.distance(ep) < NEAR_THRESHOLD_M for ep in cable.end_points_proj]) and p.size == cable.size:
+                    if not any([p.shape_proj.distance(ep) < NEAR_THRESHOLD_M for ep in cable.end_points_proj]) and p.size >= cable.size:
                         mid_points.append(p.shape)
                 segments = cut_line_at_points(cable.shape, mid_points)
                 seg_lengths = []
@@ -143,11 +143,11 @@ class PowerGrid(PowerArea):
                 new_cables = []
                 for idx, segment in enumerate(segments):
                     length = coord_transform(XFRM_GEO_TO_PROJ, segment).length
-                    if length < 1:
+                    if length < NEAR_THRESHOLD_M:
                         continue
                     c = PowerGridCable(
                             type='power_grid_cable',
-                            id=f"{cable.id}_{idx}",
+                            id=f"{cable.id}p{idx}",
                             geometry=segment.__geo_interface__,
                             name=f"{cable.name} #{idx}",
                             description=cable.description,
@@ -155,18 +155,18 @@ class PowerGrid(PowerArea):
                             power_native=cable.native
                             )
                     eps = c.end_points_proj
-                    np = 0
                     for p in cable._pdus:
                         if any([p.shape_proj.distance(e) < NEAR_THRESHOLD_M for e in eps]):
                             c._pdus.append(p)
-                            np += 1
                     if len(c._pdus) != 2:
                         ok = False
                     new_cables.append(c)
                     seg_lengths.append(int(length))
                     idx += 1
+                if len(cable._pdus) != len(new_cables)+1:
+                    self._log.error(cable.id, f"When splitting cable, got {len(new_cables)} segments between {len(cable._pdus)} PDUs")
                 if ok:
-                    self._log.warning(cable.id, f"Cable has {n_pdus} PDUs, split it into parts of {seg_lengths} meters (total length {cable.length_m}m)")
+                    self._log.info(cable.id, f"Cable has {n_pdus} PDUs, split it into parts of {seg_lengths} meters (total length {cable.length_m}m)")
                     for c in new_cables:
                         c.print_info()
                     cables_split += new_cables
@@ -174,10 +174,10 @@ class PowerGrid(PowerArea):
                     self._log.error(cable.id, f"Failed to split cable with {n_pdus} PDUs correctly")
                     cables_split.append(cable)
             else:
-                if n_pdus == 2:
-                    cables_split.append(cable)
-                else:
+                if n_pdus != 2:
                     self._log.error(cable.id, f"Cable doesn't have at least 2 PDUs assigned")
+                cables_split.append(cable)
+
 
         cables = cables_split
 
