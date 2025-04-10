@@ -13,7 +13,9 @@ import {
 } from "$lib/api";
 
 import {
-  isSamePoint
+  isSamePoint,
+  coordsToLatLng,
+  distance
 } from "$lib/utils";
 
 import {
@@ -63,12 +65,12 @@ function logLayerEvent(e) {
 
 function isCableStart(cable: GridCableFeature, point: L.LatLng): boolean {
   const p = cable.geometry.coordinates[0];
-  return isSamePoint(L.GeoJSON.coordsToLatLng(p), point);
+  return isSamePoint(coordsToLatLng(p), point);
 }
 
 function isCableEnd(cable: GridCableFeature, point: L.LatLng): boolean {
   const p = cable.geometry.coordinates[cable.geometry.coordinates.length - 1];
-  return isSamePoint(L.GeoJSON.coordsToLatLng(p), point);
+  return isSamePoint(coordsToLatLng(p), point);
 }
 
 function isCableStartOrEnd(cable: GridCableFeature, point: L.LatLng): boolean {
@@ -222,9 +224,32 @@ export class PowerGridLayer extends InteractiveLayer<
       if (!featureOther)
         return;
       console.log(`Snap ${feature.properties.type} ${feature.id} to ${featureOther.properties.type} ${featureOther.id}`);
-      if ((feature.properties.type == 'power_grid_cable') && (featureOther.properties.type == 'power_grid_pdu')) {
-        this.data.connectCableToPDU(feature as GridCableFeature, featureOther as GridPDUFeature);
-        this.onDataChanged?.();
+      if (feature.properties.type == 'power_grid_cable') {
+        if (featureOther.properties.type == 'power_grid_pdu') {
+          this.data.connectCableToPDU(feature as GridCableFeature, featureOther as GridPDUFeature);
+          this.onDataChanged?.();
+        } else {
+          const cable = feature as GridCableFeature;
+          const eps = [
+            coordsToLatLng(cable.geometry.coordinates[0]),
+            coordsToLatLng(cable.geometry.coordinates[cableOther.geometry.coordinates.length-1])
+          ];
+          const cableOther = featureOther as GridCableFeature;
+          const pdus = [
+            this.data.getPDU(cableOther.properties.pdu_from),
+            this.data.getPDU(cableOther.properties.pdu_to)
+          ];
+          for (const pdu of pdus) {
+            if (!pdu)
+              continue;
+            const p = coordsToLatLng(pdu.geometry.coordinates);
+            if (isSamePoint(eps[0], p) || isSamePoint(eps[1], p)) {
+              this.data.connectCableToPDU(cable, pdu);
+              this.onDataChanged?.();
+              break;
+            }
+          }
+        }
       }
     });
     layer.on("pm:unsnap", (e) => {

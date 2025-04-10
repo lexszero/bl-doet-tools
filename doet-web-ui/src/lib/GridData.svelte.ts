@@ -635,8 +635,7 @@ export class GridData {
       if (!cableP.pdu_to && gridItemSizeLE(cableP.power_size, pduP.power_size) ) {
         if (!pduP.cable_in) {
           console.log(`connect cable ${cable.id} to PDU ${pdu.id} input`);
-          this.connectFromTo(cable, pdu);
-          ok = true;
+          ok = this.connectFromTo(cable, pdu);
         } else {
           console.log(`ERROR: PDU ${pdu.id} is already powered from ${pduP.cable_in}`);
         }
@@ -648,8 +647,7 @@ export class GridData {
       console.log(path);
       if (!cableP.pdu_from && path) {
         console.log(`connect cable ${cable.id} to PDU ${pdu.id} output`);
-        this.connectFromTo(pdu, cable);
-        ok = true;
+        ok = this.connectFromTo(pdu, cable);
       }
     }
 
