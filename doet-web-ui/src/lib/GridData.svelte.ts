@@ -1,6 +1,7 @@
 import { SvelteMap } from 'svelte/reactivity';
 import L from 'leaflet';
 import { parseISO as parseTimestamp } from 'date-fns';
+import { coordsToLatLng, distance, isSamePoint } from '$lib/utils';
 
 import type {
   API,
@@ -100,6 +101,19 @@ export const gridItemSizeData = (size: string) => ({
     },
   }[size] as GridItemSizeData);
 
+function gridItemSizeLE(a: string, b: string) {
+  return gridItemSizes.indexOf(a) >= gridItemSizes.indexOf(b);
+}
+
+function applyToGridFeature<T>(f: GridFeature, pduFn?: ((f: GridPDUFeature) => T), cableFn?: ((f: GridCableFeature) => T)): T | undefined {
+  switch (f.properties.type) {
+    case 'power_grid_pdu':
+      return pduFn?.(f as GridPDUFeature);
+    case 'power_grid_cable':
+      return cableFn?.(f as GridCableFeature);
+  }
+}
+
 interface LossCalculationParams {
   loadAmps?: number;
   loadPercentage?: number;
@@ -115,8 +129,6 @@ export interface LossCalculationResult {
   Ploss: number;
 }
 
-type DistanceFunction = ((a: L.LatLngExpression, b: L.LatLngExpression) => number);
-
 export class GridData {
   api: API;
   features: SvelteMap<string, GridFeature> = $state(new SvelteMap<string, GridFeature>);
@@ -127,7 +139,6 @@ export class GridData {
   timestamp?: Date;
   log?: ItemizedLogEntry[];
 
-  distance: DistanceFunction = L.CRS.Earth.distance;
   lossCalculationParams: LossCalculationParams = { loadPercentage: 50 };
 
   constructor(api: API) {
@@ -205,7 +216,7 @@ export class GridData {
     this.lossCalculationParams = params;
     for (const f of this.features.values()) {
       if (f.properties.type == 'power_grid_pdu') {
-        this.calculatePathLoss(f, params, allFeatures)
+        this.calculatePathLoss(this.getGridPathToSource(f, allFeatures), params)
       }
     }
   }
@@ -223,13 +234,13 @@ export class GridData {
 
   cableLength(feature: GridCableFeature): number {
     if (feature.properties._length) {
-      return feature.properties.length;
+      return feature.properties._length;
     }
     let length = 0;
     for (let i = 0; i < feature.geometry.coordinates.length - 1; i++) {
       const p1 = feature.geometry.coordinates[i];
       const p2 = feature.geometry.coordinates[i+1];
-      const d = L.CRS.Earth.distance(new L.LatLng(p1[1], p1[0]), new L.LatLng(p2[1], p2[0]));
+      const d = distance(coordsToLatLng(p1), coordsToLatLng(p2));
       length += d || 0;
     }
     return length;
@@ -519,6 +530,96 @@ export class GridData {
     this.markChanged(pdu);
   }
 
+  connectFromTo(first?: GridFeature, second?: GridFeature) {
+    switch (second?.properties.type) {
+      case 'power_grid_pdu': {
+        const pdu = second as GridPDUFeature;
+        const cable = first as GridCableFeature | undefined;
+        if (cable) {
+          if (pdu.properties.power_source) {
+            console.log(`PDU ${pdu.id} is already power_source, can't also energize it from elsewhere`);
+            return false;
+          }
+          if (cable.properties.power_size != pdu.properties.power_size) {
+            console.log(`PDU ${pdu.id} can't be powered from cable ${cable.id} of smaller size`);
+            return false;
+          }
+          console.log(`Connect: cable ${cable.id} => PDU ${pdu.id}`)
+          pdu.properties.cable_in = cable.id;
+          cable.properties.pdu_to = pdu.id;
+          this.markChanged(cable);
+          this.markChanged(pdu);
+        } else {
+          if (!pdu.properties.power_source) {
+            console.log(`PDU ${pdu.id} is not power_source, and must be powered from cable`);
+            return false;
+          }
+        }
+
+        const pduPoint = coordsToLatLng(pdu.geometry.coordinates);
+
+        for (const f of this.features.values()) {
+          const cableNext = f as GridCableFeature;
+          if (f.properties.type != 'power_grid_cable' 
+            || (cable && cable.id == cableNext.id)
+            || cableNext.properties.pdu_from)
+            continue;
+
+          const eps = [
+            coordsToLatLng(cableNext.geometry.coordinates[0]),
+            coordsToLatLng(cableNext.geometry.coordinates[cableNext.geometry.coordinates.length-1])
+          ];
+          if (isSamePoint(eps[0], pduPoint) || isSamePoint(eps[1], pduPoint)) {
+            this.connectFromTo(pdu, cableNext)
+            return true;
+          }
+        }
+        break;
+      }
+
+      case 'power_grid_cable': {
+        const cable = second as GridCableFeature;
+        if (cable.properties.pdu_from) {
+          console.log(`Cable ${cable.id} is already powered from PDU ${cable.properties.pdu_from}`);
+          return false;
+        }
+
+        const pdu = first as GridPDUFeature | undefined;
+        if (!pdu) {
+          console.log(`Cable ${cable.id} must be powered from a PDU`);
+          return false;
+        }
+
+        console.log(`Connect: PDU ${pdu.id} => cable ${cable.id}`)
+        cable.properties.pdu_from = pdu.id;
+        pdu.properties.cables_out = [...pdu.properties.cables_out || [], cable.id];
+        this.markChanged(cable);
+        this.markChanged(pdu);
+
+        const eps = [
+          coordsToLatLng(cable.geometry.coordinates[0]),
+          coordsToLatLng(cable.geometry.coordinates[cable.geometry.coordinates.length-1])
+        ];
+        const cableEndPoint = isSamePoint(eps[0], coordsToLatLng(pdu.geometry.coordinates)) ? eps[1] : eps[0];
+
+        for (const f of this.features.values()) {
+          const pduNext = f as GridPDUFeature;
+          if (f.properties.type != 'power_grid_pdu'
+            || pdu.id == pduNext.id 
+            || pduNext.properties.power_source
+            || pduNext.properties.cable_in)
+            continue;
+
+          if (isSamePoint(cableEndPoint, coordsToLatLng(pduNext.geometry.coordinates))) {
+            this.connectFromTo(cable, pduNext)
+            return true;
+          }
+        }
+        break;
+      }
+    }
+  }
+
   connectCableToPDU(cable: GridCableFeature, pdu: GridPDUFeature) {
     const pduP = pdu.properties, cableP = cable.properties;
     let ok = false;
@@ -531,11 +632,10 @@ export class GridData {
     }
 
     if (cableP.pdu_from) {
-      if (!cableP.pdu_to) {
+      if (!cableP.pdu_to && gridItemSizeLE(cableP.power_size, pduP.power_size) ) {
         if (!pduP.cable_in) {
           console.log(`connect cable ${cable.id} to PDU ${pdu.id} input`);
-          cableP.pdu_to = pdu.id;
-          pduP.cable_in = cable.id;
+          this.connectFromTo(cable, pdu);
           ok = true;
         } else {
           console.log(`ERROR: PDU ${pdu.id} is already powered from ${pduP.cable_in}`);
@@ -548,8 +648,7 @@ export class GridData {
       console.log(path);
       if (!cableP.pdu_from && path) {
         console.log(`connect cable ${cable.id} to PDU ${pdu.id} output`);
-        cableP.pdu_from = pdu.id;
-        pduP.cables_out = [...(pduP.cables_out || []), cable.id];
+        this.connectFromTo(pdu, cable);
         ok = true;
       }
     }
