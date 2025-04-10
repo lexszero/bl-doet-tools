@@ -27,11 +27,11 @@ let {
 
 {#snippet header()}
   {@const ButtonIcon = icon}
-  <div class="flex grow h3 justify-between">
+  <div class="flex grow h4 justify-between">
     {#if open}
       <span>{title}</span>
     {/if}
-    <button type="button" class="btn btn-sm preset-outlined-surface-500 {classButton}"
+    <button type="button" class={["btn btn-sm", classButton, "preset-" + (open ? "filled" : "outline") + "-primary-500"]}
       onclick={() => {open = !open}}>
       <ButtonIcon class="w-auto h-auto" />
     </button>
@@ -46,7 +46,7 @@ let {
     {/if}
     
     {#if open}
-      <div class={["flex flex-col overflow-scroll m-2", classBody]}>
+      <div class={["flex grow flex-col overflow-scroll", classBody]}>
       {@render children?.()}
       </div>
     {/if}

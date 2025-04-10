@@ -40,6 +40,8 @@ export type MapFeatureLayer<G extends Geometry, P extends object, F = Feature<G,
 export class InteractiveLayer<G extends Geometry, P extends object, F extends Feature<G, P> = Feature<G, P>> {
   public mapRoot?: L.Map = $state();
   public mapBaseLayer?: MapLayer<G, P> = $state();
+  public visible: boolean = $state(true);
+  public opacity: number = $state(1);
 
   public features: SvelteMap<string, F> = $state(new SvelteMap<string, F>());
   constructor() {

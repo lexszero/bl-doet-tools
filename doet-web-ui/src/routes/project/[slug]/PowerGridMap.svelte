@@ -1,11 +1,17 @@
 <script lang="ts">
   import { browser } from '$app/environment'
-  import { Segment, Switch, Slider, Combobox } from '@skeletonlabs/skeleton-svelte';
+  import { Slider, Combobox } from '@skeletonlabs/skeleton-svelte';
   import {Map, TileLayer, GeoJSON, Control, LayerGroup} from 'sveaflet';
   import L from 'leaflet';
   import 'leaflet/dist/leaflet.css'
   import "@geoman-io/leaflet-geoman-free";
   import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
+
+  import Segment from '$lib/controls/Segment.svelte';
+  import { SegmentItem } from '$lib/controls/Segment.svelte';
+  import LayerDisplayOptions from '$lib/controls/LayerDisplayOptions.svelte';
+
+  import {GridData} from '$lib/GridData.svelte';
 
   import MapInfoBox from './MapInfoBox.svelte';
   import { logLevelToColor, PowerGridLayer } from './PowerGridLayer.svelte';
@@ -13,7 +19,22 @@
   import { PowerAreasLayer } from './PowerAreasLayer.svelte';
   import { type InfoItem } from './InteractiveLayer.svelte';
 
-  import { Info as IconInfo, Waypoints as IconPathInfo, Eye, TriangleAlert } from '@lucide/svelte';
+  import {
+    IconPower,
+    IconRuler,
+    IconPDU,
+    IconCable,
+    IconResistance,
+    IconPlacement,
+  } from './Icons.svelte';
+  import {
+    Info as IconInfo,
+    Waypoints as IconPathInfo,
+    Hash as IconNumber,
+    Layers as IconLayers,
+    TriangleAlert,
+    X as IconOff,
+  } from '@lucide/svelte';
 
   L.PM.setOptIn(true);
 
@@ -107,7 +128,7 @@
 {#snippet featureInfoHeader(container, feature, prefix="")}
   {@const FeatureIcon = container.featureIcon(feature)}
   {@const statusColor = container.featureColorForStatus(feature)}
-  <div class="flex grow h3 justify-start">
+  <div class="flex grow h4 justify-start">
     <span>{prefix}</span>
     <FeatureIcon class="w-auto h-auto stroke-{statusColor}-500"/>
     <span> {feature.properties.name}</span>
@@ -173,7 +194,7 @@
 
       <LayerGroup name='Areas' layerType='overlay' checked={true}>
         {#key areas.geojson}
-          {#if areas?.geojson}
+          {#if areas?.geojson && areas.visible}
             <GeoJSON
               json={areas.geojson}
               bind:instance={areas.mapBaseLayer}
@@ -184,7 +205,7 @@
       </LayerGroup>
       <LayerGroup name='Placement' layerType='overlay' checked={placement?.mode != 'off'}>
         {#key placement.geojson}
-          {#if placement?.geojson && placement?.mode != "off"}
+          {#if placement?.geojson && placement?.visible}
             <GeoJSON
               json={placement.geojson}
               bind:instance={placement.mapBaseLayer}
@@ -196,7 +217,7 @@
 
       <LayerGroup name='Power grid' layerType='overlay' checked={true}>
         {#key grid.geojson}
-          {#if grid?.geojson}
+          {#if grid?.geojson && grid?.visible}
             <GeoJSON
               json={grid.geojson}
               bind:instance={grid.mapBaseLayer}
@@ -230,67 +251,50 @@
       {/key}
     </Control>
 
-    <MapInfoBox title="Display options" position="topright" icon={Eye}
-      classBody="grid">
-      <div class="flex justify-between items-center gap-4 p-1">
-        <p>Show grid coverage</p>
-        <Switch checked={grid.showCoverage} onCheckedChange={(e) => (showGridCoverage = e.checked)} />
-      </div>
-
-      <hr class="hr" />
-      <div class="flex justify-between items-center gap-4 p-1">
-        <p>Grid</p>
-        <Segment value={grid.displayMode} onValueChange={(e) => (grid.displayMode = e.value)}>
-          <Segment.Item value="off">Off</Segment.Item>
-          <Segment.Item value="raw">Raw</Segment.Item>
-          <Segment.Item value="processed">Processed</Segment.Item>
-        </Segment>
-      </div>
-
-      <div class="flex justify-between items-center gap-4 p-1">
-        <p>Grid coloring</p>
-        <Segment value={grid.coloringMode} onValueChange={(e) => (grid.coloringMode = e.value)}>
-          <Segment.Item value="size">Cable size</Segment.Item>
-          <Segment.Item value="loss">Loss</Segment.Item>
-        </Segment>
-      </div>
-
-      {#if grid.coloringMode == 'loss'}
-      {/if}
-
-      <hr class="hr" />
-
-      <div class="flex justify-between items-center gap-4 p-1">
-        <p>Placement</p>
-        <Segment value={placement.mode} onValueChange={(e) => (placement.mode = e.value)}>
-          <Segment.Item value="off">Off</Segment.Item>
-          <Segment.Item value="grid_n_pdus"># PDUs</Segment.Item>
-          <Segment.Item value="grid_distance">Distance to PDU</Segment.Item>
-          <Segment.Item value="grid_loss">Path resistance</Segment.Item>
-          <Segment.Item value="power_need">Consumption</Segment.Item>
-        </Segment>
-      </div>
-
-
-
-      {#if placement?.mode == 'power_need'}
+    <MapInfoBox title="Layers" position="topright" icon={IconLayers}>
+      <LayerDisplayOptions title="Grid" openDrawer={true} openDirection="down" icon={IconPower} bind:visible={grid.visible}>
         <div class="flex justify-between items-center gap-4 p-1">
-          <p>Power thresholds</p>
-          <Slider value={placement.powerNeedThresholds} onValueChangeEnd={(e) => {
-            placement.powerNeedThresholds = e.value as [number, number];
-            }}
-            min={0} max={20000} step={500} />
+          <p>Color by</p>
+          <Segment bind:value={grid.coloringMode}>
+            <SegmentItem value="size" alt="Cable size">Cable size</SegmentItem>
+            <SegmentItem value="loss" alt="Loss to source">Loss</SegmentItem>
+          </Segment>
         </div>
-      {:else if placement.mode == 'grid_n_pdus'}
-         <div class="flex justify-between items-center gap-4 p-1">
-          <p>PDU range, m</p>
-          <Slider value={[placement.pduSearchRadius]} onValueChangeEnd={(e) => {
-            placement.pduSearchRadius = e.value[0];
-            }}
-            min={0} max={300} step={5} />
+      </LayerDisplayOptions>
+
+
+
+      <LayerDisplayOptions title="Placement" openDrawer={true} openDirection="down" icon={IconPlacement}
+        bind:visible={placement.visible}
+      >
+        <div class="flex justify-between items-center gap-4 p-1">
+          <p>Color by</p>
+          <Segment bind:value={placement.mode}>
+            <SegmentItem value="grid_n_pdus" class="flex-row"><IconPDU /><IconNumber /></SegmentItem>
+            <SegmentItem value="grid_distance"><IconPDU /><IconRuler /></SegmentItem>
+            <SegmentItem value="grid_loss"><IconCable /><IconResistance /></SegmentItem>
+            <SegmentItem value="power_need"><IconPower /></SegmentItem>
+          </Segment>
         </div>
 
-      {/if}
+        {#if placement?.mode == 'power_need'}
+          <div class="flex justify-between items-center gap-4 p-1">
+            <p>Power thresholds</p>
+            <Slider value={placement.powerNeedThresholds} onValueChangeEnd={(e) => {
+              placement.powerNeedThresholds = e.value as [number, number];
+              }}
+              min={0} max={20000} step={500} />
+          </div>
+        {:else if placement.mode == 'grid_n_pdus'}
+           <div class="flex justify-between items-center gap-4 p-1">
+            <p>PDU range, m</p>
+            <Slider value={[placement.pduSearchRadius]} onValueChangeEnd={(e) => {
+              placement.pduSearchRadius = e.value[0];
+              }}
+              min={0} max={300} step={5} />
+          </div>
+        {/if}
+      </LayerDisplayOptions>
     </MapInfoBox>
 
     <MapInfoBox title="Warnings" position="topright" icon={TriangleAlert} classBody="max-h-[500px]">
