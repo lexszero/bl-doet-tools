@@ -194,8 +194,9 @@ export class PowerGridLayer extends InteractiveLayer<
   allFeatures() {
     return this.features;
   }
-  selectFeature(id: string, ...rest) {
-    super.selectFeature(id, ...rest);
+  selectFeature(id: string, fly: boolean = true) {
+    console.log(`Select grid feature ${id}, editInProgress=${this.editInProgress}`);
+    super.selectFeature(id, fly);
     const layer = this.mapLayers?.get(id);
     this.resetHighlightedFeature(layer)
     this.resetHighlightedPath();
@@ -416,7 +417,8 @@ export class PowerGridLayer extends InteractiveLayer<
       color: style.color,
       weight: 1,
       opacity: 1,
-      fillOpacity: 0.8
+      fillOpacity: 0.8,
+      pmIgnore: false,
     });
   }
 

@@ -129,7 +129,6 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
   pointToLayer(feature: F, latlng: L.LatLng) {}
 
   updateStyle() {
-    console.log("update style");
     this.mapBaseLayer?.setStyle(this.style);
   }
 
@@ -143,7 +142,7 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
 
   flyToOptions: L.FitBoundsOptions = { maxZoom: 17 };
 
-  selectFeature(item: string | MapFeatureLayer<G, P, F>, fly: boolean = true) {
+  selectFeature(item: string | MapFeatureLayer<G, P, F>, fly: boolean = false) {
     this.resetSelectedFeature();
     const layer = (typeof item === 'string') ? this.mapLayers?.get(item) : item;
     if (!layer)

@@ -15,7 +15,7 @@
 
   import { Info as IconInfo, Waypoints as IconPathInfo, Eye, TriangleAlert } from '@lucide/svelte';
 
-  L.PM.setOptIn(false);
+  L.PM.setOptIn(true);
 
   let {
     api,
@@ -23,7 +23,7 @@
     timeEnd,
   } = $props();
 
-  let mapRoot: L.Map = $state();
+  let mapRoot: L.Map | undefined = $state();
 
   $effect(() => {
     if (!mapRoot)
@@ -78,7 +78,8 @@
     center: [57.62377, 14.92715],
     zoom: 15,
     zoomControl: false,
-    attributionControl: false
+    attributionControl: false,
+    pmIgnore: false,
   };
 
   const layerBasemapTileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
@@ -91,14 +92,14 @@
 
   let searchValue = $state();
 
-  function selectFeature(id?: string) {
+  function selectFeature(id?: string, fly: boolean = false) {
     if (!id)
       return;
     if (grid.features.has(id)) {
-      grid.selectFeature(id);
+      grid.selectFeature(id, fly);
     }
     else if (placement.features.has(id)) {
-      placement.selectFeature(id);
+      placement.selectFeature(id, fly);
     }
   }
 </script>
@@ -124,13 +125,10 @@
           <td>{#if Icon}<Icon />{/if}</td>
           <td>{it.label}</td>
           <td>
-            {#if it.selectId}
-              <button type="button" class="btn btn-sm preset-outlined-surface-500"
-                onclick={() => selectFeature(it.selectId)}>{it.value}</button>
-            {:else if it.chips}
+            {#if it.chips}
               {#each it.chips as chip}
                 <button type="button" class="chip preset-outlined-surface-500"
-                  onclick={() => {if (chip.id) selectFeature(chip.id); }}>
+                  onclick={() => {if (chip.id) selectFeature(chip.id, true); }}>
                   {chip.label}
                 </button>
               {/each}
@@ -157,7 +155,7 @@
         <td>
           {#if feature}
             <button type="button" class="btn btn-sm preset-outlined-surface-500"
-              onclick={() => selectFeature(feature.id)}>{feature.properties.name}</button>
+              onclick={() => selectFeature(feature.id, true)}>{feature.properties.name}</button>
           {:else}
             {r.item_id}
           {/if}
@@ -213,7 +211,7 @@
       <Combobox
         data={searchItems}
         value={searchValue}
-        onValueChange={(e) => selectFeature(e.value[0])}
+        onValueChange={(e) => selectFeature(e.value[0], true)}
         placeholder="Search..."
         width="w-100"
       >

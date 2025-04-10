@@ -543,12 +543,13 @@ export class GridData {
       } else {
         console.log(`ERROR: cable ${cable.id} already connects from ${cableP.pdu_from} to ${cableP.pdu_to}`);
       }
-    }
-    if (cableP.pdu_to) {
-      if (!cableP.pdu_from) {
+    } else {
+      const path = this.getGridPathToSource(pdu);
+      console.log(path);
+      if (!cableP.pdu_from && path) {
         console.log(`connect cable ${cable.id} to PDU ${pdu.id} output`);
         cableP.pdu_from = pdu.id;
-        pduP.cables_out = [...pduP.cables_out || [], cable.id];
+        pduP.cables_out = [...(pduP.cables_out || []), cable.id];
         ok = true;
       }
     }
