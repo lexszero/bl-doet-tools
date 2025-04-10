@@ -90,7 +90,7 @@ export class PlacementLayer extends InteractiveLayer<
           if (near.length) {
             const [pdu, d] = near[0];
             const path = [
-              ...this._grid.data.getGridPathToSource(pdu),
+              ...this._grid.data.getGridPathToSource(pdu) || [],
               { properties: {
                 power_size: '1f',
                 length_m: d
