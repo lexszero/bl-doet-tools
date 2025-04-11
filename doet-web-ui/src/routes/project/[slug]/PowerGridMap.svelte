@@ -26,6 +26,7 @@
     IconCable,
     IconResistance,
     IconPlacement,
+    IconSound,
   } from './Icons.svelte';
   import {
     Info as IconInfo,
@@ -192,7 +193,7 @@
   <Map options={mapOptions} bind:instance={mapRoot}>
     <TileLayer url={layerBasemapTileUrl} options={layerBasemapOptions}/>
 
-      <LayerGroup name='Areas' layerType='overlay' checked={true}>
+      <LayerGroup name='Areas' layerType='overlay'>
         {#key areas.geojson}
           {#if areas?.geojson && areas.visible}
             <GeoJSON
@@ -203,7 +204,7 @@
           {/if}
         {/key}
       </LayerGroup>
-      <LayerGroup name='Placement' layerType='overlay' checked={placement?.mode != 'off'}>
+      <LayerGroup name='Placement' layerType='overlay'>
         {#key placement.geojson}
           {#if placement?.geojson && placement?.visible}
             <GeoJSON
@@ -251,49 +252,50 @@
       {/key}
     </Control>
 
-    <MapInfoBox title="Layers" position="topright" icon={IconLayers}>
-      <LayerDisplayOptions title="Grid" openDrawer={true} openDirection="down" icon={IconPower} bind:visible={grid.visible}>
-        <div class="flex justify-between items-center gap-4 p-1">
-          <p>Color by</p>
-          <Segment bind:value={grid.coloringMode}>
-            <SegmentItem value="size" alt="Cable size">Cable size</SegmentItem>
-            <SegmentItem value="loss" alt="Loss to source">Loss</SegmentItem>
-          </Segment>
-        </div>
-      </LayerDisplayOptions>
-
-
+    <MapInfoBox title="Layers" position="topright" icon={IconLayers} classBody="max-h-[400px]">
+      <LayerDisplayOptions title="Power areas" icon={IconPower} bind:visible={areas.visible} />
 
       <LayerDisplayOptions title="Placement" openDrawer={true} openDirection="down" icon={IconPlacement}
         bind:visible={placement.visible}
       >
         <div class="flex justify-between items-center gap-4 p-1">
           <p>Color by</p>
-          <Segment bind:value={placement.mode}>
-            <SegmentItem value="grid_n_pdus" class="flex-row"><IconPDU /><IconNumber /></SegmentItem>
+          <Segment bind:value={placement.displayOptions.mode}>
+            <SegmentItem value="grid_n_pdus"><IconPDU /><IconNumber /></SegmentItem>
             <SegmentItem value="grid_distance"><IconPDU /><IconRuler /></SegmentItem>
             <SegmentItem value="grid_loss"><IconCable /><IconResistance /></SegmentItem>
             <SegmentItem value="power_need"><IconPower /></SegmentItem>
+            <SegmentItem value="sound"><IconSound /></SegmentItem>
           </Segment>
         </div>
 
-        {#if placement?.mode == 'power_need'}
+        {#if placement?.displayOptions.mode == 'power_need'}
           <div class="flex justify-between items-center gap-4 p-1">
             <p>Power thresholds</p>
-            <Slider value={placement.powerNeedThresholds} onValueChangeEnd={(e) => {
-              placement.powerNeedThresholds = e.value as [number, number];
+            <Slider value={placement.displayOptions.powerNeedThresholds} onValueChangeEnd={(e) => {
+              placement.displayOptions.powerNeedThresholds = e.value as [number, number];
               }}
               min={0} max={20000} step={500} />
           </div>
-        {:else if placement.mode == 'grid_n_pdus'}
+        {:else if placement.displayOptions == 'grid_n_pdus'}
            <div class="flex justify-between items-center gap-4 p-1">
             <p>PDU range, m</p>
-            <Slider value={[placement.pduSearchRadius]} onValueChangeEnd={(e) => {
-              placement.pduSearchRadius = e.value[0];
+            <Slider value={[placement.displayOptions.pduSearchRadius]} onValueChangeEnd={(e) => {
+              placement.displayOptions.pduSearchRadius = e.value[0];
               }}
               min={0} max={300} step={5} />
           </div>
         {/if}
+      </LayerDisplayOptions>
+      
+      <LayerDisplayOptions title="Power grid" openDrawer={true} openDirection="down" icon={IconPower} bind:visible={grid.visible}>
+        <div class="flex justify-between items-center gap-4 p-1">
+          <p>Color by</p>
+          <Segment bind:value={grid.coloringMode}>
+            <SegmentItem value="size">Cable size</SegmentItem>
+            <SegmentItem value="loss">Loss</SegmentItem>
+          </Segment>
+        </div>
       </LayerDisplayOptions>
     </MapInfoBox>
 

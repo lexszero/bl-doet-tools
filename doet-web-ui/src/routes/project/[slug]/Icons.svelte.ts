@@ -9,6 +9,7 @@ export {
   LandPlot as IconPlacement,
   Tent as IconPlacementEntity,
   Plug as IconPlug,
+  Volume2 as IconSound,
 } from '@lucide/svelte';
 
 

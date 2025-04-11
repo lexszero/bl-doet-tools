@@ -4,15 +4,14 @@ import L from "leaflet";
 
 import type {PlacementFeature, PlacementEntityProperties, GridCableFeature, GridPDUFeature} from '$lib/api';
 import colormap from '$lib/colormap';
-import { distance } from '$lib/utils';
+import { distance, coordsToLatLng, coordsToLatLngs } from '$lib/utils';
 
 import { featureChip, InteractiveLayer, type InfoItem } from './InteractiveLayer.svelte';
 import { PowerGridLayer } from './PowerGridLayer.svelte';
-import { IconPlacementEntity, IconPDU, IconRuler, IconPower } from './Icons.svelte';
+import { IconPlacementEntity, IconPDU, IconPower, IconSound } from './Icons.svelte';
 import {
   BadgeInfo as IconDescription,
   Contact as IconContact,
-  Volume2 as IconSound,
   PersonStanding as IconPeople,
   Bus as IconVehicle
 } from '@lucide/svelte';
@@ -50,17 +49,23 @@ export class PlacementLayer extends InteractiveLayer<
     ));
   }
 
-  mode: 'power_need' | 'grid_n_pdus' | 'grid_distance' | 'grid_loss' = $state('power_need');
-  powerNeedThresholds: [number, number] = $state([2000, 10000]);
-  pduSearchRadius: number = $state(50);
+  displayOptions: {
+    mode: 'power_need' | 'grid_n_pdus' | 'grid_distance' | 'grid_loss' | 'sound',
+    powerNeedThresholds: [number, number],
+    pduSearchRadius: number,
+  } = $state({
+    mode: 'power_need',
+    powerNeedThresholds: [2000, 10000],
+    pduSearchRadius: 50
+  });
 
   style = (f: PlacementFeature): L.PathOptions => {
     let color = '#303030';
     const power = f.properties.powerNeed;
     if (power) {
-      switch (this.mode) {
+      switch (this.displayOptions.mode) {
         case 'power_need': {
-          const [lowPower, highPower] = this.powerNeedThresholds;
+          const [lowPower, highPower] = this.displayOptions.powerNeedThresholds;
           color = (
             (power < lowPower)
             ? colormap('winter', power, 0, lowPower*1.25, true)
@@ -78,7 +83,7 @@ export class PlacementLayer extends InteractiveLayer<
           const near = this.getNearPDUs(f);
           if (near.length) {
             const [pdu, d] = near[0];
-            color = colormap('plasma', d, 5, this.pduSearchRadius, false);
+            color = colormap('plasma', d, 5, this.displayOptions.pduSearchRadius, false);
           } else {
             color = '#ff0000';
           }
@@ -101,6 +106,14 @@ export class PlacementLayer extends InteractiveLayer<
           } else {
             color = '#ff0000'
           }
+          break;
+        }
+
+        case 'sound': {
+          if (f.properties.amplifiedSound) {
+            color = colormap('plasma', f.properties.amplifiedSound, 0, 5000);
+          }
+          break;
         }
       }
     }
@@ -189,14 +202,14 @@ export class PlacementLayer extends InteractiveLayer<
 
   findNearPDUs(feature: PlacementFeature): [GridPDUFeature, number][] {
     let pdusInRange = [];
-    const itemCenter = L.PolyUtil.centroid(L.GeoJSON.coordsToLatLngs(feature.geometry.coordinates[0]));
+    const itemCenter = L.PolyUtil.centroid(coordsToLatLngs(feature.geometry.coordinates[0]));
     for (const item of this._grid.features.values()) {
       if (item.properties.type != 'power_grid_pdu') {
         continue;
       }
       const pdu = item as GridPDUFeature;
-      const d = distance(itemCenter, L.GeoJSON.coordsToLatLng(pdu.geometry.coordinates)) || Infinity;
-      if (d < this.pduSearchRadius) {
+      const d = distance(itemCenter, coordsToLatLng(pdu.geometry.coordinates)) || Infinity;
+      if (d < this.displayOptions.pduSearchRadius) {
         pdusInRange.push([pdu, d] as [GridPDUFeature, number]);
       }
     }

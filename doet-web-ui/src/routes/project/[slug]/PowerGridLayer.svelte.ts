@@ -230,11 +230,11 @@ export class PowerGridLayer extends InteractiveLayer<
           this.onDataChanged?.();
         } else {
           const cable = feature as GridCableFeature;
+          const cableOther = featureOther as GridCableFeature;
           const eps = [
             coordsToLatLng(cable.geometry.coordinates[0]),
-            coordsToLatLng(cable.geometry.coordinates[cableOther.geometry.coordinates.length-1])
+            coordsToLatLng(cable.geometry.coordinates[cable.geometry.coordinates.length-1])
           ];
-          const cableOther = featureOther as GridCableFeature;
           const pdus = [
             this.data.getPDU(cableOther.properties.pdu_from),
             this.data.getPDU(cableOther.properties.pdu_to)

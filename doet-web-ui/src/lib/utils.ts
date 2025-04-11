@@ -14,3 +14,7 @@ export function isSamePoint(a: L.LatLng, b: L.LatLng): boolean {
 export function coordsToLatLng(p: Position) {
   return L.GeoJSON.coordsToLatLng(p as [number, number]);
 }
+
+export function coordsToLatLngs(p: Position[]) {
+  return L.GeoJSON.coordsToLatLngs(p as [number, number][]);
+}

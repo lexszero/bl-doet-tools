@@ -26,11 +26,13 @@ let {
       <span>{title}</span>
     </div>
     <div class="flex flex-row gap-2 m-1">
+      {#if children}
+        <button type="button" class={["chip-icon", "preset-" + (openDrawer ? "filled" : "outline") + "-primary-500"]}
+          onclick={() => {openDrawer = !openDrawer}}>
+          <ListCollapseIcon class="w-auto h-auto" />
+        </button>
+      {/if}
       <Switch checked={visible} onCheckedChange={(e) => {visible = e.checked}} />
-      <button type="button" class={["chip-icon", "preset-" + (openDrawer ? "filled" : "outline") + "-primary-500"]}
-        onclick={() => {openDrawer = !openDrawer}}>
-        <ListCollapseIcon class="w-auto h-auto" />
-      </button>
     </div>
   </div>
   {#if !openDrawer}<hr class="hr" />{/if}
