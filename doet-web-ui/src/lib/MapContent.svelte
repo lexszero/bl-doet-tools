@@ -79,20 +79,14 @@ export interface MapContentInterface {
       await reload();
   });
 
-  let mouseInDetails: boolean = $state(false);
-  let details: { ctl: LayerController<any, any>, layer: MapFeatureLayer<any, any> } | unknown = $state();
-  $effect(() => {
-    if (mouseInDetails)
-      return;
-    details = (
-      (layerPowerGrid.layerHighlighted) ? {ctl: layerPowerGrid, layer: layerPowerGrid.layerHighlighted}
-      : (layerPlacement.layerSelected) ? {ctl: layerPlacement, layer: layerPlacement.layerSelected}
-        : (layerPowerAreas.layerSelected) ? {ctl: layerPowerAreas, layer: layerPowerAreas.layerSelected}
-          : (layerPlacement.layerHighlighted) ? {ctl: layerPlacement, layer: layerPlacement.layerHighlighted}
-            : (layerPowerAreas.layerHighlighted) ? {ctl: layerPowerAreas, layer: layerPowerAreas.layerHighlighted}
-              : undefined
-              );
-  });
+  let details: { ctl: LayerController<any, any>, layer: MapFeatureLayer<any, any> } | unknown = $derived(
+    (layerPowerGrid.layerHighlighted) ? {ctl: layerPowerGrid, layer: layerPowerGrid.layerHighlighted}
+    : (layerPlacement.layerSelected) ? {ctl: layerPlacement, layer: layerPlacement.layerSelected}
+      : (layerPowerAreas.layerSelected) ? {ctl: layerPowerAreas, layer: layerPowerAreas.layerSelected}
+        : (layerPlacement.layerHighlighted) ? {ctl: layerPlacement, layer: layerPlacement.layerHighlighted}
+          : (layerPowerAreas.layerHighlighted) ? {ctl: layerPowerAreas, layer: layerPowerAreas.layerHighlighted}
+            : undefined
+  );
 
   function getFeature(id?: string) {
     if (!id)
@@ -152,23 +146,12 @@ export interface MapContentInterface {
   <span class="text-xs text-surface-500 justify-end">id: {feature.id}</span>
 {/snippet}
 
-{#snippet propertiesTable(items: InfoItem[])}
-  <PropertiesTable items={items}
-    onClickChip={selectFeature}
-    onHoverChip={highlightFeature}
-    onUnhoverChip={resetHighlight}
-    />
-{/snippet}
-
-<Control options={{position: 'bottomleft'}} class="map-info-box max-w-[500px] m-2"
-  onmouseenter={() => {mouseInDetails = true;}}
-  onmouseleave={() => {mouseInDetails = false;}}
->
+<Control options={{position: 'bottomleft'}} class="map-info-box max-w-[500px] m-2">
   {#if details}
     {@const feature = details.layer.feature}
     {@render featureInfoHeader(details.ctl, feature)}
     <div class="flex justify-start justify-items-start">
-      {@render propertiesTable(details.ctl.featureProperties(feature))}
+      <PropertiesTable items={details.ctl.featureProperties(feature)} onClickChip={selectFeature} />
     </div>
     {#if feature.properties._drc}
     <div class="flex">
@@ -185,10 +168,14 @@ export interface MapContentInterface {
     {@const ctl = layerPowerGrid}
     {@const feature = ctl.layerSelected?.feature}
     {@render featureInfoHeader(ctl, feature, "⚡")}
-    {@render propertiesTable(ctl.featureProperties(feature))}
+    <PropertiesTable items={ctl.featureProperties(feature)}
+      onClickChip={selectFeature}
+      onHoverChip={highlightFeature}
+      onUnhoverChip={resetHighlight}
+      />
     <hr class="hr" />
     <div class="h5">Metrics</div>
-    {@render propertiesTable(ctl.getHighlightedPathInfo())}
+    <PropertiesTable items={ctl.getHighlightedPathInfo()} />
   {/if}
 </MapInfoBox>
 

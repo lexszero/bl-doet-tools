@@ -5,11 +5,6 @@ import type {PowerAreaFeature, PowerAreaProperties} from '$lib/api';
 import type {PowerGridData} from '$lib/layers/PowerGrid/data.svelte';
 import { LayerController, type BasicLayerDisplayOptions } from '$lib/layers/LayerController.svelte';
 
-export const defaultPowerAreasDisplayOptions: BasicLayerDisplayOptions = {
-  visible: true,
-  opacity: 0.3,
-};
-
 export class PowerAreasController extends LayerController<
   Polygon,
   PowerAreaProperties
@@ -20,7 +15,10 @@ export class PowerAreasController extends LayerController<
   data: PowerGridData;
 
   constructor (mapRoot: L.Map) {
-    super('PowerAreas', mapRoot);
+    super('PowerAreas', mapRoot, {
+      visible: true,
+      opacity: 0.3,
+    });
     this.data = getContext('PowerGridData');
   }
 

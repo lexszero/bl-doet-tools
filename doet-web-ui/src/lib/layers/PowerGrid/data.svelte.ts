@@ -126,7 +126,7 @@ export class PowerGridData {
   api: API;
   features: SvelteMap<string, GridFeature> = $state(new SvelteMap<string, GridFeature>);
 
-  featuresLoaded: Map<string, GridFeature>;
+  featuresLoaded: Map<string, GridFeature> = new Map();
   featuresChanged: Map<string, GridFeature | null>;
 
   timestamp?: Date;
@@ -268,7 +268,7 @@ export class PowerGridData {
   }
 
   calculatePathLoss(
-    path: Iterable<GridFeature> | undefined,
+    path: Array<GridFeature> | undefined,
     params: LossCalculationParams = this.lossCalculationParams
   ): LossCalculationResult {
     let Length = 0;
@@ -278,7 +278,7 @@ export class PowerGridData {
     let pathVdrop = 0;
     let pathPloss = 0;
 
-    if (!path) {
+    if (!path || path.length < 1) {
       return {
         Phases: 3,
         L: Infinity,

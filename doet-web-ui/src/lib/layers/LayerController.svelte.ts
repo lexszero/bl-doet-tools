@@ -76,9 +76,9 @@ export class LayerController<
   */
   geojson: FeatureCollection<G, P> = $derived({type: 'FeatureCollection', features: [...this.features.values()]});
 
-  featureLabel = (f: F) => (f.id as string).replaceAll('_', ' ').trim();
+  featureLabel: ((f: F) => string) = (f: F) => (f.id as string).replaceAll('_', ' ').trim();
   featureIcon: ((f: F) => IconType) = () => IconFeatureDefault;
-  featureColorForStatus = (f: F) => "surface";
+  featureColorForStatus: ((f: F) => string) = () => "surface";
 
   featureProperties = (f: F) => {
     const exclude = ['name', 'type'];
@@ -124,7 +124,7 @@ export class LayerController<
     }
   }
 
-  onEachFeature(feature: F, layer: MapFeatureLayer<G, P, F>) {
+  onEachFeature(featur: F, layer: MapFeatureLayer<G, P, F>) {
     //layer.setZIndex(400+this.layerZIndex);
     layer.on({
       click: (e) => this.selectFeature(e.target),
