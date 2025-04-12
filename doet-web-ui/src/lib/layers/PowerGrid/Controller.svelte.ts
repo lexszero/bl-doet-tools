@@ -1,29 +1,29 @@
+import { getContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
-import colormap from '$lib/colormap';
+import colormap from '$lib/utils/colormap';
 import * as geojson from "geojson";
 import L from 'leaflet';
 
 import {
-  API,
-  type Feature,
   type GridCableFeature,
   type GridFeature,
   type GridFeatureProperties,
   type GridPDUFeature,
 } from "$lib/api";
 
+import type { ChipItem, InfoItem } from '$lib/utils/types';
 import {
   isSamePoint,
   coordsToLatLng,
-  distance
-} from "$lib/utils";
+  coordsToLatLngs,
+} from "$lib/utils/geo";
 
 import {
-  GridData,
+  PowerGridData,
   Vref_LN,
   gridItemSizeData,
   gridItemSizes,
-} from '$lib/GridData.svelte';
+} from './data.svelte';
 
 import {
   IconFeatureDefault,
@@ -33,20 +33,19 @@ import {
   IconPower,
   IconResistance,
   IconPlug
-} from "./Icons.svelte";
+} from "$lib/Icons";
 
 import {
   featureChip, 
-  InteractiveLayer,
-  type ChipItem,
-  type InfoItem,
+  LayerController,
   type MapFeatureLayer,
-} from './InteractiveLayer.svelte';
+} from '$lib/layers/LayerController.svelte';
+
+import { type PowerGridDisplayOptions } from './types';
 
 
-type GridMapFeatureLayer = L.FeatureGroup<GridFeatureProperties> & {
-  feature: Feature<geojson.Point | geojson.LineString, GridFeatureProperties>;
-}
+
+type GridMapFeatureLayer = MapFeatureLayer<geojson.Point | geojson.LineString, GridFeatureProperties>;
 
 export const logLevelToColor = (level: number) => (
   (level >= 40) ? 'error'
@@ -77,19 +76,24 @@ function isCableStartOrEnd(cable: GridCableFeature, point: L.LatLng): boolean {
   return isCableStart(cable, point) || isCableEnd(cable, point);
 }
 
-export class PowerGridLayer extends InteractiveLayer<
+
+
+export class PowerGridController extends LayerController<
   geojson.Point | geojson.LineString,
   GridFeatureProperties
 > {
-  data: GridData;
+  layerName = 'PowerGrid';
+  layerZIndex = 3;
+
+  data: PowerGridData;
   onDataChanged?: (() => undefined);
 
   editEnabled: boolean = $state(true);
   editInProgress: boolean = $state(false);
 
-  constructor (api: API) {
-    super();
-    this.data = new GridData(api);
+  constructor (mapRoot: L.Map) {
+    super(mapRoot);
+    this.data = getContext('PowerGridData');
     $effect(() => {
       if (!this.mapRoot?.pm) {
         return;
@@ -99,7 +103,7 @@ export class PowerGridLayer extends InteractiveLayer<
       map.pm.disableGlobalDragMode();
       if (this.editEnabled) {
         map.pm.addControls({
-          position: 'topleft',
+          position: 'topright',
           drawMarker: false,
           drawCircleMarker: false,
           drawPolyline: false,
@@ -180,13 +184,26 @@ export class PowerGridLayer extends InteractiveLayer<
     });
   }
 
-  _getLayers = () => this.mapBaseLayer?.pm.getLayers();
+  notifyDataChanged() {
+    if (this.layerHighlighted) {
+      this.highlightFeature(this.layerHighlighted);
+    }
+    if (this.layerSelected) {
+      this.selectFeature(this.layerSelected);
+    }
+    this.onDataChanged?.();
+  }
+
   features = $derived(this.data?.features || new SvelteMap<string, GridFeature>());
 
-  displayMode: string = $state('processed');
-  coloringMode: 'size' | 'loss' = $state('size');
-  coloringLossAtLoadLevel: number = $state(50);
-  showCoverage: boolean = $state(false);
+  displayOptions: PowerGridDisplayOptions = $state({
+    visible: true,
+    opacity: 0.8,
+    coloringMode: 'size',
+    coloringLossAtLoadLevel: 50,
+    showCoverage: false
+  });
+
 
   mapLayerOptions = () => ({
     ...super.mapLayerOptions(),
@@ -196,10 +213,9 @@ export class PowerGridLayer extends InteractiveLayer<
   allFeatures() {
     return this.features;
   }
-  selectFeature(id: string, fly: boolean = true) {
-    console.log(`Select grid feature ${id}, editInProgress=${this.editInProgress}`);
-    super.selectFeature(id, fly);
-    const layer = this.mapLayers?.get(id);
+  selectFeature(item: string | GridMapFeatureLayer, fly: boolean = false) {
+    const layer = super.selectFeature(item, fly);
+    console.log(`Select grid feature ${layer.feature.id}, editInProgress=${this.editInProgress}`);
     this.resetHighlightedFeature(layer)
     this.resetHighlightedPath();
     if (layer) {
@@ -227,7 +243,7 @@ export class PowerGridLayer extends InteractiveLayer<
       if (feature.properties.type == 'power_grid_cable') {
         if (featureOther.properties.type == 'power_grid_pdu') {
           this.data.connectCableToPDU(feature as GridCableFeature, featureOther as GridPDUFeature);
-          this.onDataChanged?.();
+          this.notifyDataChanged();
         } else {
           const cable = feature as GridCableFeature;
           const cableOther = featureOther as GridCableFeature;
@@ -245,7 +261,7 @@ export class PowerGridLayer extends InteractiveLayer<
             const p = coordsToLatLng(pdu.geometry.coordinates);
             if (isSamePoint(eps[0], p) || isSamePoint(eps[1], p)) {
               this.data.connectCableToPDU(cable, pdu);
-              this.onDataChanged?.();
+              this.notifyDataChanged();
               break;
             }
           }
@@ -284,7 +300,7 @@ export class PowerGridLayer extends InteractiveLayer<
           console.log(`Changed cables: ${changedCables.map((c) => c.id)}`);
           for (const cable of changedCables) {
             const l = this.mapLayers?.get(cable.id);
-            l.setLatLngs(L.GeoJSON.coordsToLatLngs(cable.geometry.coordinates));
+            l.setLatLngs(coordsToLatLngs(cable.geometry.coordinates));
             l.redraw();
           }
         });
@@ -312,7 +328,7 @@ export class PowerGridLayer extends InteractiveLayer<
   styleByLoss = (feature: GridFeature) => {
     const r = this.data?.calculatePathLoss(
       this.data.getGridPathToSource(feature),
-      { loadPercentage: this.coloringLossAtLoadLevel })
+      { loadPercentage: this.displayOptions.coloringLossAtLoadLevel })
     const color = r ? colormap('plasma', r.VdropPercent, 0, 10, false) : '#808080';
     return {...gridItemSizeData(feature.properties.power_size)?.style, color, fillColor: color}
   };
@@ -327,12 +343,12 @@ export class PowerGridLayer extends InteractiveLayer<
     else if (this.isFeatureOnHighlightedGridPath(feature)) {
       return this.styleGridPath(feature);
     }
-    switch (this.coloringMode) {
+    switch (this.displayOptions.coloringMode) {
       case 'size':
-        return {...styleDefault, ...gridItemSizeData(feature.properties.power_size)?.style};
+        return {...styleDefault, opacity: this.displayOptions.opacity, ...gridItemSizeData(feature.properties.power_size)?.style};
 
       case 'loss':
-        return {...styleDefault, ...this.styleByLoss(feature)};
+        return {...styleDefault, opacity: this.displayOptions.opacity, ...this.styleByLoss(feature)};
     }
   };
 
@@ -584,10 +600,10 @@ export class PowerGridLayer extends InteractiveLayer<
         const loss = this.data.getLossToSource(f);
         //console.log(`PDU ${f.id} loss `, loss);
         if (loss) {
-          if (loss.L > maxDistanceToSource[0]) {
+          if (loss.L < Infinity && loss.L > maxDistanceToSource[0]) {
             maxDistanceToSource = [loss.L, f];
           }
-          if (loss.R > maxResistanceToSource[0]) {
+          if (loss.R < Infinity && loss.R > maxResistanceToSource[0]) {
             maxResistanceToSource = [loss.R, f];
           }
         }
@@ -625,3 +641,5 @@ export class PowerGridLayer extends InteractiveLayer<
     return result;
   }
 }
+
+export default PowerGridController;

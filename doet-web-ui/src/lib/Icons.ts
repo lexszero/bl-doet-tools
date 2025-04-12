@@ -1,5 +1,7 @@
 export {
   type Icon as IconType,
+  X as IconClose,
+  TriangleAlert as IconWarning,
   MapPin as IconFeatureDefault,
   Cable as IconCable,
   SmartphoneCharging as IconPDU,

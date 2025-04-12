@@ -1,12 +1,15 @@
 <script lang="ts">
   import { Slider } from '@skeletonlabs/skeleton-svelte';
   import { fromUnixTime, getUnixTime } from 'date-fns';
+  import { TimeRange } from '$lib/utils/misc';
 
   let {
-    timeStart = $bindable(fromUnixTime(0)),
-    timeEnd = $bindable(Date()),
+    timeRange = $bindable(new TimeRange(fromUnixTime(0), new Date())),
     markers,
-  } = $props();
+  }: {
+    timeRange: TimeRange,
+    markers: number[]
+  }= $props();
 
   $inspect(markers);
 
@@ -17,8 +20,10 @@
   let displayMarkers = $derived(markers.map((m) => (m - rangeMin)/(rangeMax-rangeMin)*100));
 
   function changeEnd() {
-    timeStart = fromUnixTime(rangeMin+(rangeMax-rangeMin)/100.0*value[0]);
-    timeEnd = fromUnixTime(rangeMin+(rangeMax-rangeMin)/100.0*value[1]);
+    timeRange = new TimeRange(
+      fromUnixTime(rangeMin+(rangeMax-rangeMin)/100.0*value[0]),
+      fromUnixTime(rangeMin+(rangeMax-rangeMin)/100.0*value[1])
+      );
   }
 
 </script>
@@ -27,9 +32,8 @@
   <div>|</div>
 {/snippet}
 
-<p>Time travel</p>
 <Slider name='TimeTravel'
-  classes="p-3"
+  classes="p-3 w-full"
   value={value}
   markers={displayMarkers}
   onValueChange={(e) => (value = e.value)}

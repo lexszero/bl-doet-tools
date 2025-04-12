@@ -1,33 +1,15 @@
 import { SvelteMap } from 'svelte/reactivity';
-import type {Feature, FeatureCollection} from '$lib/api';
 
 import L from 'leaflet';
 import type {Geometry} from 'geojson';
+import type {Feature, FeatureCollection} from '$lib/utils/geojson';
 
-import { type IconType, IconFeatureDefault } from './Icons.svelte';
-
-export interface SearchboxItem {
-  label: string;
-  value: string;
-  icon: IconType;
-};
-
-export interface ChipItem {
-  id?: string;
-  label: string;
-}
+import { type IconType, IconFeatureDefault } from '$lib/Icons';
+import { type SearchboxItem, type InfoItem, type ChipItem } from '$lib/utils/types';
 
 export function featureChip<G extends Geometry, P extends {name: string}>(f?: Feature<G, P>): ChipItem{
   return f ? {id: f.id, label: f.properties.name} : {label: "<unknown>"}
 }
-
-export interface InfoItem {
-  label: string;
-  value: any;
-  icon?: IconType;
-  classes?: string;
-  chips?: ChipItem[];
-};
 
 export type MapLayer<G extends Geometry, P extends object, F = FeatureCollection<G, P>> = L.GeoJSON<P> & {
   feature: F;
@@ -37,18 +19,35 @@ export type MapFeatureLayer<G extends Geometry, P extends object, F = Feature<G,
   feature: F;
 }
 
-export class InteractiveLayer<G extends Geometry, P extends object, F extends Feature<G, P> = Feature<G, P>> {
-  public mapRoot?: L.Map = $state();
+export interface BasicLayerDisplayOptions {
+  visible: boolean;
+  opacity: number;
+};
+
+export class LayerController<G extends Geometry, P extends object, F extends Feature<G, P> = Feature<G, P>> {
+  public layerName = 'layer';
+  public layerZIndex = 0;
+
+  public mapRoot: L.Map;
   public mapBaseLayer?: MapLayer<G, P> = $state();
-  public visible: boolean = $state(true);
   public opacity: number = $state(1);
 
   public features: SvelteMap<string, F> = $state(new SvelteMap<string, F>());
-  constructor() {
+
+  public displayOptions: BasicLayerDisplayOptions = $state({visible: true, opacity: 1.0});
+
+  constructor(mapRoot: L.Map) {
+    this.mapRoot = mapRoot;
+    const pane = this.mapRoot.createPane('overlayPane-'+this.layerName);
+    pane.style.zIndex = (400+this.layerZIndex).toString();
     $effect(() => {
-      if (this.features) {
+      if (this.features && this.displayOptions) {
         this.updateStyle();
       }
+    });
+    $effect(() => {
+      console.log(`Layer ${this.layerName}: set ZIndex ${this.layerZIndex}`);
+      this.mapBaseLayer?.setZIndex(400+this.layerZIndex);
     });
   }
 
@@ -103,6 +102,7 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
   mapLayerOptions() {
     return {
       pmIgnore: true,
+      //pane: 'overlayPane-'+this.layerName,
       onEachFeature: (f: F, layer: MapFeatureLayer<G, P, F>) => this.onEachFeature(f, layer),
       style: this.style,
       pointToLayer: (f: F, latlng: L.LatLng) => this.pointToLayer(f, latlng),
@@ -110,8 +110,9 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
   }
 
   onEachFeature(feature: F, layer: MapFeatureLayer<G, P, F>) {
+    //layer.setZIndex(400+this.layerZIndex);
     layer.on({
-      click: (e) => this.selectFeature(e.target.feature.id),
+      click: (e) => this.selectFeature(e.target),
       mouseover: (e) => this.highlightFeature(e.target),
       mouseout: (e) => this.resetHighlightedFeature(e.target),
     });
@@ -144,13 +145,13 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
 
   flyToOptions: L.FitBoundsOptions = { maxZoom: 17 };
 
-  selectFeature(item: string | MapFeatureLayer<G, P, F>, fly: boolean = false) {
+  selectFeature(item: string | MapFeatureLayer<G, P, F>, fly: boolean = false): MapFeatureLayer<G, P, F> | undefined {
     this.resetSelectedFeature();
     const layer = (typeof item === 'string') ? this.mapLayers?.get(item) : item;
     if (!layer)
       return;
 
-    //console.log("Select ", layer.feature.id);
+    console.log(`${this.layerName}: select ${layer.feature.id}`);
     layer.setStyle(this.styleSelected);
     if (fly && this.layerSelected?.feature.id != layer.feature.id) {
       if (layer.getLatLng) {
@@ -160,7 +161,9 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
       }
     }
     this.layerSelected = layer;
+    return layer;
   }
+
   resetSelectedFeature() {
     this.mapBaseLayer?.resetStyle(this.layerSelected);
   }
@@ -174,8 +177,12 @@ export class InteractiveLayer<G extends Geometry, P extends object, F extends Fe
   };
   highlightBringsToFront: boolean = true;
 
-  highlightFeature(layer: MapFeatureLayer<G, P, F>) {
-    //console.log(`Feature ${layer.feature.id}: highlighted`);
+  highlightFeature(item: string | MapFeatureLayer<G, P, F>) {
+    const layer = (typeof item === 'string') ? this.mapLayers?.get(item) : item;
+    if (!layer)
+      return;
+
+    //console.log(`${this.layerName}: highlight ${layer.feature.id}`);
     layer.setStyle(this.styleHighlighted);
     if (this.highlightBringsToFront) {
       layer.bringToFront();

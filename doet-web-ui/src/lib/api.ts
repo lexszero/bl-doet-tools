@@ -1,29 +1,24 @@
 import { getUnixTime } from "date-fns";
 import type {
-  Feature as GJFeature,
-  FeatureCollection as GJFeatureCollection,
   Point,
   LineString,
-  Geometry,
   Polygon
 } from "geojson";
 
+import type { Feature, FeatureCollection } from '$lib/utils/geojson';
+
 const API_BASE_URL = 'https://bl.skookum.cc/api';
 //const API_BASE_URL = 'http://localhost:8000';
+
+export interface ProjectInfo {
+  timestamps: [number];
+};
 
 export interface ItemizedLogEntry {
   item_id?: string;
   level: number;
   message: string;
 };
-
-export interface Feature<G extends Geometry, P> extends GJFeature<G, P> {
-  id: string;
-}
-
-export interface FeatureCollection<G extends Geometry, P> extends GJFeatureCollection<G, P> {
-  features: Array<Feature<G, P>>;
-}
 
 export interface PowerAreaProperties {
   name: string;
@@ -94,9 +89,26 @@ export interface PowerGridData {
 
 export class API {
   baseUrl: string;
+  authToken?: string;
 
-  constructor(project: string) {
+  constructor(project: string, authToken?: string) {
     this.baseUrl = `${API_BASE_URL}/${project}/`;
+    this.authToken = authToken;
+  };
+
+  setAuthToken(authToken: string) {
+    this.authToken = authToken;
+  };
+
+  async fetch(url: RequestInfo, options?: RequestInit) {
+    const headers = options?.headers || {};
+    if (this.authToken) {
+      headers['Authorization'] = 'Bearer ' + this.authToken;
+    }
+    return fetch(url, {
+      ...options,
+      headers: headers
+    })
   };
 
   async fetchJSON(path: string, params: object = {}): Promise<object> {
@@ -106,7 +118,7 @@ export class API {
     if (p.size) {
       url += `?${p}`;
     };
-    return await fetch(url).then(x=>x.json());
+    return await this.fetch(url).then(x=>x.json());
   };
 
   async getCollectionGeoJSON(collection: string, timeStart?: Date, timeEnd?: Date) {
@@ -135,9 +147,7 @@ export class API {
     return {features: await this.getCollectionGeoJSON('placement', timeStart, timeEnd)} as PlacementFeatureCollection;
   }
 
-  async getChangeTimestamps() {
-    return this.fetchJSON('data/change_timestamps')
+  async getChangeTimestamps(): Promise<ProjectInfo> {
+    return (await this.fetchJSON('data/change_timestamps')) as ProjectInfo;
   }
 };
-
-

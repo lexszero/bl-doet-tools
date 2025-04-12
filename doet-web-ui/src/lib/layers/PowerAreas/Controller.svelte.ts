@@ -1,27 +1,27 @@
+import { getContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import type {Polygon} from 'geojson';
 import type {PowerAreaFeature, PowerAreaProperties} from '$lib/api';
+import type {PowerGridData} from '$lib/layers/PowerGrid/data.svelte';
+import { LayerController } from '$lib/layers/LayerController.svelte';
 
-import { InteractiveLayer } from './InteractiveLayer.svelte';
-import { PowerGridLayer } from './PowerGridLayer.svelte';
-
-export class PowerAreasLayer extends InteractiveLayer<
+export class PowerAreasController extends LayerController<
   Polygon,
   PowerAreaProperties
 > {
-  _grid: PowerGridLayer;
+  layerName = 'PowerAreas';
+  layerZIndex = 1;
 
-  constructor (grid: PowerGridLayer) {
-    super();
-    this._grid = grid;
-    $effect(() => {
-      this.mapBaseLayer?.setZIndex(-2000);
-    });
+  data: PowerGridData;
+
+  constructor (mapRoot: L.Map) {
+    super(mapRoot);
+    this.data = getContext('PowerGridData');
   }
 
   async load(timeStart?: Date, timeEnd?: Date) {
     this.features = new SvelteMap<string, PowerAreaFeature>(
-      (await this._grid.data.api.getPowerAreasGeoJSON(timeStart, timeEnd))?.features.map(
+      (await this.data.api.getPowerAreasGeoJSON(timeStart, timeEnd))?.features.map(
         (f: PowerAreaFeature) => ([f.id, f])
       )
     );
@@ -53,3 +53,5 @@ export class PowerAreasLayer extends InteractiveLayer<
 
   highlightBringsToFront = false;
 }
+
+export default PowerAreasController;

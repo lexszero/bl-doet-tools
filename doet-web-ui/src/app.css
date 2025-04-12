@@ -4,3 +4,12 @@
 @import '@skeletonlabs/skeleton/themes/cerberus';
 @source '../node_modules/@skeletonlabs/skeleton-svelte/dist';
 @custom-variant dark (&:where(.dark, .dark *)); 
+
+@utility preset-box {
+  background-color: var(--color-surface-100-900);
+  color: var(--color-surface-contrast-100-900);
+  border: 2px solid gray;
+  border-radius: 5px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+  /*backdrop-filter: blur(16px);*/
+}

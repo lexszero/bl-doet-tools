@@ -62,10 +62,6 @@ let {
   :global(.map-info-box) {
     border: 2px solid gray;
     padding: 6px 8px;
-    font:
-      14px/16px Arial,
-      Helvetica,
-      sans-serif;
     background: rgba(0, 0, 0, 0.8);
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
     border-radius: 5px;

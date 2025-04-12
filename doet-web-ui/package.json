@@ -46,8 +46,10 @@
 		"@types/geojson": "^7946.0.16",
 		"date-fns": "^4.1.0",
 		"i": "^0.3.7",
+		"leaflet-arrowheads": "^1.4.0",
 		"npm": "^11.3.0",
 		"sveaflet": "^0.1.4",
-		"svelte-leafletjs": "^2.0.0"
+		"svelte-leafletjs": "^2.0.0",
+		"svelte-persisted-store": "^0.12.0"
 	}
 }

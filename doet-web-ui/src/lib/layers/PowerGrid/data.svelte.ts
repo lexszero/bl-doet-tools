@@ -1,7 +1,7 @@
 import { SvelteMap } from 'svelte/reactivity';
 import L from 'leaflet';
 import { parseISO as parseTimestamp } from 'date-fns';
-import { coordsToLatLng, distance, isSamePoint } from '$lib/utils';
+import { coordsToLatLng, distance, isSamePoint } from '$lib/utils/geo';
 
 import type {
   API,
@@ -10,7 +10,7 @@ import type {
   GridPDUFeature,
   GridPDUProperties,
   ItemizedLogEntry
-} from './api';
+} from '$lib/api';
 
 export const Vref_LL = 400;
 export const Vref_LN = Vref_LL / Math.sqrt(3);
@@ -26,13 +26,6 @@ interface GridItemSizeData {
   ohm_per_km: number;
   style: StyleWeightColor;
 }
-
-export const logLevelToColor = (level: number) => (
-  (level >= 40) ? 'error'
-  : (level >= 30) ? 'warning'
-    : (level >= 20) ? 'success'
-      : 'surface');
-
 
 export const gridItemSizes = ['250', '125', '63', '32', '16', '1f'];
 export const gridItemSizeData = (size: string) => ({
@@ -129,7 +122,7 @@ export interface LossCalculationResult {
   Ploss: number;
 }
 
-export class GridData {
+export class PowerGridData {
   api: API;
   features: SvelteMap<string, GridFeature> = $state(new SvelteMap<string, GridFeature>);
 
@@ -137,7 +130,7 @@ export class GridData {
   featuresChanged: Map<string, GridFeature | null>;
 
   timestamp?: Date;
-  log?: ItemizedLogEntry[];
+  log?: ItemizedLogEntry[] = $state();
 
   lossCalculationParams: LossCalculationParams = { loadPercentage: 50 };
 
@@ -161,19 +154,18 @@ export class GridData {
         const props = f.properties;
         if (props.pdu_from) {
           const p = features.get(props.pdu_from)?.properties as GridPDUProperties;
-          if ((p.cables_out?.indexOf(f.id) || -1) >= 0) {
-            continue;
+          if (!p.cables_out || p.cables_out.indexOf(f.id) < 0) {
+            console.log(`Add ${f.id} to cables_out ${p.cables_out}`);
+            if (!p.cables_out) {
+              p.cables_out = []
+            }
+            p.cables_out.push(f.id);
           }
-          if (!p.cables_out) {
-            p.cables_out = []
-          }
-          p.cables_out.push(f.id);
         }
       }
     }
     if (data.log) {
-      this.log = data.log.toSorted((a, b) => (b.level - a.level));
-      for (const entry of (this.log || [])) {
+      for (const entry of (data.log || [])) {
         if (entry.item_id) {
           const props = features.get(entry.item_id)?.properties;
           if (props) {
@@ -185,6 +177,8 @@ export class GridData {
           }
         }
       }
+      this.log = data.log.toSorted((a, b) => (b.level - a.level));
+      console.log(this.log);
     }
     this.updateCalculatedInfo(this.lossCalculationParams);
     this.featuresLoaded = features;
@@ -660,3 +654,5 @@ export class GridData {
     }
   }
 }
+
+export default PowerGridData;

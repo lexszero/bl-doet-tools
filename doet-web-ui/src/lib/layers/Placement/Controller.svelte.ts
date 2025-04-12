@@ -1,14 +1,14 @@
+import { getContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import geojson from 'geojson';
 import L from "leaflet";
 
 import type {PlacementFeature, PlacementEntityProperties, GridCableFeature, GridPDUFeature} from '$lib/api';
-import colormap from '$lib/colormap';
-import { distance, coordsToLatLng, coordsToLatLngs } from '$lib/utils';
+import colormap from '$lib/utils/colormap';
+import { distance, coordsToLatLng, coordsToLatLngs } from '$lib/utils/geo';
 
-import { featureChip, InteractiveLayer, type InfoItem } from './InteractiveLayer.svelte';
-import { PowerGridLayer } from './PowerGridLayer.svelte';
-import { IconPlacementEntity, IconPDU, IconPower, IconSound } from './Icons.svelte';
+import { featureChip, LayerController, type InfoItem } from '$lib/layers/LayerController.svelte';
+import { IconPlacementEntity, IconPDU, IconPower, IconSound } from '$lib/Icons';
 import {
   BadgeInfo as IconDescription,
   Contact as IconContact,
@@ -16,31 +16,34 @@ import {
   Bus as IconVehicle
 } from '@lucide/svelte';
 
+import { PowerGridData } from '$lib/layers/PowerGrid/data.svelte';
+import { type PlacementDisplayOptions } from './types';
+
 const defaultStyle = {
   weight: 0.5,
   opacity: 0.5,
   fillOpacity: 0.6
 };
 
-export class PlacementLayer extends InteractiveLayer<
+export class PlacementController extends LayerController<
   geojson.Polygon,
   PlacementEntityProperties
 > {
-  _grid: PowerGridLayer;
+  layerName = 'Placement';
+  layerZIndex = 2;
 
-  constructor (grid: PowerGridLayer) {
-    super();
-    this._grid = grid;
+  data: PowerGridData;
+
+  constructor (mapRoot: L.Map) {
+    super(mapRoot);
+    this.data = getContext('PowerGridData');
     $effect(() => {
-    })
-    $effect(() => {
-      this.mapBaseLayer?.setZIndex(-1000);
       this.updateStyle();
     })
   }
 
   async load(timeStart?: Date, timeEnd?: Date) {
-    const data = await this._grid.data.api.getPlacementEntitiesGeoJSON(timeStart, timeEnd);
+    const data = await this.data.api.getPlacementEntitiesGeoJSON(timeStart, timeEnd);
     for (const feature of data.features) {
       feature.properties._nearPDUs = this.findNearPDUs(feature);
     }
@@ -49,11 +52,9 @@ export class PlacementLayer extends InteractiveLayer<
     ));
   }
 
-  displayOptions: {
-    mode: 'power_need' | 'grid_n_pdus' | 'grid_distance' | 'grid_loss' | 'sound',
-    powerNeedThresholds: [number, number],
-    pduSearchRadius: number,
-  } = $state({
+  displayOptions: PlacementDisplayOptions = $state({
+    visible: true,
+    opacity: 0.5,
     mode: 'power_need',
     powerNeedThresholds: [2000, 10000],
     pduSearchRadius: 50
@@ -82,7 +83,7 @@ export class PlacementLayer extends InteractiveLayer<
         case 'grid_distance': {
           const near = this.getNearPDUs(f);
           if (near.length) {
-            const [pdu, d] = near[0];
+            const [, d] = near[0];
             color = colormap('plasma', d, 5, this.displayOptions.pduSearchRadius, false);
           } else {
             color = '#ff0000';
@@ -95,13 +96,13 @@ export class PlacementLayer extends InteractiveLayer<
           if (near.length) {
             const [pdu, d] = near[0];
             const path = [
-              ...this._grid.data.getGridPathToSource(pdu) || [],
+              ...this.data.getGridPathToSource(pdu) || [],
               { properties: {
                 power_size: '1f',
                 length_m: d
               }} as GridCableFeature
             ];
-            const loss = this._grid.data.calculatePathLoss(path);
+            const loss = this.data.calculatePathLoss(path);
             color = colormap('plasma', loss.R, 0, 1.0);
           } else {
             color = '#ff0000'
@@ -117,7 +118,11 @@ export class PlacementLayer extends InteractiveLayer<
         }
       }
     }
-    return {...defaultStyle, color, fillColor: color}
+    return {...defaultStyle,
+      opacity: this.displayOptions.opacity,
+      color,
+      fillColor: color
+    }
   };
   highlightBringsToFront = false;
 
@@ -125,7 +130,7 @@ export class PlacementLayer extends InteractiveLayer<
   featureLabel = (f: PlacementFeature) => `${f.properties.name} (${f.id})`;
   featureProperties = (f: PlacementFeature) => {
     const props = f.properties;
-    const result = [];
+    const result: InfoItem[] = [];
 
     if (props.description) {
       result.push({
@@ -188,7 +193,7 @@ export class PlacementLayer extends InteractiveLayer<
 
     const exclude = ['type', 'name', 'description', 'contactInfo', 'nrOfPeople', 'nrOfVechiles', 'powerNeed', 'amplifiedSound', '_nearPDUs'];
     return [...result, ...(Object.entries(props)
-      .filter(([k, v]) => (!exclude.includes(k)))
+      .filter(([k]) => (!exclude.includes(k)))
       .map(([k, v]) => ({label: k, value: v} as InfoItem))
     )]
   };
@@ -201,9 +206,9 @@ export class PlacementLayer extends InteractiveLayer<
   }
 
   findNearPDUs(feature: PlacementFeature): [GridPDUFeature, number][] {
-    let pdusInRange = [];
+    const pdusInRange = [];
     const itemCenter = L.PolyUtil.centroid(coordsToLatLngs(feature.geometry.coordinates[0]));
-    for (const item of this._grid.features.values()) {
+    for (const item of this.data.features.values()) {
       if (item.properties.type != 'power_grid_pdu') {
         continue;
       }
@@ -213,8 +218,10 @@ export class PlacementLayer extends InteractiveLayer<
         pdusInRange.push([pdu, d] as [GridPDUFeature, number]);
       }
     }
-    pdusInRange.sort(([ap, ad], [bp, bd]) => (bd - bp));
+    pdusInRange.sort(([, ad], [, bd]) => (ad - bd));
     return pdusInRange;
   }
 
 };
+
+export default PlacementController;
