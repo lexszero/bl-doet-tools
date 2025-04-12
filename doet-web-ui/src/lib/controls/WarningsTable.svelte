@@ -14,7 +14,6 @@
   } = $props();
 
   const map = getContext<MapContentInterface>('Map')
-  $inspect(map);
 
 </script>
 

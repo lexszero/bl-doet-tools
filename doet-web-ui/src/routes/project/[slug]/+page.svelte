@@ -42,8 +42,6 @@
   let timeRange: TimeRange = $state(new TimeRange());
   let searchItems = $derived(Object.values(map?.layers || {}).reduce((all, layer) => ([...all, ...layer.searchItems]), []));
   let searchValue = $state();
-
-  $inspect(timeRange);
 </script>
 
 <div class="flex flex-col w-screen h-screen">
@@ -115,7 +113,7 @@
         {/snippet}
       </PopoverInfoBox>
 
-      <PopoverInfoBox title="Layers" contentClasses="min-w-lg">
+      <PopoverInfoBox title="Layers" contentClasses="min-w-lg grow">
         {#snippet trigger()}<IconLayers />{/snippet}
         {#snippet content()}
           <DisplayOptions map={map}/>
@@ -126,7 +124,7 @@
 
   {#if browser}
     <Map
-      bind:instance={map}
+      bind:content={map}
       timeRange={timeRange}/>
   {/if}
 </div>

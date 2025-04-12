@@ -11,8 +11,6 @@
     markers: number[]
   }= $props();
 
-  $inspect(markers);
-
   let rangeMin = $derived(Math.min.apply(null, markers) - 600);
   let rangeMax = $derived(Math.max(Math.max.apply(null, markers), getUnixTime(Date())));
   let value = $state([0, 100]);

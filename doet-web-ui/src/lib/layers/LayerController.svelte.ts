@@ -47,7 +47,7 @@ export class LayerController<
   constructor(name: string, mapRoot: L.Map, defaultDisplayOptions: D = {visible: true, opacity: 1.0} as D) {
     console.info(`Initializing layer ${name} with `, defaultDisplayOptions);
     this.displayOptionsStore = persisted('layer_'+name, defaultDisplayOptions);
-    this.displayOptions = get(this.displayOptionsStore);
+    this.displayOptions = {...defaultDisplayOptions, ...get(this.displayOptionsStore)};
     $effect(() => {
       this.displayOptionsStore.set(this.displayOptions);
     });

@@ -17,7 +17,7 @@
     .filter((ctl) => ctl.displayOptions.visible)
     .map((ctl) => ctl.layerName)
     || []);
-  $inspect(value)
+
   function onValueChange(e) {
     console.log(e);
     for (const ctl of Object.values(map.layers)) {

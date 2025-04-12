@@ -58,6 +58,10 @@ export function colormap(map, value, min=0, max=1.0, inverted=false) {
   const vd = vn - Math.floor(vn);
   const c1 = colors[Math.floor(vn)];
   const c2 = colors[Math.ceil(vn)];
+  if (!c1 || !c2) {
+    console.log(value, vn, vd);
+    return;
+  }
   let result = '#';
   for (let i = 0; i < 3; i++) {
     result += componentToHex(c1[i] + (c2[i] - c1[i])*vd);

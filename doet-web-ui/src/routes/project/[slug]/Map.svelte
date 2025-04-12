@@ -1,26 +1,49 @@
 <script lang="ts">
   import { browser } from '$app/environment'
   import { Map, TileLayer } from 'sveaflet';
-  import L from 'leaflet';
-  import 'leaflet/dist/leaflet.css'
+
+  import { LocateControl } from "leaflet.locatecontrol";
+  import "leaflet.locatecontrol/dist/L.Control.Locate.min.css";
+
   import "@geoman-io/leaflet-geoman-free";
   import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
+
+  import L from 'leaflet';
+  import 'leaflet/dist/leaflet.css'
 
   import MapContent from '$lib/MapContent.svelte';
   import type { MapContentInterface } from '$lib/MapContent.svelte';
 
+  import { TimeRange } from '$lib/utils/misc';
 
   L.PM.setOptIn(true);
 
   let {
     timeRange,
-    instance = $bindable(),
+    content = $bindable(),
+    locate = false
   }: {
     timeRange: TimeRange,
-    instance: MapContentInterface
+    content: MapContentInterface,
+    locate: boolean
   } = $props();
 
-  let mapRoot: L.Map | undefined = $state();
+  let map: L.Map | undefined = $state();
+  let location: L.LocationEvent = $state();
+
+  $effect(() => {
+    if (!map)
+      return;
+
+    map.on('click', (e) => console.log(e));
+    map.on('locationfound', (e) => {
+      console.log(e)
+      location = e;
+    });
+
+    const locateControl = new LocateControl();
+    locateControl.addTo(map);
+  });
 
   const mapOptions: L.MapOptions = {
     center: [57.62377, 14.92715],
@@ -40,10 +63,10 @@
 </script>
 
 {#if browser}
-  <Map options={mapOptions} bind:instance={mapRoot}>
+  <Map options={mapOptions} bind:instance={map}>
     <TileLayer url={layerBasemapTileUrl} options={layerBasemapOptions}/>
-    {#if mapRoot}
-      <MapContent mapRoot={mapRoot} timeRange={timeRange} bind:instance={instance}/>
+    {#if map}
+      <MapContent mapRoot={map} timeRange={timeRange} bind:instance={content}/>
     {/if}
   </Map>
 {/if}

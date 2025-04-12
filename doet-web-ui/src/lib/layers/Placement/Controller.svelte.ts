@@ -81,7 +81,7 @@ export class PlacementController extends LayerController<
 
         case 'grid_distance': {
           const near = this.getNearPDUs(f);
-          if (near.length) {
+          if (near?.length) {
             const [, d] = near[0];
             color = colormap('plasma', d, 5, this.displayOptions.pduSearchRadius, false);
           } else {

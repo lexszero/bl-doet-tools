@@ -47,9 +47,11 @@
 		"date-fns": "^4.1.0",
 		"i": "^0.3.7",
 		"leaflet-arrowheads": "^1.4.0",
+		"leaflet.locatecontrol": "^0.84.1",
 		"npm": "^11.3.0",
 		"sveaflet": "^0.1.4",
 		"svelte-leafletjs": "^2.0.0",
-		"svelte-persisted-store": "^0.12.0"
+		"svelte-persisted-store": "^0.12.0",
+		"unitformat": "^1.1.3"
 	}
 }
