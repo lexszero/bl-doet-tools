@@ -1,5 +1,6 @@
 import { getContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
+
 import colormap from '$lib/utils/colormap';
 import * as geojson from "geojson";
 import L from 'leaflet';
@@ -11,6 +12,7 @@ import {
   type GridPDUFeature,
 } from "$lib/api";
 
+import { logLevelToColor } from '$lib/utils/misc';
 import type { ChipItem, InfoItem } from '$lib/utils/types';
 import {
   isSamePoint,
@@ -43,15 +45,7 @@ import {
 
 import { type PowerGridDisplayOptions } from './types';
 
-
-
 type GridMapFeatureLayer = MapFeatureLayer<geojson.Point | geojson.LineString, GridFeatureProperties>;
-
-export const logLevelToColor = (level: number) => (
-  (level >= 40) ? 'error'
-  : (level >= 30) ? 'warning'
-    : (level >= 20) ? 'success'
-      : 'surface');
 
 const styleDefault = {
   opacity: 0.8,
@@ -80,7 +74,8 @@ function isCableStartOrEnd(cable: GridCableFeature, point: L.LatLng): boolean {
 
 export class PowerGridController extends LayerController<
   geojson.Point | geojson.LineString,
-  GridFeatureProperties
+  GridFeatureProperties,
+  PowerGridDisplayOptions
 > {
   layerName = 'PowerGrid';
   layerZIndex = 3;
@@ -92,7 +87,14 @@ export class PowerGridController extends LayerController<
   editInProgress: boolean = $state(false);
 
   constructor (mapRoot: L.Map) {
-    super(mapRoot);
+    super('PowerGrid', mapRoot, {
+      visible: true,
+      opacity: 0.8,
+      coloringMode: 'size',
+      coloringLossAtLoadLevel: 50,
+      showCoverage: false
+    } as PowerGridDisplayOptions);
+
     this.data = getContext('PowerGridData');
     $effect(() => {
       if (!this.mapRoot?.pm) {
@@ -196,13 +198,6 @@ export class PowerGridController extends LayerController<
 
   features = $derived(this.data?.features || new SvelteMap<string, GridFeature>());
 
-  displayOptions: PowerGridDisplayOptions = $state({
-    visible: true,
-    opacity: 0.8,
-    coloringMode: 'size',
-    coloringLossAtLoadLevel: 50,
-    showCoverage: false
-  });
 
 
   mapLayerOptions = () => ({
@@ -370,7 +365,7 @@ export class PowerGridController extends LayerController<
       : ((props.pdu_from && props.pdu_to) ? 'success' : 'warning');
   };
 
-  featureColorForStatus= (f: GridFeature) => `${this.featureStatus(f)}`;
+  featureColorForStatus = (f: GridFeature) => `${this.featureStatus(f)}`;
   
   featureProperties = (f: GridFeature) => {
     const exclude = ['name', 'type', 'power_size', 'length_m', 'pdu_from', 'pdu_to', 'cable_in', 'cables_out', '_drc', '_pathToSource'];

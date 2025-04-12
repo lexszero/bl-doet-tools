@@ -178,7 +178,6 @@ export class PowerGridData {
         }
       }
       this.log = data.log.toSorted((a, b) => (b.level - a.level));
-      console.log(this.log);
     }
     this.updateCalculatedInfo(this.lossCalculationParams);
     this.featuresLoaded = features;

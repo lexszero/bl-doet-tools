@@ -3,7 +3,12 @@ import { SvelteMap } from 'svelte/reactivity';
 import type {Polygon} from 'geojson';
 import type {PowerAreaFeature, PowerAreaProperties} from '$lib/api';
 import type {PowerGridData} from '$lib/layers/PowerGrid/data.svelte';
-import { LayerController } from '$lib/layers/LayerController.svelte';
+import { LayerController, type BasicLayerDisplayOptions } from '$lib/layers/LayerController.svelte';
+
+export const defaultPowerAreasDisplayOptions: BasicLayerDisplayOptions = {
+  visible: true,
+  opacity: 0.3,
+};
 
 export class PowerAreasController extends LayerController<
   Polygon,
@@ -15,7 +20,7 @@ export class PowerAreasController extends LayerController<
   data: PowerGridData;
 
   constructor (mapRoot: L.Map) {
-    super(mapRoot);
+    super('PowerAreas', mapRoot);
     this.data = getContext('PowerGridData');
   }
 
@@ -27,13 +32,10 @@ export class PowerAreasController extends LayerController<
     );
   }
 
-  mode: 'power_need' | 'grid_coverage' = $state('power_need');
-  powerNeedThresholds: [number, number] = $state([2000, 10000]);
-
   style = () => ({
     weight: 1,
     color: "#37872D",
-    opacity: 0.3,
+    opacity: this.displayOptions.opacity,
     fillOpacity: 0.1
   });
   styleHighlighted = () => ({

@@ -21,13 +21,13 @@ import { type PlacementDisplayOptions } from './types';
 
 const defaultStyle = {
   weight: 0.5,
-  opacity: 0.5,
   fillOpacity: 0.6
 };
 
 export class PlacementController extends LayerController<
   geojson.Polygon,
-  PlacementEntityProperties
+  PlacementEntityProperties,
+  PlacementDisplayOptions
 > {
   layerName = 'Placement';
   layerZIndex = 2;
@@ -35,7 +35,14 @@ export class PlacementController extends LayerController<
   data: PowerGridData;
 
   constructor (mapRoot: L.Map) {
-    super(mapRoot);
+    super('Placement', mapRoot, {
+      visible: true,
+      opacity: 0.5,
+      mode: 'power_need',
+      powerNeedThresholds: [2000, 10000],
+      pduSearchRadius: 50
+    });
+
     this.data = getContext('PowerGridData');
     $effect(() => {
       this.updateStyle();
@@ -51,14 +58,6 @@ export class PlacementController extends LayerController<
       (f: PlacementFeature) => ([f.id, f])
     ));
   }
-
-  displayOptions: PlacementDisplayOptions = $state({
-    visible: true,
-    opacity: 0.5,
-    mode: 'power_need',
-    powerNeedThresholds: [2000, 10000],
-    pduSearchRadius: 50
-  });
 
   style = (f: PlacementFeature): L.PathOptions => {
     let color = '#303030';

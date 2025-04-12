@@ -1,3 +1,5 @@
+import { get } from 'svelte/store';
+import { persisted, type Persisted } from 'svelte-persisted-store';
 import { SvelteMap } from 'svelte/reactivity';
 
 import L from 'leaflet';
@@ -24,7 +26,12 @@ export interface BasicLayerDisplayOptions {
   opacity: number;
 };
 
-export class LayerController<G extends Geometry, P extends object, F extends Feature<G, P> = Feature<G, P>> {
+export class LayerController<
+  G extends Geometry,
+  P extends object,
+  D extends BasicLayerDisplayOptions = BasicLayerDisplayOptions,
+  F extends Feature<G, P> = Feature<G, P>
+  > {
   public layerName = 'layer';
   public layerZIndex = 0;
 
@@ -34,11 +41,19 @@ export class LayerController<G extends Geometry, P extends object, F extends Fea
 
   public features: SvelteMap<string, F> = $state(new SvelteMap<string, F>());
 
-  public displayOptions: BasicLayerDisplayOptions = $state({visible: true, opacity: 1.0});
+  public displayOptions: D = $state({visible: true, opacity: 1.0} as D);
+  displayOptionsStore: Persisted<D>;
 
-  constructor(mapRoot: L.Map) {
+  constructor(name: string, mapRoot: L.Map, defaultDisplayOptions: D = {visible: true, opacity: 1.0} as D) {
+    console.info(`Initializing layer ${name} with `, defaultDisplayOptions);
+    this.displayOptionsStore = persisted('layer_'+name, defaultDisplayOptions);
+    this.displayOptions = get(this.displayOptionsStore);
+    $effect(() => {
+      this.displayOptionsStore.set(this.displayOptions);
+    });
+
     this.mapRoot = mapRoot;
-    const pane = this.mapRoot.createPane('overlayPane-'+this.layerName);
+    const pane = this.mapRoot.createPane('overlayPane-'+name);
     pane.style.zIndex = (400+this.layerZIndex).toString();
     $effect(() => {
       if (this.features && this.displayOptions) {
