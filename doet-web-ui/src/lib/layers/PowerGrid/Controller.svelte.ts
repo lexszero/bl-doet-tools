@@ -90,9 +90,11 @@ export class PowerGridController extends LayerController<
     super('PowerGrid', mapRoot, {
       visible: true,
       opacity: 0.8,
-      coloringMode: 'size',
-      coloringLossAtLoadLevel: 50,
-      showCoverage: false
+      mode: 'size',
+      loadPercent: 50,
+      showCoverage: false,
+      scalePDU: 1.25,
+      scaleCable: 1,
     } as PowerGridDisplayOptions);
 
     this.data = getContext('PowerGridData');
@@ -320,12 +322,21 @@ export class PowerGridController extends LayerController<
       }
     }
   }
+
+  styleBySize = (feature: GridFeature) => {
+    const st = gridItemSizeData(feature.properties.power_size)?.style;
+    return st ? {
+      weight: st.weight * this.displayOptions.scaleCable,
+      color: st.color
+    } : {};
+  }
+
   styleByLoss = (feature: GridFeature) => {
     const r = this.data?.calculatePathLoss(
       this.data.getGridPathToSource(feature),
-      { loadPercentage: this.displayOptions.coloringLossAtLoadLevel })
+      { loadPercentage: this.displayOptions.loadPercent })
     const color = r ? colormap('plasma', r.VdropPercent, 0, 10, false) : '#808080';
-    return {...gridItemSizeData(feature.properties.power_size)?.style, color, fillColor: color}
+    return {...this.styleBySize(feature), color, fillColor: color}
   };
 
   style = (feature: GridFeature) => {
@@ -338,9 +349,9 @@ export class PowerGridController extends LayerController<
     else if (this.isFeatureOnHighlightedGridPath(feature)) {
       return this.styleGridPath(feature);
     }
-    switch (this.displayOptions.coloringMode) {
+    switch (this.displayOptions.mode) {
       case 'size':
-        return {...styleDefault, opacity: this.displayOptions.opacity, ...gridItemSizeData(feature.properties.power_size)?.style};
+        return {...styleDefault, opacity: this.displayOptions.opacity, ...this.styleBySize(feature)};
 
       case 'loss':
         return {...styleDefault, opacity: this.displayOptions.opacity, ...this.styleByLoss(feature)};
@@ -448,7 +459,7 @@ export class PowerGridController extends LayerController<
   pointToLayer(feature: GridFeature, latlng: L.LatLng) {
     const style = this.style(feature);
     return L.circleMarker(latlng, {
-      radius: style.weight,
+      radius: 5 * this.displayOptions.scaleCable,
       fillColor: style.color,
       color: style.color,
       weight: 1,

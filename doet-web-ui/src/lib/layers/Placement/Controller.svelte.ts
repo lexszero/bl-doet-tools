@@ -40,12 +40,24 @@ export class PlacementController extends LayerController<
       opacity: 0.5,
       mode: 'power_need',
       powerNeedThresholds: [2000, 10000],
-      pduSearchRadius: 50
+      pduSearchRadius: 50,
+      gridLoadPercent: 50,
+      soundMax: 5000
     });
 
     this.data = getContext('PowerGridData');
     $effect(() => {
       this.updateStyle();
+    })
+
+    $effect(() => {
+      if (this.features &&
+        this.displayOptions.mode == 'grid_n_pdus' &&
+        this.displayOptions.pduSearchRadius) {
+        for (const f of this.features.values()) {
+          f.properties._nearPDUs = undefined;
+        }
+      }
     })
   }
 
@@ -101,7 +113,7 @@ export class PlacementController extends LayerController<
                 length_m: d
               }} as GridCableFeature
             ];
-            const loss = this.data.calculatePathLoss(path);
+            const loss = this.data.calculatePathLoss(path, {loadPercentage: this.displayOptions.gridLoadPercent});
             color = colormap('plasma', loss.R, 0, 1.0);
           } else {
             color = '#ff0000'
@@ -111,7 +123,7 @@ export class PlacementController extends LayerController<
 
         case 'sound': {
           if (f.properties.amplifiedSound) {
-            color = colormap('plasma', f.properties.amplifiedSound, 0, 5000);
+            color = colormap('plasma', f.properties.amplifiedSound || 0, 0, this.displayOptions.soundMax);
           }
           break;
         }

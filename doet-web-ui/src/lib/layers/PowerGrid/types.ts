@@ -1,7 +1,9 @@
 import { type BasicLayerDisplayOptions } from '$lib/layers/LayerController.svelte';
 
 export interface PowerGridDisplayOptions extends BasicLayerDisplayOptions {
-  coloringMode: 'size' | 'loss';
-  coloringLossAtLoadLevel: number;
+  mode: 'size' | 'loss';
+  loadPercent: number;
   showCoverage: boolean;
+  scalePDU: number;
+  scaleCable: number;
 };
