@@ -22,7 +22,7 @@
     Layers as IconLayers,
   } from '@lucide/svelte';
 
-  import { TimeRange } from '$lib/utils/misc';
+  import { TimeRange, Severity, logLevelToColor } from '$lib/utils/misc';
 
   let props: PageProps = $props();
 
@@ -46,8 +46,8 @@
   $inspect(timeRange);
 </script>
 
-<div class="flex flex-col gap-4 w-screen h-screen">
-  <AppBar background="bg-surface-200-800" padding="p-2">
+<div class="flex flex-col w-screen h-screen">
+  <AppBar background="bg-surface-200-800" padding='p-1'>
     {#snippet lead()}
       <PopoverInfoBox title="Time travel" positionerClasses="w-full p-4">
         {#snippet trigger()}<IconHistory/>{/snippet}
@@ -85,11 +85,22 @@
 
     {#snippet trail()}
       {#if grid?.log?.length}
+        {@const log = grid.log}
         <PopoverInfoBox title="Warnings"
-          contentClasses="overflow-auto max-h-[80%]"
+          contentClasses="overflow-auto max-h-[500px]"
           positionerClasses="max-h-screen"
           >
-          {#snippet trigger()}<IconWarning />{/snippet}
+          {#snippet trigger()}
+          {#each [Severity.Error, Severity.Warning, Severity.Info] as severity}
+            {@const count = log.filter((r) => (r.level == severity)).length}
+            {#if count > 0}
+              <div class={`flex flex-row text-${logLevelToColor(severity)}-500`}>
+                <IconWarning />
+                {count}
+              </div>
+            {/if}
+          {/each}
+          {/snippet}
           {#snippet content()}<WarningsTable items={grid?.log} />{/snippet}
         </PopoverInfoBox>
       {/if}

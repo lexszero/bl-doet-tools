@@ -8,11 +8,21 @@ export class TimeRange {
   }
 };
 
+export enum Severity {
+  Error = 40,
+  Warning = 30,
+  Info = 20,
+  Debug = 10,
+};
+
+export const logLevelToString = (level: number) => (
+  (level >= Severity.Error) ? 'error'
+  : (level >= Severity.Warning) ? 'warning'
+    : (level >= Severity.Info) ? 'info'
+      : 'debug');
+
 export const logLevelToColor = (level: number) => (
-  (level >= 40) ? 'error'
-  : (level >= 30) ? 'warning'
-    : (level >= 20) ? 'success'
+  (level >= Severity.Error) ? 'error'
+  : (level >= Severity.Warning) ? 'warning'
+    : (level >= Severity.Info) ? 'success'
       : 'surface');
-
-
-
