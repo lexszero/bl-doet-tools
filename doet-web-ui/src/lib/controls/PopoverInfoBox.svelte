@@ -8,6 +8,7 @@
     icon,
     contentClasses,
     trigger,
+    header,
     content,
     ...restProps
   }: {
@@ -15,6 +16,7 @@
     icon: IconType,
     contentClasses: string,
     trigger: Snippet,
+    header: Snippet,
     content: Snippet
   } = $props()
 
@@ -38,7 +40,11 @@
 >
   {#snippet content()}
     <header class="flex items-center justify-between">
-      <p class="font-bold">{title}</p>
+      {#if header}
+        {@render header()}
+      {:else}
+        <p class="font-bold">{title}</p>
+      {/if}
       <button class="btn-icon hover:preset-tonal" onclick={popoverClose}><IconClose /></button>
     </header>
     <div class={contentClasses}>

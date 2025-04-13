@@ -1,10 +1,12 @@
+import { fromUnixTime } from "date-fns";
+
 export class TimeRange {
-  start?: Date;
-  end?: Date;
+  start: Date;
+  end: Date;
 
   constructor (start?: Date, end?: Date) {
-    this.start = start;
-    this.end = end;
+    this.start = start || fromUnixTime(0),
+    this.end = end || new Date();
   }
 };
 

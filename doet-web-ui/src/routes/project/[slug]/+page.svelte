@@ -47,18 +47,18 @@
 <div class="flex flex-col w-screen h-screen">
   <AppBar background="bg-surface-200-800" padding='p-1'>
     {#snippet lead()}
-      <PopoverInfoBox title="Time travel" positionerClasses="w-full p-4">
+      <PopoverInfoBox title="Time travel"
+        positionerClasses="w-full pr-4"
+        contentClasses="flex flex-col justify-between items-center gap-4">
         {#snippet trigger()}<IconHistory/>{/snippet}
         {#snippet content()}
-          <div class="flex justify-between items-center gap-4 h-10">
-            {#await api.getChangeTimestamps()}
-            {:then info}
-              <TimeTravelSlider
-                bind:timeRange={timeRange}
-                markers={info.timestamps}
-              />
-            {/await}
-          </div>
+          {#await api.getChangeTimestamps()}
+          {:then info}
+            <TimeTravelSlider
+              bind:timeRange={timeRange}
+              markers={info.timestamps}
+            />
+          {/await}
         {/snippet}
       </PopoverInfoBox>
 
