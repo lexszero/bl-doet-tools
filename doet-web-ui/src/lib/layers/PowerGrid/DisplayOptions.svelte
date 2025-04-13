@@ -3,6 +3,7 @@
   import Slider from '$lib/controls/Slider.svelte';
   import Segment from '$lib/controls/Segment.svelte';
   import { SegmentItem } from '$lib/controls/Segment.svelte';
+  import { Switch } from '@skeletonlabs/skeleton-svelte';
 
   import type { default as Controller } from './Controller.svelte';
   import { IconPower } from '$lib/Icons';
@@ -12,6 +13,13 @@
 
 <LayerDisplayOptions value={ctl.layerName} title="Power grid" icon={IconPower}>
   {@const mode = ctl.displayOptions.mode}
+
+  <div class="flex justify-between items-center gap-4 p-1">
+    <p>Show coverage</p>
+    <Switch checked={ctl.displayOptions.showCoverage}
+      onCheckedChange={(e) => {ctl.displayOptions.showCoverage = e.checked}}
+      />
+  </div>
 
   <div class="flex justify-between items-center gap-4 p-1">
     <p>Thickness</p>

@@ -93,11 +93,14 @@ export class PowerGridController extends LayerController<
       mode: 'size',
       loadPercent: 50,
       showCoverage: false,
+      coverageRadius: 50,
       scalePDU: 1.25,
       scaleCable: 1,
     } as PowerGridDisplayOptions);
 
     this.data = getContext('PowerGridData');
+
+    mapRoot.createPane('layer-PowerGridCoverage').style.zIndex = "408";
 
     const map = this.mapRoot;
     map.pm.disableGlobalEditMode();
@@ -181,6 +184,11 @@ export class PowerGridController extends LayerController<
           l.pm.disable();
         }
       }
+    });
+
+    $effect(() => {
+      if (this.features && this.displayOptions)
+        this.updateCoverage();
     });
   }
 
@@ -321,6 +329,11 @@ export class PowerGridController extends LayerController<
         break;
       }
     }
+  }
+
+  updateStyle(): void {
+    super.updateStyle();
+    this.updateCoverage();
   }
 
   styleBySize = (feature: GridFeature) => {
@@ -650,6 +663,38 @@ export class PowerGridController extends LayerController<
     }
     return result;
   }
+
+  mapCoverageLayer: L.FeatureGroup | undefined;
+
+  updateCoverage() {
+    if (this.data.features && this.displayOptions.showCoverage && !this.mapCoverageLayer) {
+      const circles = [];
+      for (const f of this.data.features.values()) {
+        if (f.properties.type != 'power_grid_pdu')
+          continue;
+
+        const pdu = f as GridPDUFeature;
+        circles.push(L.circle(coordsToLatLng(pdu.geometry.coordinates), {
+          radius: this.displayOptions.coverageRadius,
+          weight: 0.5,
+          opacity: 0.7,
+          color: '#303030',
+          fillColor: '#303030',
+          fillOpacity: 0.3,
+        }));
+      };
+      const layer = L.featureGroup(circles, {
+        pane: 'layer-PowerGridCoverage',
+      });
+      this.mapRoot.addLayer(layer);
+      console.log(`PowerGrid: Added coverage layer with ${circles.length} circles`);
+      this.mapCoverageLayer = layer;
+    } else if (this.mapCoverageLayer && !this.displayOptions.showCoverage) {
+      this.mapRoot.removeLayer(this.mapCoverageLayer);
+      this.mapCoverageLayer = undefined;
+    }
+  }
+
 }
 
 export default PowerGridController;
