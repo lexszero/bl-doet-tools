@@ -190,37 +190,38 @@ export class PowerGridData {
     ));
   }
 
-  getFeature(id?: string, allFeatures: Map<string, GridFeature> = this.features) {
-    if (id)
-      return allFeatures.get(id);
+  getFeature(id?: string) {
+    const result = (id) ? this.features.get(id) : undefined;
+    if (!result) {
+      console.error("Can't find feature ", id);
+    }
+    return result;
   }
 
-  getCable(id?: string, allFeatures: Map<string, GridFeature> = this.features) {
-    return this.getFeature(id, allFeatures) as GridCableFeature | undefined;
+  getCable(id?: string) {
+    return this.getFeature(id) as GridCableFeature | undefined;
   }
 
-  getPDU(id?: string, allFeatures: Map<string, GridFeature> = this.features) {
-    return this.getFeature(id, allFeatures) as GridPDUFeature | undefined;
+  getPDU(id?: string) {
+    return this.getFeature(id) as GridPDUFeature | undefined;
   }
 
   updateCalculatedInfo(
-    params: LossCalculationParams,
-    allFeatures: Map<string, GridFeature> = this.features) {
+    params: LossCalculationParams) {
     this.lossCalculationParams = params;
     for (const f of this.features.values()) {
       if (f.properties.type == 'power_grid_pdu') {
-        this.calculatePathLoss(this.getGridPathToSource(f, allFeatures), params)
+        this.calculatePathLoss(this.getGridPathToSource(f), params)
       }
     }
   }
 
   getLossToSource(
     feature: GridFeature,
-    params: LossCalculationParams = this.lossCalculationParams,
-    allFeatures: Map<string, GridFeature> = this.features
+    params: LossCalculationParams = this.lossCalculationParams
   ) {
     return this.calculatePathLoss(
-      this.getGridPathToSource(feature, allFeatures),
+      this.getGridPathToSource(feature),
       params
     );
   }
@@ -348,26 +349,26 @@ export class PowerGridData {
 
   getGridPathToSource(
     feature: GridFeature,
-    allFeatures: Map<string, GridFeature> = this.features
   ): GridFeature[] | undefined {
     if (feature.properties._pathToSource) {
-      return feature.properties._pathToSource.map((id) => this.getFeature(id, allFeatures));
+      return feature.properties._pathToSource.map((id) => this.getFeature(id));
     } else {
-      const path = this.findGridPathToSource(feature, allFeatures);
+      const path = this.findGridPathToSource(feature);
       feature.properties._pathToSource = path?.map((f) => f.id);
       return path;
     }
+    //return this.findGridPathToSource(feature);
   }
 
   getGridPathToSourceIds(
     feature: GridFeature,
-    allFeatures: Map<string, GridFeature> = this.features
   ): string[] | undefined {
     if (!feature.properties._pathToSource) {
-      const path = this.findGridPathToSource(feature, allFeatures);
+      const path = this.findGridPathToSource(feature);
       feature.properties._pathToSource = path?.map((f) => f.id);
     }
     return feature.properties._pathToSource;
+    //return this.findGridPathToSource(feature)?.map((f) => f.id);
   }
 
   getGridPreviousId(item: string | GridFeature): string | undefined {
@@ -385,10 +386,16 @@ export class PowerGridData {
 
   findGridPathToSource(
     feature: GridFeature,
-    allFeatures: Map<string, GridFeature> = this.features
   ): Array<GridFeature> | undefined {
+    if (feature.properties.type == 'power_grid_pdu' && (feature.properties as GridPDUProperties).power_source) {
+      return [feature];
+    }
     const idNext = this.getGridPreviousId(feature);
-    const next = this.getFeature(idNext, allFeatures);
+    if (!idNext) {
+      console.warn(`No path to source from ${feature.properties.type} ${feature.id}`);
+      return undefined;
+    }
+    const next = this.getFeature(idNext);
     //console.log(feature.id, "->", idNext);
     if (next) {
       const path = this.findGridPathToSource(next);
@@ -396,10 +403,6 @@ export class PowerGridData {
         return [feature, ...path];
       }
     }
-    else if (feature.properties.type == 'power_grid_pdu' && (feature.properties as GridPDUProperties).power_source) {
-      return [feature];
-    }
-    console.log("WARNING: No path to source");
   }
 
   updateFeature(feature: GridFeature): string[] {
