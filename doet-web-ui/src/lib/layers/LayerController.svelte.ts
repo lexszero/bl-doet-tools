@@ -157,8 +157,6 @@ export class LayerController<
     fillOpacity: 1
   };
 
-  flyToOptions: L.FitBoundsOptions = { maxZoom: 17 };
-
   selectFeature(item: string | MapFeatureLayer<G, P>, fly: boolean = false): MapFeatureLayer<G, P> | undefined {
     this.resetSelectedFeature();
     const layer = (typeof item === 'string') ? this.mapLayers?.get(item) : item;
@@ -169,9 +167,9 @@ export class LayerController<
     layer.setStyle(this.styleSelected);
     if (fly && this.layerSelected?.feature.id != layer.feature.id) {
       if (layer.getLatLng) {
-        this.mapRoot?.flyTo(layer.getLatLng(), 17, this.flyToOptions);
+        this.mapRoot?.flyTo(layer.getLatLng(), Math.max(this.mapRoot?.getZoom(), 17));
       } else {
-        this.mapRoot?.flyToBounds(layer.getBounds(), this.flyToOptions);
+        this.mapRoot?.flyToBounds(layer.getBounds(), {maxZoom: 17});
       }
     }
     this.layerSelected = layer;

@@ -98,56 +98,52 @@ export class PowerGridController extends LayerController<
     } as PowerGridDisplayOptions);
 
     this.data = getContext('PowerGridData');
-    $effect(() => {
-      if (!this.mapRoot?.pm) {
-        return;
-      }
-      const map = this.mapRoot;
-      map.pm.disableGlobalEditMode();
-      map.pm.disableGlobalDragMode();
-      if (this.editEnabled) {
-        map.pm.addControls({
-          position: 'topright',
-          drawMarker: false,
-          drawCircleMarker: false,
-          drawPolyline: false,
-          drawPolygon: false,
-          drawRectangle: false,
-          drawCircle: false,
-          drawText: false,
-          rotateMode: false,
-          cutPolygon: false,
-        });
-        map.on("pm:globaldragmodetoggled", (e) => {
-          console.log(`drag mode: ${e.enabled}`);
-          if (e.enabled) {
-            for (const l of (this.mapBaseLayer?.pm.getLayers() || []) as GridMapFeatureLayer[]) {
-              const f = l.feature as GridFeature;
-              if (!f)
-                continue;
-              if (f.properties.type == 'power_grid_pdu') {
-                l.pm.enableLayerDrag();
-              }
-              else {
-                l.pm.disableLayerDrag();
-              }
+
+    const map = this.mapRoot;
+    map.pm.disableGlobalEditMode();
+    map.pm.disableGlobalDragMode();
+    if (this.editEnabled) {
+      map.pm.addControls({
+        position: 'topleft',
+        drawMarker: false,
+        drawCircleMarker: false,
+        drawPolyline: false,
+        drawPolygon: false,
+        drawRectangle: false,
+        drawCircle: false,
+        drawText: false,
+        rotateMode: false,
+        cutPolygon: false,
+      });
+      map.on("pm:globaldragmodetoggled", (e) => {
+        console.log(`drag mode: ${e.enabled}`);
+        if (e.enabled) {
+          for (const l of (this.mapBaseLayer?.pm.getLayers() || []) as GridMapFeatureLayer[]) {
+            const f = l.feature as GridFeature;
+            if (!f)
+              continue;
+            if (f.properties.type == 'power_grid_pdu') {
+              l.pm.enableLayerDrag();
+            }
+            else {
+              l.pm.disableLayerDrag();
             }
           }
-        });
-        map.on("pm:globaleditmodetoggled", (e) => {
-          console.log(`edit mode: ${e.enabled}`);
-          this.editInProgress = e.enabled;
-        });
-      } else {
-        this.editInProgress = false;
-        map.pm.disableGlobalDragMode();
-        map.pm.disableGlobalEditMode();
-        map.pm.removeControls();
-      }
-    });
+        }
+      });
+      map.on("pm:globaleditmodetoggled", (e) => {
+        console.log(`edit mode: ${e.enabled}`);
+        this.editInProgress = e.enabled;
+      });
+    } else {
+      this.editInProgress = false;
+      map.pm.disableGlobalDragMode();
+      map.pm.disableGlobalEditMode();
+      map.pm.removeControls();
+    }
 
     $effect(() => {
-      for (const l of (this.mapBaseLayer?.pm.getLayers() || []) as GridMapFeatureLayer[]) {
+      for (const l of (this.mapLayers || []) as GridMapFeatureLayer[]) {
         const f = l.feature as GridFeature;
         if (!f)
           continue;
@@ -211,13 +207,19 @@ export class PowerGridController extends LayerController<
   }
   selectFeature(item: string | GridMapFeatureLayer, fly: boolean = false) {
     const layer = super.selectFeature(item, fly);
-    console.log(`Select grid feature ${layer.feature.id}, editInProgress=${this.editInProgress}`);
+    console.debug(`Select grid feature ${layer?.feature.id}, editInProgress=${this.editInProgress}`);
     this.resetHighlightedFeature(layer)
     this.resetHighlightedPath();
     if (layer) {
       this.highlightGridPathUp(layer);
     }
     //this.layerSelected = undefined;
+    return layer;
+  }
+
+  resetSelectedFeature() {
+    super.resetSelectedFeature();
+    this.resetHighlightedPath();
   }
 
   async load(timeEnd?: Date) {

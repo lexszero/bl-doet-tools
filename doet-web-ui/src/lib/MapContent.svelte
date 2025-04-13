@@ -61,6 +61,7 @@ export interface MapContentInterface {
       },
       getFeature: getFeature,
       selectFeature: selectFeature,
+      resetSelectedFeature: resetSelectedFeature,
       highlightFeature: highlightFeature,
       resetHighlight: resetHighlight
     };
