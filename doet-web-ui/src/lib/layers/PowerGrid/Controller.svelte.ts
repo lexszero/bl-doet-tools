@@ -302,11 +302,16 @@ export class PowerGridController extends LayerController<
           const changedCables = this.data.movePDU(pdu, e.latlng);
           console.log(`Changed cables: ${changedCables.map((c) => c.id)}`);
           for (const cable of changedCables) {
-            const l = this.mapLayers?.get(cable.id);
+            const l = this.mapLayers?.get(cable.id) as MapFeatureLayer<geojson.LineString, GridCableFeature>;
             if (l) {
               l.setLatLngs(coordsToLatLngs(cable.geometry.coordinates));
               l.redraw();
             }
+          }
+          if (l._powerCoverageCircle) {
+            const circle = l._powerCoverageCircle as L.Circle;
+            circle.setLatLng(e.latlng)
+            circle.redraw();
           }
         });
 
@@ -674,14 +679,20 @@ export class PowerGridController extends LayerController<
           continue;
 
         const pdu = f as GridPDUFeature;
-        circles.push(L.circle(coordsToLatLng(pdu.geometry.coordinates), {
+        const circle = L.circle(coordsToLatLng(pdu.geometry.coordinates), {
           radius: this.displayOptions.coverageRadius,
           weight: 0.5,
           opacity: 0.7,
           color: '#303030',
           fillColor: '#303030',
           fillOpacity: 0.3,
-        }));
+        });
+
+        circles.push(circle);
+        const l = this.mapLayers?.get(pdu.id);
+        if (l) {
+          l._powerCoverageCircle = circle;
+        }
       };
       const layer = L.featureGroup(circles, {
         pane: 'layer-PowerGridCoverage',
@@ -690,6 +701,10 @@ export class PowerGridController extends LayerController<
       console.log(`PowerGrid: Added coverage layer with ${circles.length} circles`);
       this.mapCoverageLayer = layer;
     } else if (this.mapCoverageLayer && !this.displayOptions.showCoverage) {
+      for (const l of this.mapLayers?.values() || []) {
+        if (l._powerCoverageCircle)
+          l._powerCoverageCircle = undefined;
+      }
       this.mapRoot.removeLayer(this.mapCoverageLayer);
       this.mapCoverageLayer = undefined;
     }
