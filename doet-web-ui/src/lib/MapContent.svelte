@@ -128,17 +128,16 @@ export interface MapContentInterface {
 </script>
 
 {#each Object.values(instance?.layers || {}) as c}
-<LayerGroup layerType='overlay'>
+  {@const options = c.mapLayerOptions()}
   {#key c.geojson}
     {#if c?.geojson && c.displayOptions.visible}
       <GeoJSON
         json={c.geojson}
         bind:instance={c.mapBaseLayer}
-        options={c.mapLayerOptions()}
+        options={options}
       />
     {/if}
   {/key}
-</LayerGroup>
 {/each}
 
 {#snippet featureInfoHeader(ctl: LayerController<Geometry, Named>, feature: Feature<Geometry, Named>, prefix?: string)}

@@ -32,12 +32,11 @@ export class PlacementController extends LayerController<
   PlacementDisplayOptions
 > {
   layerName = 'Placement';
-  layerZIndex = 2;
 
   data: PowerGridData;
 
   constructor (mapRoot: L.Map) {
-    super('Placement', mapRoot, {
+    super('Placement', 410, mapRoot, {
       visible: true,
       opacity: 0.5,
       mode: 'power_need',

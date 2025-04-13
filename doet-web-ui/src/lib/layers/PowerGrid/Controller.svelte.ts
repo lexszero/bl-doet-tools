@@ -79,7 +79,6 @@ export class PowerGridController extends LayerController<
   PowerGridDisplayOptions
 > {
   layerName = 'PowerGrid';
-  layerZIndex = 3;
 
   data: PowerGridData;
   onDataChanged?: (() => undefined);
@@ -88,7 +87,7 @@ export class PowerGridController extends LayerController<
   editInProgress: boolean = $state(false);
 
   constructor (mapRoot: L.Map) {
-    super('PowerGrid', mapRoot, {
+    super('PowerGrid', 420, mapRoot, {
       visible: true,
       opacity: 0.8,
       mode: 'size',
@@ -200,7 +199,6 @@ export class PowerGridController extends LayerController<
   }
 
   features = $derived(this.data?.features || new SvelteMap<string, GridFeature>());
-
 
 
   mapLayerOptions = () => ({
@@ -469,6 +467,7 @@ export class PowerGridController extends LayerController<
       opacity: 1,
       fillOpacity: 0.8,
       pmIgnore: false,
+      pane: 'layer-PowerGrid'
     });
   }
 

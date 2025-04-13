@@ -15,7 +15,7 @@ export class PowerAreasController extends LayerController<
   data: PowerGridData;
 
   constructor (mapRoot: L.Map) {
-    super('PowerAreas', mapRoot, {
+    super('PowerAreas', 405, mapRoot, {
       visible: true,
       opacity: 0.3,
     });

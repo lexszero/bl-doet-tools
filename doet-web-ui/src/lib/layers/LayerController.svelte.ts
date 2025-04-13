@@ -32,7 +32,6 @@ export class LayerController<
   D extends BasicLayerDisplayOptions = BasicLayerDisplayOptions,
   > {
   public layerName = 'layer';
-  public layerZIndex = 0;
 
   public mapRoot: L.Map;
   public mapBaseLayer?: MapLayer<G, P> = $state();
@@ -43,8 +42,8 @@ export class LayerController<
   public displayOptions: D = $state({visible: true, opacity: 1.0} as D);
   displayOptionsStore: Persisted<D>;
 
-  constructor(name: string, mapRoot: L.Map, defaultDisplayOptions: D = {visible: true, opacity: 1.0} as D) {
-    console.info(`Initializing layer ${name} with `, defaultDisplayOptions);
+  constructor(name: string, zIndex: number, mapRoot: L.Map, defaultDisplayOptions: D = {visible: true, opacity: 1.0} as D) {
+    console.info(`Initializing layer ${name} with zIndex ${zIndex}`, defaultDisplayOptions);
     this.displayOptionsStore = persisted('layer_'+name, defaultDisplayOptions);
     this.displayOptions = {...defaultDisplayOptions, ...get(this.displayOptionsStore)};
     $effect(() => {
@@ -52,16 +51,12 @@ export class LayerController<
     });
 
     this.mapRoot = mapRoot;
-    const pane = this.mapRoot.createPane('overlayPane-'+name);
-    pane.style.zIndex = (400+this.layerZIndex).toString();
+    const pane = this.mapRoot.createPane('layer-'+name);
+    pane.style.zIndex = zIndex.toString();
     $effect(() => {
-      if (this.features && this.displayOptions) {
+      if (this.displayOptions) {
         this.updateStyle();
       }
-    });
-    $effect(() => {
-      console.log(`Layer ${this.layerName}: set ZIndex ${this.layerZIndex}`);
-      this.mapBaseLayer?.setZIndex(400+this.layerZIndex);
     });
   }
 
@@ -116,7 +111,7 @@ export class LayerController<
   mapLayerOptions(): L.GeoJSONOptions {
     return {
       pmIgnore: true,
-      //pane: 'overlayPane-'+this.layerName,
+      pane: 'layer-'+this.layerName,
       onEachFeature: (f: Feature<G, P>, layer: MapFeatureLayer<G, P>) => this.onEachFeature(f, layer),
       style: (f?: Feature<G, P>): L.PathOptions => this.style(f),
       pointToLayer: (f: Feature<geojson.Point, P>, latlng: L.LatLng) => this.pointToLayer(f, latlng)
@@ -124,7 +119,6 @@ export class LayerController<
   }
 
   onEachFeature(_: Feature<G, P>, layer: MapFeatureLayer<G, P>) {
-    //layer.setZIndex(400+this.layerZIndex);
     layer.on({
       click: (e) => this.selectFeature(e.target),
       mouseover: (e) => this.highlightFeature(e.target),
