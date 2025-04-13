@@ -6,6 +6,7 @@ import type {
 } from "geojson";
 
 import type { Feature, FeatureCollection } from '$lib/utils/geojson';
+import type { Named } from '$lib/utils/types';
 
 const API_BASE_URL = 'https://bl.skookum.cc/api';
 //const API_BASE_URL = 'http://localhost:8000';
@@ -20,8 +21,7 @@ export interface ItemizedLogEntry {
   message: string;
 };
 
-export interface PowerAreaProperties {
-  name: string;
+export interface PowerAreaProperties extends Named {
   description?: string;
   population?: number;
   total_power?: number;
@@ -31,8 +31,7 @@ export interface PowerAreaProperties {
 export type PowerAreaFeature = Feature<Polygon, PowerAreaProperties>;
 export type PowerAreaFeatureCollection = FeatureCollection<Polygon, PowerAreaProperties>;
 
-export interface PlacementEntityProperties {
-  name: string;
+export interface PlacementEntityProperties extends Named {
   description?: string;
   contactInfo?: string;
   nrOfPeople?: number;
@@ -40,14 +39,13 @@ export interface PlacementEntityProperties {
   amplifiedSound?: number;
   powerNeed?: number;
 
-  _nearPDUs: [GridPDUFeature, number][];
+  _nearPDUs?: [GridPDUFeature, number][];
 };
 
 export type PlacementFeature = Feature<Polygon, PlacementEntityProperties>;
 export type PlacementFeatureCollection = FeatureCollection<Polygon, PlacementEntityProperties>;
 
-interface GridFeatureCommonProperties {
-  name: string;
+interface GridFeatureCommonProperties extends Named {
   description?: string;
   power_size: string;
   power_native?: boolean;

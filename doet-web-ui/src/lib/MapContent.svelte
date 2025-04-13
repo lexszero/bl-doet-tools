@@ -1,12 +1,16 @@
 <script module lang="ts">
+import { type Feature } from '$lib/utils/geojson';
+import { type Named } from '$lib/utils/types';
+
 export interface MapContentInterface {
   layers: {
     Placement: PlacementLayer,
     PowerAreas: PowerAreasLayer,
     PowerGrid: PowerGridLayer,
   };
-  getFeature: ((id: string) => Feature<Geometry, any>);
+  getFeature: ((id?: string) => Feature<Geometry, any> | undefined);
   selectFeature: ((id: string) => void);
+  resetSelectedFeature: (() => void);
   highlightFeature: ((id: string) => void);
   resetHighlight: (() => void);
 };
@@ -15,25 +19,23 @@ export interface MapContentInterface {
 <script lang="ts">
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { Control, LayerGroup, GeoJSON } from 'sveaflet';
+  import { Control, GeoJSON } from 'sveaflet';
   import type {Geometry} from 'geojson';
   
   import PropertiesTable from '$lib/controls/PropertiesTable.svelte';
   import WarningsTable from '$lib/controls/PropertiesTable.svelte';
   import MapInfoBox from '$lib/controls/MapInfoBox.svelte';
 
-  import type { MapFeatureLayer, LayerController } from './layers/LayerController.svelte';
+  import type { LayerController } from './layers/LayerController.svelte';
 
   import { default as PowerAreasLayer } from '$lib/layers/PowerAreas/Controller.svelte';
   import { default as PowerGridLayer } from '$lib/layers/PowerGrid/Controller.svelte';
   import { default as PlacementLayer } from '$lib/layers/Placement/Controller.svelte';
 
-  import { type InfoItem } from '$lib/utils/types';
   import { TimeRange } from '$lib/utils/misc';
 
   import {
     Waypoints as IconPathInfo,
-    Layers as IconLayers,
   } from '@lucide/svelte';
 
   let {
@@ -79,7 +81,7 @@ export interface MapContentInterface {
       await reload();
   });
 
-  let details: { ctl: LayerController<any, any>, layer: MapFeatureLayer<any, any> } | unknown = $derived(
+  let details = $derived(
     (layerPowerGrid.layerHighlighted) ? {ctl: layerPowerGrid, layer: layerPowerGrid.layerHighlighted}
     : (layerPlacement.layerSelected) ? {ctl: layerPlacement, layer: layerPlacement.layerSelected}
       : (layerPowerAreas.layerSelected) ? {ctl: layerPowerAreas, layer: layerPowerAreas.layerSelected}
@@ -106,11 +108,17 @@ export interface MapContentInterface {
     }
   }
 
-  function selectFeature(id?: string) {
+  function selectFeature(id: string) {
     getControllerForFeature(id)?.selectFeature(id, true);
   }
 
-  function highlightFeature(id?: string) {
+  function resetSelectedFeature() {
+    for (const l of Object.values(instance.layers)) {
+      l.resetSelectedFeature();
+    }
+  }
+
+  function highlightFeature(id: string) {
     getControllerForFeature(id)?.highlightFeature(id);
   }
 
@@ -133,7 +141,7 @@ export interface MapContentInterface {
 </LayerGroup>
 {/each}
 
-{#snippet featureInfoHeader(ctl, feature: Feature<any, {name: string}>, prefix: string | undefined)}
+{#snippet featureInfoHeader(ctl: LayerController<Geometry, Named>, feature: Feature<Geometry, Named>, prefix?: string)}
   {@const FeatureIcon = ctl.featureIcon(feature)}
   {@const statusColor = ctl.featureColorForStatus(feature)}
   <div class="flex grow h5 justify-start">
@@ -164,9 +172,9 @@ export interface MapContentInterface {
 </Control>
 
 <MapInfoBox visible={(!!layerPowerGrid.layerSelected) || false} open={true} position="bottomright" icon={IconPathInfo} classBody="max-w-[500px]">
-  {#if layerPowerGrid.layerSelected}
-    {@const ctl = layerPowerGrid}
-    {@const feature = ctl.layerSelected?.feature}
+  {@const ctl = layerPowerGrid}
+  {#if ctl.layerSelected}
+    {@const feature = ctl.layerSelected.feature}
     {@render featureInfoHeader(ctl, feature, "⚡")}
     <PropertiesTable items={ctl.featureProperties(feature)}
       onClickChip={selectFeature}

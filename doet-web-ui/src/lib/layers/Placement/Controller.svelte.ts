@@ -7,7 +7,7 @@ import type {PlacementFeature, PlacementEntityProperties, GridCableFeature, Grid
 import colormap from '$lib/utils/colormap';
 import { distance, coordsToLatLng, coordsToLatLngs } from '$lib/utils/geo';
 
-import { featureChip, LayerController, type InfoItem } from '$lib/layers/LayerController.svelte';
+import { featureChip, LayerController } from '$lib/layers/LayerController.svelte';
 import { IconPlacementEntity, IconPDU, IconPower, IconSound } from '$lib/Icons';
 import {
   BadgeInfo as IconDescription,
@@ -18,6 +18,8 @@ import {
 
 import { PowerGridData } from '$lib/layers/PowerGrid/data.svelte';
 import { type PlacementDisplayOptions } from './types';
+
+import { type InfoItem } from '$lib/utils/types';
 
 const defaultStyle = {
   weight: 0.5,

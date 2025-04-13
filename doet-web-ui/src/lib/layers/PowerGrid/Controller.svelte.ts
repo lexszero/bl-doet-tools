@@ -22,6 +22,7 @@ import {
 
 import {
   PowerGridData,
+  type LossCalculationResult,
   Vref_LN,
   gridItemSizeData,
   gridItemSizes,
@@ -52,8 +53,8 @@ const styleDefault = {
   fillOpacity: 0.6
 };
 
-function logLayerEvent(e) {
-  console.log(`event ${e.type} for feature ${e.layer.feature.id}`);
+function logLayerEvent(e: L.LeafletEvent) {
+  console.log(`event ${e.type} for feature ${e.propagatedFrom.feature.id}`);
 }
 
 function isCableStart(cable: GridCableFeature, point: L.LatLng): boolean {
@@ -229,7 +230,6 @@ export class PowerGridController extends LayerController<
     super.onEachFeature(feature, layer);
 
     layer.on("pm:snap", (e) => {
-      logLayerEvent(e);
       const layer = e.layer as GridMapFeatureLayer;
       const layerOther = e.layerInteractedWith as GridMapFeatureLayer;
       const feature = layer.feature as GridFeature;
@@ -266,7 +266,6 @@ export class PowerGridController extends LayerController<
       }
     });
     layer.on("pm:unsnap", (e) => {
-      logLayerEvent(e);
       const layer = e.layer as GridMapFeatureLayer;
       const layerOther = e.layerInteractedWith as GridMapFeatureLayer;
       const feature = layer.feature as GridFeature;
@@ -279,8 +278,7 @@ export class PowerGridController extends LayerController<
         this.onDataChanged?.();
       }
     });
-    layer.on("pm:remove", (e) => {
-      const l = e.layer as GridMapFeatureLayer;
+    layer.on("pm:remove", () => {
       const feature = layer.feature as GridFeature;
       if (!feature)
         return;
@@ -297,12 +295,14 @@ export class PowerGridController extends LayerController<
           console.log(`Changed cables: ${changedCables.map((c) => c.id)}`);
           for (const cable of changedCables) {
             const l = this.mapLayers?.get(cable.id);
-            l.setLatLngs(coordsToLatLngs(cable.geometry.coordinates));
-            l.redraw();
+            if (l) {
+              l.setLatLngs(coordsToLatLngs(cable.geometry.coordinates));
+              l.redraw();
+            }
           }
         });
 
-        layer.on("pm:dragend", (e) => {
+        layer.on("pm:dragend", () => {
           this.onDataChanged?.();
         });
 
@@ -313,9 +313,9 @@ export class PowerGridController extends LayerController<
         layer.on("pm:change", (e) => {
           const layer = e.layer as GridMapFeatureLayer;
           const cable = layer.feature as GridCableFeature;
-          this.data.changeCablePath(cable, e.latlngs);
+          this.data.changeCablePath(cable, e.latlngs as L.LatLng[]);
         });
-        layer.on("pm:markerdragend", (e) => {
+        layer.on("pm:markerdragend", () => {
           this.onDataChanged?.();
         });
         break;
@@ -339,7 +339,10 @@ export class PowerGridController extends LayerController<
     return {...this.styleBySize(feature), color, fillColor: color}
   };
 
-  style = (feature: GridFeature) => {
+  style = (feature?: GridFeature) => {
+    if (!feature)
+      return {}
+
     if (this.layerHighlighted?.feature.id == feature.id) {
       return this.styleHighlighted;
     }
@@ -347,7 +350,7 @@ export class PowerGridController extends LayerController<
       return this.styleSelected;
     }
     else if (this.isFeatureOnHighlightedGridPath(feature)) {
-      return this.styleGridPath(feature);
+      return this.styleGridPath;
     }
     switch (this.displayOptions.mode) {
       case 'size':
@@ -358,7 +361,7 @@ export class PowerGridController extends LayerController<
     }
   };
 
-  styleGridPath = (feature: GridFeature) => ({color: '#0151FF', weight: 7, opacity: 1, fillOpacity: 1});
+  styleGridPath = {color: '#0151FF', weight: 7, opacity: 1, fillOpacity: 1}
 
   featureIcon = (feature: GridFeature) => ({
     power_grid_pdu: IconPDU,
@@ -498,7 +501,7 @@ export class PowerGridController extends LayerController<
         (this.layerSelected && this.layerSelected.feature.id == l.feature.id) ||
         (this.layerHighlighted && this.layerHighlighted.feature.id == l.feature.id)
       )) {
-        l.setStyle(this.styleGridPath(l.feature));
+        l.setStyle(this.styleGridPath);
         l.bringToFront();
       }
     }
@@ -574,17 +577,17 @@ export class PowerGridController extends LayerController<
     return result;
   }
 
-  resetHighlightedFeature(layer?: Layer) {
-    if (!layer) {
-      layer = this.layerHighlighted;
-    }
+  resetHighlightedFeature() {
+    const layer = this.layerHighlighted;
+    if (!layer)
+      return;
     if (this.isLayerOnHighlightedGridPath(layer)) {
       //console.log(`Feature ${layer.feature.id}: highlighted -> selected`)
-      layer.setStyle((layer.feature.id == this.layerSelected.feature.id) ?
-        this.styleSelected : this.styleGridPath(layer.feature));
+      layer.setStyle((layer.feature.id == this.layerSelected?.feature.id) ?
+        this.styleSelected : this.styleGridPath);
       this.layerHighlighted = undefined;
     } else {
-      super.resetHighlightedFeature(layer);
+      super.resetHighlightedFeature();
     }
   }
 

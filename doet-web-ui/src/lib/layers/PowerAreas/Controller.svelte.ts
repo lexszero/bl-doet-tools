@@ -3,7 +3,7 @@ import { SvelteMap } from 'svelte/reactivity';
 import type {Polygon} from 'geojson';
 import type {PowerAreaFeature, PowerAreaProperties} from '$lib/api';
 import type {PowerGridData} from '$lib/layers/PowerGrid/data.svelte';
-import { LayerController, type BasicLayerDisplayOptions } from '$lib/layers/LayerController.svelte';
+import { LayerController } from '$lib/layers/LayerController.svelte';
 
 export class PowerAreasController extends LayerController<
   Polygon,
@@ -36,20 +36,20 @@ export class PowerAreasController extends LayerController<
     opacity: this.displayOptions.opacity,
     fillOpacity: 0.1
   });
-  styleHighlighted = () => ({
+  styleHighlighted = {
     weight: 5,
     color: '#FFFD00',
     fillColor: '#FFFD00',
     opacity: 0.3,
     fillOpacity: 0.5,
-  });
-  styleSelected = () => ({
+  };
+  styleSelected = {
     weight: 5,
     color: '#FFFD00',
     fillColor: '#FFFD00',
     opacity: 0.3,
     fillOpacity: 0.3,
-  });
+  };
 
   highlightBringsToFront = false;
 }

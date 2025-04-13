@@ -6,7 +6,7 @@
   import { SegmentItem } from '$lib/controls/Segment.svelte';
 
   import type { default as Controller } from './Controller.svelte';
-  import { IconPlacement, IconPDU, IconCable, IconPower, IconResistance, IconSound, IconRuler } from '$lib/Icons';
+  import { type IconType, IconPlacement, IconPDU, IconCable, IconPower, IconResistance, IconSound, IconRuler } from '$lib/Icons';
   import { Hash as IconNumber } from '@lucide/svelte';
 
   import unitFormat from 'unitformat';
@@ -14,7 +14,7 @@
   let { ctl }: { ctl: Controller } = $props();
 </script>
 
-{#snippet segItemIcons(value, icons)}
+{#snippet segItemIcons(value: string, icons: IconType[])}
   <SegmentItem value={value}>
     <div class="flex flex-row">
       {#each icons as I}
@@ -24,9 +24,7 @@
   </SegmentItem>
 {/snippet}
 
-<LayerDisplayOptions value={ctl.layerName} title="Placement" icon={IconPlacement}
-  bind:visible={ctl.displayOptions.visible}
->
+<LayerDisplayOptions value={ctl.layerName} title="Placement" icon={IconPlacement}>
   {@const mode = ctl.displayOptions.mode}
   <div class="flex justify-between items-center gap-4 p-1">
     <p>Color by</p>
@@ -46,7 +44,7 @@
         min={0} max={20000} step={500}
         markers={[0, 1000, 2000, 5000, 10000, 15000, 20000]}
       >
-        {#snippet mark(v)}{unitFormat(v)}{/snippet}
+        {#snippet mark(v: number)}{unitFormat(v)}{/snippet}
       </Slider>
       <span>{ctl.displayOptions.powerNeedThresholds.map((v) => unitFormat(v, 'W'))}</span>
     </div>
@@ -67,7 +65,7 @@
         min={0} max={10000} step={100}
         markers={[0, 1000, 2500, 5000, 7500, 10000]}
         >
-        {#snippet mark(v)}{unitFormat(v)}{/snippet}
+        {#snippet mark(v: number)}{unitFormat(v)}{/snippet}
       </Slider>
     <span>{unitFormat(ctl.displayOptions.soundMax, 'W')}</span>
     </div>

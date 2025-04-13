@@ -14,7 +14,6 @@ let {
     value: string,
     icon: IconType,
     classBody?: string,
-    visible?: boolean,
     opacity?: number,
     children?: Snippet
   } = $props();

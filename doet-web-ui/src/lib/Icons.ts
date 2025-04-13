@@ -1,5 +1,5 @@
+import { Icon as _IconType } from '@lucide/svelte';
 export {
-  type Icon as IconType,
   X as IconClose,
   TriangleAlert as IconWarning,
   MapPin as IconFeatureDefault,
@@ -14,4 +14,4 @@ export {
   Volume2 as IconSound,
 } from '@lucide/svelte';
 
-
+export type IconType = typeof _IconType;
