@@ -11,6 +11,9 @@
   import L from 'leaflet';
   import 'leaflet/dist/leaflet.css'
 
+  import "leaflet.polylinemeasure";
+  import "leaflet.polylinemeasure/Leaflet.PolylineMeasure.css";
+
   import MapContent from '$lib/MapContent.svelte';
   import type { MapContentInterface } from '$lib/MapContent.svelte';
 
@@ -43,6 +46,13 @@
 
     const locateControl = new LocateControl();
     locateControl.addTo(map);
+
+    L.control.polylineMeasure({
+      useSubunits: true,
+      measureControlLabel: '&#128207;',
+      measureControlTitleOn: 'Measure distance',
+      measureControlTitleOff: 'Stop measurement',
+    }).addTo(map);
   });
 
   const mapOptions: L.MapOptions = {
