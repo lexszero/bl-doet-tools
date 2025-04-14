@@ -63,11 +63,6 @@
     attributionControl: false,
     pmIgnore: false,
   };
-
-  const layerBasemapTileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-  const layerBasemapOptions = {
-    attribution: "© OpenStreetMap contributors",
-  };
 </script>
 
 {#if browser}

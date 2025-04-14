@@ -1,6 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
 import L from 'leaflet';
-import { parseISO as parseTimestamp } from 'date-fns';
+import { parseJSON as parseTimestamp } from 'date-fns';
 import { coordsToLatLng, distance, isSamePoint } from '$lib/utils/geo';
 
 import type {
@@ -143,6 +143,7 @@ export class PowerGridData {
   async load(timeEnd?: Date) {
     const data = await this.api.getPowerGridProcessed(timeEnd);
     this.timestamp = parseTimestamp(data.timestamp);
+    console.info(`PowerGridData: last revision at `, this.timestamp);
 
     const features = new Map<string, GridFeature>(
       data.features.features.map(

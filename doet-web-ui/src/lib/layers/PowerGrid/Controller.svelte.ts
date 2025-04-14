@@ -5,6 +5,7 @@ import colormap from '$lib/utils/colormap';
 import * as geojson from "geojson";
 import L from 'leaflet';
 
+import { formatDate } from 'date-fns';
 import {
   type GridCableFeature,
   type GridFeature,
@@ -37,6 +38,8 @@ import {
   IconResistance,
   IconPlug
 } from "$lib/Icons";
+
+import IconTimestamp from '@lucide/svelte/icons/file-clock';
 
 import {
   featureChip, 
@@ -644,6 +647,11 @@ export class PowerGridController extends LayerController<
     }
 
     result.push(
+      {
+        label: "Last change",
+        value: formatDate(this.data.timestamp, 'MMM d yyyy, HH:mm'),
+        icon: IconTimestamp
+      },
       {
         label: "Max path length to source",
         value: `${maxDistanceToSource[0].toFixed(0)} m`,

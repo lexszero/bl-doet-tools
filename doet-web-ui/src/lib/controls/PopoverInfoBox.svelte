@@ -5,18 +5,16 @@
 
   let {
     title,
-    icon,
     contentClasses,
     trigger,
     header,
     content,
     ...restProps
   }: {
-    title: string,
-    icon: IconType,
-    contentClasses: string,
+    title?: string,
+    contentClasses?: string,
     trigger: Snippet,
-    header: Snippet,
+    header?: Snippet,
     content: Snippet
   } = $props()
 
