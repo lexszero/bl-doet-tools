@@ -1,9 +1,12 @@
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, Optional
+from typing import Annotated, Iterable, Optional, Tuple
+from cachetools import TTLCache
+from cachetools_async import cached
+from fastapi import Depends
 from pydantic import BaseModel, PrivateAttr, RootModel, TypeAdapter
+from pyproj import get_proj_operations_map
 
-from common.db_async import DBSessionDep
+from common.db_async import DBSessionDep, get_db_session
 from common.geometry import (
         coord_transform, XFRM_GEO_TO_PROJ,
         Feature, FeatureCollection,
@@ -29,6 +32,7 @@ from power_map.itemized_log import ItemizedLogEntry, ItemizedLogCollector
 
 PowerGridItem = PowerGridCable | PowerGridPDU
 PowerGridFeature = PowerGridCableFeature | PowerGridPDUFeature
+PowerGridFeatureWithStats = Feature[Point, PowerGridPDUPropertiesWithStats] | Feature[LineString, PowerGridCablePropertiesWithStats]
 
 PowerGridSnapshot = list[PowerGridFeature]
 
@@ -40,6 +44,7 @@ class PowerGridData(BaseModel):
     timestamp: datetime
     log: list[ItemizedLogEntry]
     features: PowerGridFeatureCollectionType
+    editable: bool
 
 NEAR_THRESHOLD_M = 1
 
@@ -248,16 +253,17 @@ class PowerGrid(PowerArea):
     def add_placement_feature(self, f: PlacementEntityFeature):
         self.add_item(PowerConsumer.from_feature(f))
 
-async def get_power_grid(db: DBSessionDep, project: 'Project', timestamp: Optional[datetime] = None) -> PowerGrid:
+async def get_power_grid(project: 'Project', timestamp: Optional[datetime] = None) -> PowerGrid:
     collections = await project.awaitable_attrs.collections
 
-    grid = PowerGrid(timestamp=await project.get_last_change_timestamp(db))
-    async for f in PowerAreaFeatureCollection(collections['power_areas'], time_end=timestamp).all_last_values(db):
+    grid = PowerGrid(timestamp=await project.get_last_change_timestamp())
+    async for f in PowerAreaFeatureCollection(collections['power_areas'], time_end=timestamp).all_last_values():
         grid.add_area_feature(f)
 
-    grid.add_grid_features([f async for f in PowerGridFeatureCollection(collections['power_grid'], time_end=timestamp).all_last_values(db)])
+    grid.add_grid_features([f async for f in PowerGridFeatureCollection(collections['power_grid'], time_end=timestamp).all_last_values()])
 
-    async for f in PlacementEntityFeatureCollection(collections['placement'], time_end=timestamp).all_last_values(db):
-        grid.add_placement_feature(f)
+    #async for f in PlacementEntityFeatureCollection(collections['placement'], time_end=timestamp).all_last_values():
+    #    grid.add_placement_feature(f)
 
     return grid
+

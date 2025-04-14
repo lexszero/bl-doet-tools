@@ -1,26 +1,22 @@
-from datetime import datetime
 import logging
-from typing import Annotated, Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 import io
 import csv
-from cachetools import TTLCache
-from cachetools_async import cached
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
-from common.db_async import get_db_session
 from common.geometry import Feature, FeatureCollection, Polygon, Point, LineString, to_geojson_feature_collection
-from core.dependencies import get_project
+from core.dependencies import RequiredUserRole_Any
+from core.permission import Role
+from power_map.dependencies import PowerGridDep
 from power_map.power_area import PowerArea, PowerAreaStats, PowerAreaInfo
 from power_map.power_consumer import PowerConsumerColoringMode, PowerConsumerPropertiesWithStatsStyled
-from power_map.power_grid import PowerGrid, PowerGridData, get_power_grid
+from power_map.power_grid import PowerGridData
 from power_map.power_grid_base import PowerGridItemSizeOrder, PowerItemBase
 from power_map.power_grid_cable import PowerGridCable, PowerGridCablePropertiesWithStats, PowerGridCablePropertiesWithStatsStyled
 from power_map.power_grid_pdu import PowerGridPDU, PowerGridPDUPropertiesWithStats, PowerGridPDUPropertiesWithStatsStyled
 from power_map.utils import NameDescriptionModel
-
-router = APIRouter()
 
 def write_csv(f, collection: Iterable[Any], properties_fn: Callable[[Any], list[Any]], columns: Optional[Iterable[str]]):
     writer = csv.writer(f, delimiter=";")
@@ -29,15 +25,10 @@ def write_csv(f, collection: Iterable[Any], properties_fn: Callable[[Any], list[
     for item in collection:
         writer.writerow(properties_fn(item))
 
-@cached(TTLCache(maxsize=64, ttl=30))
-async def get_power_grid_cached(project_name: str, time_end: Optional[datetime] = None):
-    async with await get_db_session() as db:
-        project = await get_project(db, project_name)
-        return await get_power_grid(db, project, timestamp=time_end)
+router = APIRouter()
 
-PowerGridDep = Annotated[PowerGrid, Depends(get_power_grid_cached)]
-
-@router.get("/areas.geojson")
+@router.get("/areas.geojson",
+            dependencies=[RequiredUserRole_Any])
 async def get_power_areas_geojson(
         power_grid: PowerGridDep,
         ) -> FeatureCollection[Feature[Polygon, PowerAreaStats]]:
@@ -46,7 +37,8 @@ async def get_power_areas_geojson(
             lambda area: PowerAreaStats.model_validate(area, from_attributes=True)
             )
 
-@router.get("/areas.json")
+@router.get("/areas.json",
+            dependencies=[RequiredUserRole_Any])
 async def get_power_areas_json(
         power_grid: PowerGridDep,
         ) -> list[PowerAreaInfo]:
@@ -55,7 +47,8 @@ async def get_power_areas_json(
         from_attributes=True
         ) for area in power_grid.areas_recursive() if area.geometry]
 
-@router.get("/areas.csv")
+@router.get("/areas.csv",
+            dependencies=[RequiredUserRole_Any])
 async def get_power_areas_csv(
         power_grid: PowerGridDep,
         ) -> PlainTextResponse:
@@ -66,7 +59,8 @@ async def get_power_areas_csv(
                   PowerArea.CSV_COLUMNS)
         return PlainTextResponse(b.getvalue(), media_type="text/csv")
 
-@router.get("/grid.geojson")
+@router.get("/grid.geojson",
+            dependencies=[RequiredUserRole_Any])
 async def get_power_grid_geojson(
         power_grid: PowerGridDep,
         ) -> FeatureCollection[Feature[Point, PowerGridPDUPropertiesWithStats] | Feature[LineString, PowerGridCablePropertiesWithStats]]:
@@ -75,7 +69,8 @@ async def get_power_grid_geojson(
             PowerItemBase.feature_properties,
             )
 
-@router.get("/grid")
+@router.get("/grid",
+            dependencies=[RequiredUserRole_Any])
 async def get_power_grid_full(
         power_grid: PowerGridDep,
         log_level: str = 'WARNING'
@@ -90,7 +85,8 @@ async def get_power_grid_full(
                 ))
 
 
-@router.get("/grid_styled.geojson")
+@router.get("/grid_styled.geojson",
+            dependencies=[RequiredUserRole_Any])
 async def get_power_grid_styled_geojson(
         power_grid: PowerGridDep
         ) -> FeatureCollection[Feature[Point, PowerGridPDUPropertiesWithStatsStyled] | Feature[LineString, PowerGridCablePropertiesWithStatsStyled]]:
@@ -98,7 +94,8 @@ async def get_power_grid_styled_geojson(
             power_grid.grid_items,
             PowerItemBase.feature_properties_styled)
 
-@router.get("/grid_coverage.geojson")
+@router.get("/grid_coverage.geojson",
+            dependencies=[RequiredUserRole_Any])
 async def get_power_grid_coverage_geojson(
         power_grid: PowerGridDep,
         ) -> FeatureCollection[Feature[Polygon, NameDescriptionModel]]:
@@ -116,7 +113,8 @@ async def get_power_grid_coverage_geojson(
             features=list(map(pdu_coverage_feature, power_grid._pdus))
             )
 
-@router.get("/grid_cables.csv")
+@router.get("/grid_cables.csv",
+            dependencies=[RequiredUserRole_Any])
 async def get_power_grid_cables_csv(
         power_grid: PowerGridDep,
         csv_header: bool = False,
@@ -128,7 +126,8 @@ async def get_power_grid_cables_csv(
                   csv_header and PowerGridCable.CSV_COLUMNS or None)
         return PlainTextResponse(b.getvalue(), media_type="text/csv")
 
-@router.get("/grid_pdus.csv")
+@router.get("/grid_pdus.csv",
+            dependencies=[RequiredUserRole_Any])
 async def get_power_grid_pdus_csv(
         power_grid: PowerGridDep,
         csv_header: bool = False,
@@ -149,7 +148,9 @@ async def get_power_grid_pdus_csv(
         return PlainTextResponse(b.getvalue(), media_type="text/csv")
 
 
-@router.get("/placement_entities.geojson", response_model_exclude_none=True)
+@router.get("/placement_entities.geojson",
+            dependencies=[RequiredUserRole_Any],
+            response_model_exclude_none=True)
 async def get_placement_entities_geojson(
         power_grid: PowerGridDep,
         coloring: PowerConsumerColoringMode = PowerConsumerColoringMode.power_need) -> FeatureCollection[Feature[Polygon, PowerConsumerPropertiesWithStatsStyled]]:

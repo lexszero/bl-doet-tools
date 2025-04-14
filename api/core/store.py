@@ -4,15 +4,16 @@ from typing import Any, AsyncGenerator, ClassVar, Dict, Generic, Iterable, List,
 from pydantic import BaseModel, TypeAdapter
 from sqlalchemy import ForeignKey, Index, delete, func, select
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession, async_object_session
 from sqlalchemy.orm import Mapped, attribute_keyed_dict, mapped_column, relationship
 
 from common.db import DBModel
 from common.db_async import DBSessionDep
-from common.errors import NotFoundError
+from common.errors import InternalError, NotFoundError
 from common.model_utils import ModelT
 from common.log import Log
-from core.user import Permission, User, UserRole
+from core.permission import Permission, PermissionInDB, Role
+from core.user import User, UserInDB
 
 log = Log.getChild('store')
 
@@ -47,7 +48,7 @@ class StoreItemRevision(DBModel, AsyncAttrs):
 
     data: Mapped[dict[str, Any]] = mapped_column(JSONB)
 
-    user: Mapped[User] = relationship()
+    user: Mapped[UserInDB] = relationship()
     collection: Mapped['StoreCollection'] = relationship(
             back_populates='revisions'
             )
@@ -103,6 +104,7 @@ class VersionedCollection(ABC, Generic[ModelT]):
     store_item_class: Optional[type[ModelT] | TypeAdapter[ModelT]] = None
 
     _collection: StoreCollection
+    _db: AsyncSession
     _time_start: Optional[datetime] = None
     _time_end: Optional[datetime] = None
 
@@ -121,7 +123,11 @@ class VersionedCollection(ABC, Generic[ModelT]):
             await db.flush()
 
             result = cls(collection)
-            await result.add_permission(db, project.owner_user, UserRole.Owner)
+            await project.owner_user.grant_permission(db, Permission(
+                object_type='collection',
+                object_id=str(collection.id),
+                role=Role.Owner
+                ))
 
             log.info(f"{cls.__name__}: Created collection {collection.name}")
 
@@ -129,17 +135,22 @@ class VersionedCollection(ABC, Generic[ModelT]):
         else:
             raise NotFoundError(f"Collection {cls.store_collection_name} not found")
 
-    def __init__(self, collection: StoreCollection = None, time_start: Optional[datetime] = None, time_end: Optional[datetime] = None):
+    def __init__(self, collection: StoreCollection, time_start: Optional[datetime] = None, time_end: Optional[datetime] = None):
         if not self.store_item_type:
             self.store_item_type = collection.item_type
         if self.store_item_type != collection.item_type:
             raise RuntimeError(f"Collection {collection} item_type={collection.item_type} is not compatible with item class {self.store_item_class} (item_type={self.store_item_type})")
 
+        db = async_object_session(collection)
+        if not db:
+            raise InternalError("db session not found")
+        self._db = db
         self._collection = collection
         if time_start:
             self._time_start = time_start.replace(tzinfo=None)
         if time_end:
             self._time_end = time_end.replace(tzinfo=None)
+
 
         #log.info(f"{self.__class__.__name__}: time interval {self._time_start} - {self._time_end}")
 
@@ -168,26 +179,24 @@ class VersionedCollection(ABC, Generic[ModelT]):
                 data=self._from_dict(r.data)
                 )
 
-    async def add_permission(self, db: DBSessionDep, user: User, role: UserRole) -> Permission:
+    async def grant_permission(self, user: UserInDB, role: Role) -> Permission:
         permission = Permission(
-            user=user,
             object_type='collection',
             object_id=str(self._collection.id),
             role=role
             )
-        db.add(permission)
-        await db.flush()
+        await user.grant_permission(self._db, permission)
         return permission
 
-    async def remove(self, db: DBSessionDep):
-        await db.execute(
-                delete(Permission)
+    async def remove(self):
+        await self._db.execute(
+                delete(PermissionInDB)
                 .where(
-                    (Permission.object_type == 'collection') &
-                    (Permission.object_id == str(self._collection.id))
+                    (PermissionInDB.object_type == 'collection') &
+                    (PermissionInDB.object_id == str(self._collection.id))
                     )
                 )
-        await db.delete(self)
+        await self._db.delete(self)
 
     def _filter_revisions(
             self,
@@ -204,10 +213,7 @@ class VersionedCollection(ABC, Generic[ModelT]):
             condition = condition & (StoreItemRevision.timestamp <= self._time_end)
         return condition
 
-    async def _all_last_revisions(
-            self,
-            db: DBSessionDep,
-            ) -> Iterable[StoreItemRevision]:
+    async def _all_last_revisions(self) -> Iterable[StoreItemRevision]:
         subquery = (
                 select(
                     StoreItemRevision.collection_id,
@@ -219,7 +225,7 @@ class VersionedCollection(ABC, Generic[ModelT]):
                     StoreItemRevision.item_id)
                 .subquery()
                 )
-        return await db.scalars(
+        return await self._db.scalars(
                 select(StoreItemRevision)
                 .join(
                     subquery,
@@ -231,11 +237,10 @@ class VersionedCollection(ABC, Generic[ModelT]):
 
     async def _item_last_revision(
             self,
-            db: DBSessionDep,
             item_id: str,
             include_deleted: bool = False
             ) -> StoreItemRevision:
-        return await db.scalar(
+        return await self._db.scalar(
                 select(StoreItemRevision)
                 .where(self._filter_revisions(item_id, include_deleted=include_deleted))
                 .order_by(StoreItemRevision.revision.desc())
@@ -244,11 +249,10 @@ class VersionedCollection(ABC, Generic[ModelT]):
 
     async def _revisions(
             self,
-            db: DBSessionDep,
             item_id: Optional[str] = None,
             include_deleted: bool = False
             ):
-        return await db.scalars(
+        return await self._db.scalars(
                 select(StoreItemRevision)
                 .where(self._filter_revisions(item_id, include_deleted=include_deleted))
                 .order_by(StoreItemRevision.revision)
@@ -256,30 +260,27 @@ class VersionedCollection(ABC, Generic[ModelT]):
 
     async def item_last_value(
             self,
-            db: DBSessionDep,
             item_id: str,
             include_deleted: bool = False
             ) -> Optional[ModelT]:
-        result = await self._item_last_revision(db, item_id, include_deleted=include_deleted)
+        result = await self._item_last_revision(self._db, item_id, include_deleted=include_deleted)
         if not (result and result.data):
             return None
         return self._from_dict(result.data)
 
     async def item_revisions(
             self,
-            db: DBSessionDep,
             item_id: str,
             include_deleted: bool = False
             ) -> AsyncGenerator[ItemRevisionInfo]:
-        for r in await self._revisions(db, item_id, include_deleted=include_deleted):
+        for r in await self._revisions(item_id, include_deleted=include_deleted):
             yield await self._revision_info(r)
 
     async def all_revisions(
             self,
-            db: DBSessionDep,
             include_deleted: bool = False
             ) -> CollectionWithRevisions:
-        revisions = await self._revisions(db, include_deleted=include_deleted)
+        revisions = await self._revisions(include_deleted=include_deleted)
         items = {}
         n_revisions = 0
         for r in revisions:
@@ -295,8 +296,8 @@ class VersionedCollection(ABC, Generic[ModelT]):
                 num_revisions=n_revisions,
                 items=items)
  
-    async def all_last_values(self, db: DBSessionDep) -> AsyncGenerator[ModelT]:
-        result = await self._all_last_revisions(db)
+    async def all_last_values(self) -> AsyncGenerator[ModelT]:
+        result = await self._all_last_revisions()
         for item in result:
             if not item.data:
                 #log.debug(f"{self.__class__.__name__}: Item {item.item_id} is missing data")
@@ -305,9 +306,9 @@ class VersionedCollection(ABC, Generic[ModelT]):
             if value:
                 yield value
 
-    async def add(self, db: DBSessionDep, user: User, item_id: str, data: Optional[ModelT]) -> StoreItemRevision:
+    async def add(self, user: User, item_id: str, data: Optional[ModelT]) -> StoreItemRevision:
         revision = 0
-        last = await self._item_last_revision(db, item_id, include_deleted=True)
+        last = await self._item_last_revision(item_id, include_deleted=True)
         if last:
             revision = last.revision+1
 
@@ -318,8 +319,28 @@ class VersionedCollection(ABC, Generic[ModelT]):
                 revision=revision,
                 data=data and self._to_dict(data) or None
                 )
-        db.add(item)
+        self._db.add(item)
         log.info(f"{self.__class__.__name__}: Added new revision {revision} for item {item_id}")
         return item
+
+    async def last_timestamp(self) -> datetime | None:
+        return await self._db.scalar(
+                select(func.max(StoreItemRevision.timestamp))
+                .where(self._filter_revisions())
+                )
+
+async def get_versioned_collection(
+        project: 'Project',
+        collection_name: str,
+        time_start: Optional[datetime] = None,
+        time_end: Optional[datetime] = None,
+        ):
+    collection = (await project.awaitable_attrs.collections).get(collection_name)
+    if not collection:
+        raise NotFoundError("Collection not found")
+    for cls in VersionedCollection.__subclasses__():
+        if cls.store_item_type == collection.item_type:
+            return cls(collection, time_start=time_start, time_end=time_end)
+    raise RuntimeError(f"Unable to determine VersionedCollection class for {collection}")
 
 

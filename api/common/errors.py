@@ -7,28 +7,21 @@ class ApiError(HTTPException):
         self.code = code
         self.description = description
 
-    def as_result(self):
-        return {
-                'statusCode': self.status_code,
-                'body': {
-                    'code': self.code,
-                    'message': self.description
-                    }
-                }
-
-def exception_as_dict(exception, context = None):
-    if isinstance(exception, ApiError):
-        result = exception.as_result()['body']
-    else:
-        result = ApiError(500, "unhandled_exception", str(exception)).as_result()['body']
-    result['context'] = context
-    return result
-
 class NotImplementedError(ApiError):
     def __init__(self, description = 'Not implemented'):
         super().__init__(501, 'not_implemented', description)
 
-class AuthError(ApiError): pass
+class AuthError(ApiError):
+    def __init__(self, code, description):
+        super().__init__(401, code, description)
+
+class InvalidTokenError(AuthError):
+    def __init__(self, description = 'Invalid token'):
+        super().__init__('invalid_token', description)
+
+class UnauthorizedError(AuthError):
+    def __init__(self, description = 'Unauthorized'):
+        super().__init__('unauthorized', description)
 
 class PermissionDeniedError(ApiError):
     def __init__(self, description = 'Permission denied'):
@@ -53,6 +46,10 @@ class InternalError(ApiError):
 class ModuleConflictError(ApiError):
     def __init__(self, description = 'unknown'):
         super().__init__(500, 'module_conflict', 'Conflicting modules: ' + description)
+
+class ConfigurationError(ApiError):
+    def __init__(self, description = 'Configuration error'):
+        super().__init__(400, 'configuration_error', description)
 
 class ErrorWithData(ApiError):
     def __init__(self, base_exception, data = None, *args, **kwargs):

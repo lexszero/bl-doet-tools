@@ -17,6 +17,10 @@ cachetools-async = "*"
 matplotlib = "*"
 fastkml = "*"
 pyproj = "*"
+passlib = "*"
+pyjwt = "*"
+requests = "*"
+bcrypt = "*"
 
 [dev-packages]
 devtools = "*"

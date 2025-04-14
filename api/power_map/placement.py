@@ -89,3 +89,9 @@ class PlacementEntityFeatureCollection(VersionedCollection[PlacementEntityFeatur
     store_collection_name = 'placement'
     store_item_type = 'placement_entity'
     store_item_class = PlacementEntityFeature
+
+def transform_placement_scrub_private_data(f: PlacementEntityFeature) -> PlacementEntityFeature:
+    if f.properties:
+        f.properties.contact_info = None
+
+    return f

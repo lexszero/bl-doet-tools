@@ -66,7 +66,7 @@ class ModelJson(TypeDecorator, Generic[ModelT]):
     def process_result_value(self, value: ModelT, dialect):
         #log.debug(f'{self._name}: result_value: parsing {type(value)} {repr(value)}')
         if value is None:
-            log.warning(f'{self._name}: Value is None')
+            log.debug(f'{self._name}: Value is None')
             return value
         #args = getattr(self._allowed_types, '__args__', None)
         result = None

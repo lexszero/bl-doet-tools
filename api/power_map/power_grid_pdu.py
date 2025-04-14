@@ -13,7 +13,7 @@ class PowerGridPDUProperties(PowerGridItemPropertiesBase):
 class PowerGridPDUPropertiesWithStats(PowerGridPDUProperties):
     nr_consumers: int
     cable_in: Optional[str]
-    cables_out: list[str]
+    cables_out: list[str] = Field(default_factory=list)
 
 class PowerGridPDUPropertiesWithStatsStyled(PowerGridPDUPropertiesWithStats, PointStyle):
     pass

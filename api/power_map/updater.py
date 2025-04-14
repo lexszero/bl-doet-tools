@@ -14,7 +14,7 @@ from common.log import Log
 from core.dependencies import get_project
 from core.project import Project
 from core.store import VersionedCollection
-from core.user import User, get_user
+from core.user import UserInDB, get_user_db
 from power_map.loader import Loader
 from power_map.placement import PlacementEntityFeatureCollection
 from power_map.power_area import PowerAreaFeatureCollection
@@ -125,12 +125,12 @@ def make_new_id(all_ids: list[str], s: str):
 @dataclass
 class UpdateContext:
     db: AsyncSession
-    user: User
+    user: UserInDB
     project: Project
     loader: Loader
 
     async def _update_collection_with_features(self, collection: VersionedCollection, features: list[Any]):
-        features_known = with_shapes(await A.list(collection.all_last_values(self.db)))
+        features_known = with_shapes(await A.list(collection.all_last_values()))
         features_new = with_shapes(features)
 
         pairs = []
@@ -174,14 +174,14 @@ class UpdateContext:
         for known, new in pairs:
             if not new:
                 log.debug(f"Deleted: {known.id}")
-                await collection.add(self.db, self.user, known.id, None)
+                await collection.add(self.user, known.id, None)
             elif not known:
                 log.debug(f"Added {new.id} ({new.properties.name})")
-                await collection.add(self.db, self.user, new.id, new)
+                await collection.add(self.user, new.id, new)
             elif feature_changed(known, new):
                 #debug(known, new)
                 log.debug(f"Updated {new.id} ({new.properties.name})")
-                await collection.add(self.db, self.user, new.id, new)
+                await collection.add(self.user, new.id, new)
 
 
     async def update_areas(self):
@@ -234,7 +234,7 @@ class Updater:
         async with db:
             ctx = UpdateContext(
                     db,
-                    user=await get_user(db, self._user_name),
+                    user=await get_user_db(db, self._user_name),
                     project=await get_project(db, self._project_name),
                     loader=self._loader()
                     )

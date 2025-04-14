@@ -1,2 +1,2 @@
 from .user import User, Permission
-from .project import Project, ProjectData
+from .project import Project, View
