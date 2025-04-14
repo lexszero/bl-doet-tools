@@ -1,7 +1,7 @@
 <script lang="ts">
 import { type Snippet } from 'svelte';
 import { Control } from 'sveaflet';
-import { type Icon } from '@lucide/svelte';
+import { type Icon } from '$lib/Icons';
 
 let {
   title,
@@ -14,7 +14,7 @@ let {
   children,
 }: {
   title?: string,
-  icon: Icon,
+  icon: IconType,
   position: 'topleft' | 'topright' | 'bottomleft' | 'bottomright';
   classButton?: string,
   classBody?: string;

@@ -2,7 +2,8 @@
   import {getContext} from 'svelte';
   
   import { Accordion } from '@skeletonlabs/skeleton-svelte';
-  import { Eye, EyeClosed } from '@lucide/svelte';
+  import IconEyeOpen from '@lucide/svelte/icons/eye';
+  import IconEyeClosed from '@lucide/svelte/icons/eye-closed';
 
   import type {MapContentInterface} from '$lib/MapContent.svelte';
 
@@ -27,8 +28,8 @@
 </script>
 
 <Accordion value={value} multiple onValueChange={onValueChange}>
-  {#snippet iconOpen()}<Eye />{/snippet}
-  {#snippet iconClosed()}<EyeClosed />{/snippet}
+  {#snippet iconOpen()}<IconEyeOpen />{/snippet}
+  {#snippet iconClosed()}<IconEyeClosed />{/snippet}
 
   <PlacementDisplayOptions ctl={map.layers.Placement} />
   <hr class="hr" />

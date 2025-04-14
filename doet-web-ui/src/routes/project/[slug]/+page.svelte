@@ -15,12 +15,10 @@
   import { PowerGridData } from '$lib/layers/PowerGrid/data.svelte?client';
   import DisplayOptions from '$lib/layers/DisplayOptions.svelte';
 
-  import { IconPlacementEntity, IconWarning } from '$lib/Icons';
-  import {
-    History as IconHistory,
-    Info as IconInfo,
-    Layers as IconLayers,
-  } from '@lucide/svelte';
+  import { IconWarning } from '$lib/Icons';
+  import IconHistory from '@lucide/svelte/icons/history';
+  import IconInfo from '@lucide/svelte/icons/info';
+  import IconLayers from '@lucide/svelte/icons/layers';
 
   import { TimeRange, Severity, logLevelToColor } from '$lib/utils/misc';
 

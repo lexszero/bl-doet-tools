@@ -7,7 +7,7 @@
 
   import type { default as Controller } from './Controller.svelte';
   import { type IconType, IconPlacement, IconPDU, IconCable, IconPower, IconResistance, IconSound, IconRuler } from '$lib/Icons';
-  import { Hash as IconNumber } from '@lucide/svelte';
+  import IconNumber from '@lucide/svelte/icons/hash';
 
   import unitFormat from 'unitformat';
 

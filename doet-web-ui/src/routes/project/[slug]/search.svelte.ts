@@ -1,4 +1,4 @@
-import { type Icon as IconType } from '@lucide/svelte';
+import { type Icon as IconType } from '$lib/Icons';
 
 export interface SearchboxItem {
   label: string;

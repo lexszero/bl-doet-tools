@@ -34,9 +34,7 @@ export interface MapContentInterface {
 
   import { TimeRange } from '$lib/utils/misc';
 
-  import {
-    Waypoints as IconPathInfo,
-  } from '@lucide/svelte';
+  import IconPathInfo from '@lucide/svelte/icons/waypoints';
 
   let {
     mapRoot,

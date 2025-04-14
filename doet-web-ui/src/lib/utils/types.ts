@@ -1,5 +1,3 @@
-import { type Icon as IconType } from '@lucide/svelte';
-
 export interface Named {
   name: string;
 }

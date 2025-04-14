@@ -9,12 +9,10 @@ import { distance, coordsToLatLng, coordsToLatLngs } from '$lib/utils/geo';
 
 import { featureChip, LayerController, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
 import { IconPlacementEntity, IconPDU, IconPower, IconSound } from '$lib/Icons';
-import {
-  BadgeInfo as IconDescription,
-  Contact as IconContact,
-  PersonStanding as IconPeople,
-  Bus as IconVehicle
-} from '@lucide/svelte';
+import IconDescription from '@lucide/svelte/icons/badge-info';
+import IconContact from '@lucide/svelte/icons/contact';
+import IconPeople from '@lucide/svelte/icons/person-standing';
+import IconVehicle from '@lucide/svelte/icons/bus';
 
 import { PowerGridData } from '$lib/layers/PowerGrid/data.svelte';
 import { type PlacementDisplayOptions } from './types';
