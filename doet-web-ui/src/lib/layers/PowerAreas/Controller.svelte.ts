@@ -3,7 +3,7 @@ import { SvelteMap } from 'svelte/reactivity';
 import type {Polygon} from 'geojson';
 import type {PowerAreaFeature, PowerAreaProperties} from '$lib/api';
 import type {PowerGridData} from '$lib/layers/PowerGrid/data.svelte';
-import { LayerController } from '$lib/layers/LayerController.svelte';
+import { LayerController, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
 
 export class PowerAreasController extends LayerController<
   Polygon,
@@ -14,10 +14,15 @@ export class PowerAreasController extends LayerController<
 
   data: PowerGridData;
 
-  constructor (mapRoot: L.Map) {
-    super('PowerAreas', 405, mapRoot, {
-      visible: true,
-      opacity: 0.3,
+  constructor (mapRoot: L.Map, options: LayerControllerOptions) {
+    super(mapRoot, {
+      name: 'PowerAreas',
+      zIndex: 405,
+      defaultDisplayOptions: {
+        visible: true,
+        opacity: 0.3,
+      },
+      ...options
     });
     this.data = getContext('PowerGridData');
   }

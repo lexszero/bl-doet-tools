@@ -26,6 +26,16 @@ export interface BasicLayerDisplayOptions {
   opacity: number;
 };
 
+export interface LayerControllerOptions {
+  onClick?: ((e: L.LeafletMouseEvent) => void);
+};
+
+export interface InternalLayerControllerOptions<D extends BasicLayerDisplayOptions> extends LayerControllerOptions {
+  name: string;
+  zIndex: number;
+  defaultDisplayOptions: D;
+};
+
 export class LayerController<
   G extends geojson.Geometry,
   P extends object,
@@ -42,22 +52,32 @@ export class LayerController<
   public displayOptions: D = $state({visible: true, opacity: 1.0} as D);
   displayOptionsStore: Persisted<D>;
 
-  constructor(name: string, zIndex: number, mapRoot: L.Map, defaultDisplayOptions: D = {visible: true, opacity: 1.0} as D) {
-    console.info(`Initializing layer ${name} with zIndex ${zIndex}`, defaultDisplayOptions);
-    this.displayOptionsStore = persisted('layer_'+name, defaultDisplayOptions);
+  constructor(mapRoot: L.Map, options: InternalLayerControllerOptions<D>) {
+    const defaultDisplayOptions = options.defaultDisplayOptions || {visible: true, opacity: 1.0} as D;
+    console.info(`Initializing layer ${options.name} with zIndex ${options.zIndex}`, defaultDisplayOptions);
+    this.displayOptionsStore = persisted('layer_'+options.name, defaultDisplayOptions);
     this.displayOptions = {...defaultDisplayOptions, ...get(this.displayOptionsStore)};
     $effect(() => {
       this.displayOptionsStore.set(this.displayOptions);
     });
 
     this.mapRoot = mapRoot;
-    const pane = this.mapRoot.createPane('layer-'+name);
-    pane.style.zIndex = zIndex.toString();
+    const pane = this.mapRoot.createPane('layer-'+options.name);
+    pane.style.zIndex = options.zIndex.toString();
     $effect(() => {
       if (this.displayOptions) {
         this.updateStyle();
       }
     });
+
+    if (options.onClick) {
+      $effect(() => {
+        //console.log(`${this.layerName}: effect mapBaseLayer`);
+        if (this.mapBaseLayer) {
+          this.mapBaseLayer.on('click', (e) => options.onClick?.(e))
+        }
+      });
+    }
   }
 
   /*
@@ -114,7 +134,9 @@ export class LayerController<
       pane: 'layer-'+this.layerName,
       onEachFeature: (f: Feature<G, P>, layer: MapFeatureLayer<G, P>) => this.onEachFeature(f, layer),
       style: (f?: Feature<G, P>): L.PathOptions => this.style(f),
-      pointToLayer: (f: Feature<geojson.Point, P>, latlng: L.LatLng) => this.pointToLayer(f, latlng)
+      pointToLayer: (f: Feature<geojson.Point, P>, latlng: L.LatLng) => this.pointToLayer(f, latlng),
+      bubblingMouseEvents: false,
+      markersInheritOptions: true
     }
   }
 
@@ -163,7 +185,7 @@ export class LayerController<
     if (!layer)
       return;
 
-    console.log(`${this.layerName}: select ${layer.feature.id}`);
+    console.info(`${this.layerName}: select ${layer.feature.id}`);
     layer.setStyle(this.styleSelected);
     if (fly && this.layerSelected?.feature.id != layer.feature.id) {
       if (layer.getLatLng) {
@@ -178,6 +200,7 @@ export class LayerController<
 
   resetSelectedFeature() {
     this.mapBaseLayer?.resetStyle(this.layerSelected);
+    this.layerSelected = undefined;
   }
 
   layerHighlighted?: MapFeatureLayer<G, P> = $state();

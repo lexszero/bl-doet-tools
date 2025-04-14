@@ -32,13 +32,12 @@
   } = $props();
 
   let map: L.Map | undefined = $state();
-  let location: L.LocationEvent = $state();
+  let location: L.LocationEvent | undefined = $state();
 
   $effect(() => {
     if (!map)
       return;
 
-    map.on('click', (e) => console.log(e));
     map.on('locationfound', (e) => {
       console.log(e)
       location = e;
@@ -58,6 +57,8 @@
   const mapOptions: L.MapOptions = {
     center: [57.62377, 14.92715],
     zoom: 15,
+    minZoom: 0,
+    maxZoom: 21,
     zoomControl: false,
     attributionControl: false,
     pmIgnore: false,
@@ -65,16 +66,12 @@
 
   const layerBasemapTileUrl = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
   const layerBasemapOptions = {
-    minZoom: 0,
-    maxZoom: 20,
-    maxNativeZoom: 19,
     attribution: "© OpenStreetMap contributors",
   };
 </script>
 
 {#if browser}
   <Map options={mapOptions} bind:instance={map}>
-    <TileLayer url={layerBasemapTileUrl} options={layerBasemapOptions}/>
     {#if map}
       <MapContent mapRoot={map} timeRange={timeRange} bind:instance={content}/>
     {/if}

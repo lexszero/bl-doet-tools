@@ -7,7 +7,7 @@ import type {PlacementFeature, PlacementEntityProperties, GridCableFeature, Grid
 import colormap from '$lib/utils/colormap';
 import { distance, coordsToLatLng, coordsToLatLngs } from '$lib/utils/geo';
 
-import { featureChip, LayerController } from '$lib/layers/LayerController.svelte';
+import { featureChip, LayerController, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
 import { IconPlacementEntity, IconPDU, IconPower, IconSound } from '$lib/Icons';
 import {
   BadgeInfo as IconDescription,
@@ -35,15 +35,20 @@ export class PlacementController extends LayerController<
 
   data: PowerGridData;
 
-  constructor (mapRoot: L.Map) {
-    super('Placement', 410, mapRoot, {
-      visible: true,
-      opacity: 0.5,
-      mode: 'power_need',
-      powerNeedThresholds: [2000, 10000],
-      pduSearchRadius: 50,
-      gridLoadPercent: 50,
-      soundMax: 5000
+  constructor (mapRoot: L.Map, options: LayerControllerOptions) {
+    super(mapRoot, {
+      name: 'Placement',
+      zIndex: 410,
+      defaultDisplayOptions: {
+        visible: true,
+        opacity: 0.5,
+        mode: 'power_need',
+        powerNeedThresholds: [2000, 10000],
+        pduSearchRadius: 50,
+        gridLoadPercent: 50,
+        soundMax: 5000
+      },
+      ...options
     });
 
     this.data = getContext('PowerGridData');

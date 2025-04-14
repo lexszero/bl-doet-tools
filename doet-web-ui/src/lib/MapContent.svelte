@@ -19,14 +19,14 @@ export interface MapContentInterface {
 <script lang="ts">
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { Control, GeoJSON } from 'sveaflet';
+  import { Control, GeoJSON, TileLayer } from 'sveaflet';
   import type {Geometry} from 'geojson';
   
   import PropertiesTable from '$lib/controls/PropertiesTable.svelte';
   import WarningsTable from '$lib/controls/PropertiesTable.svelte';
   import MapInfoBox from '$lib/controls/MapInfoBox.svelte';
 
-  import type { LayerController } from './layers/LayerController.svelte';
+  import type { LayerController, MapFeatureLayer } from './layers/LayerController.svelte';
 
   import { default as PowerAreasLayer } from '$lib/layers/PowerAreas/Controller.svelte';
   import { default as PowerGridLayer } from '$lib/layers/PowerGrid/Controller.svelte';
@@ -48,9 +48,27 @@ export interface MapContentInterface {
     instance: MapContentInterface
   }= $props();
 
-  let layerPowerGrid = new PowerGridLayer(mapRoot);
-  let layerPowerAreas = new PowerAreasLayer(mapRoot);
-  let layerPlacement =  new PlacementLayer(mapRoot);
+  export function onClick(e: L.LeafletMouseEvent) {
+    if (!instance)
+      return;
+    const layer = e.propagatedFrom;
+    if (!layer) {
+      resetSelectedFeature();
+    } else {
+      for (const ctl of Object.values(instance.layers)) {
+        if (ctl.layerSelected && layer.feature?.id != ctl.layerSelected.feature.id)
+          ctl.resetSelectedFeature();
+      }
+    }
+  }
+
+  let layerBasemap: L.TileLayer | undefined = $state();
+  
+  let layerPowerGrid = new PowerGridLayer(mapRoot, {onClick: onClick});
+  let layerPowerAreas = new PowerAreasLayer(mapRoot, {onClick: onClick});
+  let layerPlacement =  new PlacementLayer(mapRoot, {onClick: onClick});
+
+  mapRoot.on('click', onClick);
 
   onMount(() => {
     instance = {
@@ -100,9 +118,23 @@ export interface MapContentInterface {
     }
   }
 
-  function getControllerForFeature(id?: string) {
+  function getID(item: string | Feature<Geometry, object> | MapFeatureLayer<Geometry, object>): string | undefined {
+    if (typeof item === 'string') {
+      return item;
+    }
+    else if (typeof item === 'object') {
+      return item.id || item.feature?.id;
+    }
+  }
+
+  function getControllerFor(item?: string | Feature<Geometry, object> | MapFeatureLayer<Geometry, object>) {
+    if (!item)
+      return;
+  
+    const id = getID(item);
     if (!id)
       return;
+
     for (const l of Object.values(instance.layers)) {
       if (l.features.has(id))
         return l;
@@ -110,7 +142,7 @@ export interface MapContentInterface {
   }
 
   function selectFeature(id: string) {
-    getControllerForFeature(id)?.selectFeature(id, true);
+    getControllerFor(id)?.selectFeature(id, true);
   }
 
   function resetSelectedFeature() {
@@ -120,13 +152,15 @@ export interface MapContentInterface {
   }
 
   function highlightFeature(id: string) {
-    getControllerForFeature(id)?.highlightFeature(id);
+    getControllerFor(id)?.highlightFeature(id);
   }
 
   function resetHighlight() {
     details?.ctl.resetHighlightedFeature();
   }
 </script>
+
+<TileLayer bind:instance={layerBasemap} url={"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"} />
 
 {#each Object.values(instance?.layers || {}) as c}
   {@const options = c.mapLayerOptions()}

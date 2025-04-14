@@ -41,6 +41,7 @@ import {
 import {
   featureChip, 
   LayerController,
+  type LayerControllerOptions,
   type MapFeatureLayer,
 } from '$lib/layers/LayerController.svelte';
 
@@ -86,17 +87,22 @@ export class PowerGridController extends LayerController<
   editEnabled: boolean = $state(true);
   editInProgress: boolean = $state(false);
 
-  constructor (mapRoot: L.Map) {
-    super('PowerGrid', 420, mapRoot, {
-      visible: true,
-      opacity: 0.8,
-      mode: 'size',
-      loadPercent: 50,
-      showCoverage: false,
-      coverageRadius: 50,
-      scalePDU: 1.25,
-      scaleCable: 1,
-    } as PowerGridDisplayOptions);
+  constructor (mapRoot: L.Map, options: LayerControllerOptions) {
+    super(mapRoot, {
+      name: 'PowerGrid',
+      zIndex: 420,
+      defaultDisplayOptions: {
+        visible: true,
+        opacity: 0.8,
+        mode: 'size',
+        loadPercent: 50,
+        showCoverage: false,
+        coverageRadius: 50,
+        scalePDU: 1.25,
+        scaleCable: 1,
+      },
+      ...options
+    });
 
     this.data = getContext('PowerGridData');
 
@@ -216,12 +222,11 @@ export class PowerGridController extends LayerController<
   selectFeature(item: string | GridMapFeatureLayer, fly: boolean = false) {
     const layer = super.selectFeature(item, fly);
     console.debug(`Select grid feature ${layer?.feature.id}, editInProgress=${this.editInProgress}`);
-    this.resetHighlightedFeature(layer)
+    this.resetHighlightedFeature()
     this.resetHighlightedPath();
     if (layer) {
       this.highlightGridPathUp(layer);
     }
-    //this.layerSelected = undefined;
     return layer;
   }
 
