@@ -316,11 +316,6 @@ export class PowerGridController extends LayerController<
               l.redraw();
             }
           }
-          if (l._powerCoverageCircle) {
-            const circle = l._powerCoverageCircle as L.Circle;
-            circle.setLatLng(e.latlng)
-            circle.redraw();
-          }
         });
 
         layer.on("pm:dragend", () => {
@@ -487,7 +482,7 @@ export class PowerGridController extends LayerController<
 
   pointToLayer(feature: GridFeature, latlng: L.LatLng) {
     const style = this.style(feature);
-    return L.circleMarker(latlng, {
+    const m = L.circleMarker(latlng, {
       radius: 5 * this.displayOptions.scaleCable,
       fillColor: style.color,
       color: style.color,
@@ -495,8 +490,17 @@ export class PowerGridController extends LayerController<
       opacity: 1,
       fillOpacity: 0.8,
       pmIgnore: false,
-      pane: 'layer-PowerGrid'
+      pane: 'layer-PowerGrid',
+      bubblingMouseEvents: false
     });
+    m.on('move', () => {
+      if (m._powerCoverageCircle) {
+        const circle = m._powerCoverageCircle as L.Circle;
+        circle.setLatLng(m.getLatLng());
+        circle.redraw();
+      }
+    });
+    return m;
   }
 
   findGridPathToSourceLayers(layer: GridMapFeatureLayer): Array<GridMapFeatureLayer> {
