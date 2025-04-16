@@ -11,8 +11,10 @@ export interface MapContentInterface {
   getFeature: ((id?: string) => Feature<Geometry, any> | undefined);
   selectFeature: ((id: string) => void);
   resetSelectedFeature: (() => void);
+  getSelectedFeature: (() => string | undefined);
   highlightFeature: ((id: string) => void);
   resetHighlight: (() => void);
+  getCurrentDisplayOptions: (() => MapDisplayOptionsDTO);
 };
 </script>
 
@@ -31,6 +33,7 @@ export interface MapContentInterface {
   import { default as PowerAreasLayer } from '$lib/layers/PowerAreas/Controller.svelte';
   import { default as PowerGridLayer } from '$lib/layers/PowerGrid/Controller.svelte';
   import { default as PlacementLayer } from '$lib/layers/Placement/Controller.svelte';
+  import { type MapDisplayOptionsDTO } from '$lib/layers/types';
 
   import { TimeRange } from '$lib/utils/misc';
 
@@ -39,12 +42,14 @@ export interface MapContentInterface {
   let {
     mapRoot,
     timeRange = new TimeRange(),
-    instance = $bindable()
+    instance = $bindable(),
+    displayOptions,
   }: {
     mapRoot: L.Map,
     timeRange: TimeRange,
-    instance: MapContentInterface
-  }= $props();
+    instance: MapContentInterface,
+    displayOptions?: MapDisplayOptionsDTO,
+  } = $props();
 
   export function onClick(e: L.LeafletMouseEvent) {
     if (!instance)
@@ -61,14 +66,17 @@ export interface MapContentInterface {
   }
 
   let layerBasemap: L.TileLayer | undefined = $state();
-  
-  let layerPowerGrid = new PowerGridLayer(mapRoot, {onClick: onClick});
-  let layerPowerAreas = new PowerAreasLayer(mapRoot, {onClick: onClick});
-  let layerPlacement =  new PlacementLayer(mapRoot, {onClick: onClick});
+ 
+  console.debug('init: displayOptions ', displayOptions)
+ 
+  let layerPowerGrid = new PowerGridLayer(mapRoot, {onClick: onClick, initDisplayOptions: displayOptions?.PowerGrid});
+  let layerPowerAreas = new PowerAreasLayer(mapRoot, {onClick: onClick, initDisplayOptions: displayOptions?.PowerAreas});
+  let layerPlacement =  new PlacementLayer(mapRoot, {onClick: onClick, initDisplayOptions: displayOptions?.Placement});
 
   mapRoot.on('click', onClick);
 
   onMount(() => {
+    console.debug("MapContent displayOptions: ", displayOptions);
     instance = {
       layers: {
         Placement: layerPlacement,
@@ -78,9 +86,20 @@ export interface MapContentInterface {
       getFeature: getFeature,
       selectFeature: selectFeature,
       resetSelectedFeature: resetSelectedFeature,
+      getSelectedFeature: getSelectedFeature,
       highlightFeature: highlightFeature,
-      resetHighlight: resetHighlight
+      resetHighlight: resetHighlight,
+      getCurrentDisplayOptions() {
+        return {
+          PowerGrid: layerPowerGrid.getDisplayOptions(),
+          PowerAreasLayer: layerPowerAreas.getDisplayOptions(),
+          Placement: layerPlacement.getDisplayOptions(),
+        }
+      }
     };
+    if (displayOptions?.selected) {
+      selectFeature(displayOptions.selected);
+    }
   });
 
   layerPowerGrid.onDataChanged = () => {
@@ -146,6 +165,14 @@ export interface MapContentInterface {
   function resetSelectedFeature() {
     for (const l of Object.values(instance.layers)) {
       l.resetSelectedFeature();
+    }
+  }
+
+  function getSelectedFeature(): string | undefined {
+    for (const l of Object.values(instance.layers)) {
+      if (l.layerSelected) {
+        return l.layerSelected.feature.id;
+      }
     }
   }
 

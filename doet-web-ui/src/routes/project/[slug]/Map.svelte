@@ -18,6 +18,7 @@
   import type { MapContentInterface } from '$lib/MapContent.svelte';
 
   import { TimeRange } from '$lib/utils/misc';
+  import { compressToEncodedURIComponent, decompressFromEncodedURIComponent, } from 'lz-string';
 
   L.PM.setOptIn(true);
 
@@ -63,12 +64,20 @@
     attributionControl: false,
     pmIgnore: false,
   };
+
+  const params = new URLSearchParams(window.location.search);
+  const initDisplayOptionsEncoded = params.get('d') || '';
+  const initDisplayOptions = {
+    selected: params.get('selected'),
+    position: params.get('position'),
+    ...(initDisplayOptionsEncoded ? JSON.parse(decompressFromEncodedURIComponent(initDisplayOptionsEncoded)) : {})
+    };
 </script>
 
 {#if browser}
   <Map options={mapOptions} bind:instance={map}>
     {#if map}
-      <MapContent mapRoot={map} timeRange={timeRange} bind:instance={content}/>
+      <MapContent mapRoot={map} timeRange={timeRange} bind:instance={content} displayOptions={initDisplayOptions}/>
     {/if}
   </Map>
 {/if}

@@ -26,11 +26,12 @@ export interface BasicLayerDisplayOptions {
   opacity: number;
 };
 
-export interface LayerControllerOptions {
+export interface LayerControllerOptions<D extends BasicLayerDisplayOptions> {
   onClick?: ((e: L.LeafletMouseEvent) => void);
+  initDisplayOptions?: D;
 };
 
-export interface InternalLayerControllerOptions<D extends BasicLayerDisplayOptions> extends LayerControllerOptions {
+export interface InternalLayerControllerOptions<D extends BasicLayerDisplayOptions> extends LayerControllerOptions<D> {
   name: string;
   zIndex: number;
   defaultDisplayOptions: D;
@@ -54,9 +55,10 @@ export class LayerController<
 
   constructor(mapRoot: L.Map, options: InternalLayerControllerOptions<D>) {
     const defaultDisplayOptions = options.defaultDisplayOptions || {visible: true, opacity: 1.0} as D;
+
     console.info(`Initializing layer ${options.name} with zIndex ${options.zIndex}`, defaultDisplayOptions);
     this.displayOptionsStore = persisted('layer_'+options.name, defaultDisplayOptions);
-    this.displayOptions = {...defaultDisplayOptions, ...get(this.displayOptionsStore)};
+    this.displayOptions = {...defaultDisplayOptions, ...get(this.displayOptionsStore), ...options.initDisplayOptions};
     $effect(() => {
       this.displayOptionsStore.set(this.displayOptions);
     });
@@ -78,6 +80,10 @@ export class LayerController<
         }
       });
     }
+  }
+
+  getDisplayOptions() {
+    return this.displayOptions.visible ? this.displayOptions : {visible: false};
   }
 
   /*

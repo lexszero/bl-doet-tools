@@ -3,10 +3,11 @@
   import { setContext } from 'svelte';
   import type { PageProps } from './$types';
 
-  import { AppBar, Combobox } from '@skeletonlabs/skeleton-svelte';
+  import { AppBar, Combobox, Switch } from '@skeletonlabs/skeleton-svelte';
   import PopoverInfoBox from '$lib/controls/PopoverInfoBox.svelte';
   import PropertiesTable from '$lib/controls/PropertiesTable.svelte';
   import WarningsTable from '$lib/controls/WarningsTable.svelte';
+  import CopyURL from '$lib/controls/CopyURL.svelte';
   import TimeTravelSlider from './TimeTravelSlider.svelte';
 
   import { API } from '$lib/api';
@@ -19,8 +20,13 @@
   import IconHistory from '@lucide/svelte/icons/history';
   import IconInfo from '@lucide/svelte/icons/info';
   import IconLayers from '@lucide/svelte/icons/layers';
+  import IconLink from '@lucide/svelte/icons/link';
 
   import { TimeRange, Severity, logLevelToColor } from '$lib/utils/misc';
+  
+  import { copy as copyToClipboard } from 'svelte-copy';
+  import lz from 'lz-string';
+
 
   let props: PageProps = $props();
 
@@ -40,6 +46,24 @@
   let timeRange: TimeRange = $state(new TimeRange());
   let searchItems = $derived(Object.values(map?.layers || {}).reduce((all, layer) => ([...all, ...layer.searchItems]), []));
   let searchValue = $state();
+
+  let copyUrlWithSelected: boolean = $state(false);
+
+  function getUrl(withSelected: boolean) {
+    let url = new URL(window.location.toString());
+    if (map) {
+      const jsonOpts = JSON.stringify(map.getCurrentDisplayOptions());
+      console.debug("current display opts: ", jsonOpts);
+      url.searchParams.set('d', lz.compressToEncodedURIComponent(jsonOpts));
+      const id = map.getSelectedFeature();
+      console.log("getUrl: display opts: ", jsonOpts);
+      console.log(`getUrl: withSelected: ${withSelected}, id: ${id}`);
+      if (withSelected && id) {
+        url.searchParams.set('selected', id)
+      }
+    }
+    return url.toString();
+  }
 </script>
 
 <div class="flex flex-col w-screen h-screen">
@@ -115,6 +139,21 @@
         {#snippet trigger()}<IconLayers />{/snippet}
         {#snippet content()}
           <DisplayOptions map={map}/>
+        {/snippet}
+      </PopoverInfoBox>
+
+      <PopoverInfoBox title="Share link">
+        {#snippet trigger()}<IconLink />{/snippet}
+        {#snippet content()}
+          <div class="flex-col p-1">
+            {#key copyUrlWithSelected}
+              <CopyURL url={getUrl(copyUrlWithSelected)} />
+            {/key}
+            <label class="flex items-center space-x-2">
+              <Switch checked={copyUrlWithSelected} onCheckedChange={(e) => {copyUrlWithSelected=e.checked}} />
+              <p>To selected feature</p>
+            </label>
+          </div>
         {/snippet}
       </PopoverInfoBox>
     {/snippet}

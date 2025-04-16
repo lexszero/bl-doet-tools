@@ -1,6 +1,7 @@
 <script lang="ts">
 import { type Snippet } from 'svelte';
 import { Accordion, Switch } from '@skeletonlabs/skeleton-svelte';
+import Slider from './Slider.svelte';
 import { type IconType } from '$lib/Icons';
 
 let {
@@ -30,6 +31,15 @@ let {
   {#snippet control()}{title}{/snippet}
 
   {#snippet panel()}
+    <!--
+    <div class="flex justify-between items-center gap-4 p-1">
+      <p>Opacity</p>
+      <Slider bind:value={opacity}
+        min={0} max={1} step={0.05}
+        />
+    </div>
+    -->
+
     {@render children?.()}
   {/snippet}
 </Accordion.Item>
