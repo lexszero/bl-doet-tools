@@ -155,6 +155,7 @@ export class PlacementController extends LayerController<
       });
     }
 
+    /*
     if (props.contactInfo) {
       result.push({
         label: 'Contact',
@@ -162,6 +163,7 @@ export class PlacementController extends LayerController<
         icon: IconContact
       });
     }
+    */
 
     if (props.nrOfPeople) {
       result.push({
