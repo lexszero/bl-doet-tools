@@ -8,10 +8,9 @@ import colormap from '$lib/utils/colormap';
 import { distance, coordsToLatLng, coordsToLatLngs } from '$lib/utils/geo';
 
 import { featureChip, LayerController, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
-import { IconPlacementEntity, IconPDU, IconPower, IconSound } from '$lib/Icons';
+import { IconPlacementEntity, IconPDU, IconPower, IconSound, IconPeople } from '$lib/Icons';
 import IconDescription from '@lucide/svelte/icons/badge-info';
 import IconContact from '@lucide/svelte/icons/contact';
-import IconPeople from '@lucide/svelte/icons/person-standing';
 import IconVehicle from '@lucide/svelte/icons/bus';
 
 import { PowerGridData } from '$lib/layers/PowerGrid/data.svelte';

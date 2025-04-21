@@ -7,6 +7,7 @@ import IconPDU from '@lucide/svelte/icons/smartphone-charging';
 import IconRuler from '@lucide/svelte/icons/ruler';
 import IconPower from '@lucide/svelte/icons/zap';
 import IconResistance from '@lucide/svelte/icons/omega';
+import IconPeople from '@lucide/svelte/icons/person-standing';
 import IconPlacement from '@lucide/svelte/icons/land-plot';
 import IconPlacementEntity from '@lucide/svelte/icons/tent';
 import IconPlug from '@lucide/svelte/icons/plug';
@@ -21,6 +22,7 @@ export {
   IconRuler,
   IconPower,
   IconResistance,
+  IconPeople,
   IconPlacement,
   IconPlacementEntity,
   IconPlug,

@@ -107,9 +107,12 @@ export interface MapContentInterface {
   }
 
   async function reload() {
-    await layerPowerAreas.load(timeRange.start, timeRange.end);
-    await layerPowerGrid.load(timeRange.end);
-    await layerPlacement.load(timeRange.start, timeRange.end);
+    await Promise.all([
+      layerPowerAreas.load(timeRange.start, timeRange.end),
+      layerPowerGrid.load(timeRange.end),
+      layerPlacement.load(timeRange.start, timeRange.end),
+      ]);
+    layerPowerAreas.updateStats(layerPlacement.features.values());
   }
 
   $effect(async () => {

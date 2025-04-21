@@ -722,7 +722,7 @@ export class PowerGridController extends LayerController<
       this.mapRoot.addLayer(layer);
       console.log(`PowerGrid: Added coverage layer with ${circles.length} circles`);
       this.mapCoverageLayer = layer;
-    } else if (this.mapCoverageLayer && !this.displayOptions.showCoverage) {
+    } else if (this.mapCoverageLayer && (!this.displayOptions.showCoverage || !this.data.features)) {
       for (const l of this.mapLayers?.values() || []) {
         if (l._powerCoverageCircle)
           l._powerCoverageCircle = undefined;
