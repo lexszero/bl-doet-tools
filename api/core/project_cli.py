@@ -1,3 +1,5 @@
+import sys
+from typing import Annotated, Optional
 from devtools import pformat
 
 from sqlalchemy import select
@@ -9,6 +11,7 @@ from common.db_async import get_db_session
 from core.dependencies import get_project
 from core.log import log
 from core.project import Project
+from core.project_config import ProjectConfig
 from core.project_default_config import DEFAULT_PROJECT_CONFIG
 
 project = AsyncTyper()
@@ -64,5 +67,38 @@ async def config_get(project_name: str):
     async with await get_db_session() as db:
         project = await get_project(db, project_name)
         print(project.data.model_dump_json(indent=2))
+
+@project.command()
+async def config_get(project_name: str):
+    async with await get_db_session() as db:
+        project = await get_project(db, project_name)
+        print(project.data.model_dump_json(indent=2))
+
+@project.command()
+async def config_set(
+        project_name: str,
+        filename: Annotated[Optional[str], typer.Option('--filename', '-f')]):
+    data = None
+    if filename:
+        with open(filename, 'r') as f:
+            data = f.read();
+    else:
+        data = sys.stdin.read()
+    config = ProjectConfig.model_validate_json(data)
+    async with await get_db_session() as db:
+        project = await get_project(db, project_name)
+        project.data = config
+        db.add(project)
+        await db.commit()
+
+@project.command()
+async def set_public(project_name: str, public: bool):
+    async with await get_db_session() as db:
+        project = await get_project(db, project_name)
+        project.config.public = public
+        project.data = project.config
+        db.add(project)
+        print("Updated config: ", project.config)
+        await db.commit()
 
 
