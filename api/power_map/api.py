@@ -113,8 +113,7 @@ async def get_power_grid_coverage_geojson(
             features=list(map(pdu_coverage_feature, power_grid._pdus))
             )
 
-@router.get("/grid_cables.csv",
-            dependencies=[RequiredUserRole_Any])
+@router.get("/grid_cables.csv")
 async def get_power_grid_cables_csv(
         power_grid: PowerGridDep,
         csv_header: bool = False,
@@ -126,8 +125,7 @@ async def get_power_grid_cables_csv(
                   csv_header and PowerGridCable.CSV_COLUMNS or None)
         return PlainTextResponse(b.getvalue(), media_type="text/csv")
 
-@router.get("/grid_pdus.csv",
-            dependencies=[RequiredUserRole_Any])
+@router.get("/grid_pdus.csv")
 async def get_power_grid_pdus_csv(
         power_grid: PowerGridDep,
         csv_header: bool = False,
