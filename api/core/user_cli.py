@@ -5,7 +5,9 @@ import typer
 
 from common.cli import AsyncTyper
 from common.db_async import get_db_session
+from core.dependencies import get_project
 from core.log import log
+from core.permission import Permission, Role
 from core.user import UserInDB, create_user, get_user_db, password_hash
 
 
@@ -39,6 +41,7 @@ async def create(
             raise typer.Exit(1)
 
         await create_user(db, username, password)
+        await db.commit()
 
 @user.command()
 async def set_password(
@@ -54,5 +57,25 @@ async def set_password(
         u.password_hash = new_hash
         db.add(u)
         await db.commit()
+
+@user.command()
+async def grant_project_role(
+        username: str,
+        project_name: str,
+        role: Role):
+    async with await get_db_session() as db:
+        u = await get_user_db(db, username)
+        p = await get_project(db, project_name)
+        await u.grant_permission(db, Permission(
+            object_type='project',
+            object_id=str(p.id),
+            role=role
+            ))
+        await db.commit()
+        u = await get_user_db(db, username)
+        perms = await u.awaitable_attrs.permissions
+        print(f"New permissions: {[str(p) for p in perms]}")
+
+
 
 

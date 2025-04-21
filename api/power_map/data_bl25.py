@@ -16,7 +16,6 @@ class PowerGrid_BL25(Loader):
             'WEST_Grid_PDUs',
             'EAST_Grid',
             'EAST_Grid_PDUs',
-            'HV_and_trafos'
             ]
 
     GRID_MISC_ITEMS = {
