@@ -3,7 +3,7 @@ import { SvelteMap } from 'svelte/reactivity';
 import geojson from 'geojson';
 import L from "leaflet";
 
-import type {PlacementFeature, PlacementEntityProperties, GridCableFeature, GridPDUFeature} from '$lib/api';
+import type {PlacementFeature, PlacementEntityProperties} from './types';
 import colormap from '$lib/utils/colormap';
 import { distance, coordsToLatLng, coordsToLatLngs } from '$lib/utils/geo';
 
@@ -18,6 +18,7 @@ import { PowerGridData } from '$lib/layers/PowerGrid/data.svelte';
 import { type PlacementDisplayOptions } from './types';
 
 import { type InfoItem } from '$lib/utils/types';
+import type {FeaturesDataElement} from '$lib/api_project';
 
 const defaultStyle = {
   weight: 0.5,
@@ -33,7 +34,7 @@ export class PlacementController extends LayerController<
 
   data: PowerGridData;
 
-  constructor (mapRoot: L.Map, options: LayerControllerOptions) {
+  constructor (mapRoot: L.Map, options: LayerControllerOptions<PlacementDisplayOptions>) {
     super(mapRoot, {
       name: 'Placement',
       zIndex: 410,
@@ -66,7 +67,7 @@ export class PlacementController extends LayerController<
   }
 
   async load(timeStart?: Date, timeEnd?: Date) {
-    const data = await this.data.api.getPlacementEntitiesGeoJSON(timeStart, timeEnd);
+    const data = await this.data.api.getDataViewElement<FeaturesDataElement<PlacementFeature>>('placement', timeStart, timeEnd);
     for (const feature of data.features) {
       feature.properties._nearPDUs = this.findNearPDUs(feature);
     }

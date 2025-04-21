@@ -11,7 +11,7 @@ import {
   type GridFeature,
   type GridFeatureProperties,
   type GridPDUFeature,
-} from "$lib/api";
+} from "./types";
 
 import { logLevelToColor } from '$lib/utils/misc';
 import type { ChipItem, InfoItem } from '$lib/utils/types';
@@ -90,7 +90,7 @@ export class PowerGridController extends LayerController<
   editEnabled: boolean = $state(true);
   editInProgress: boolean = $state(false);
 
-  constructor (mapRoot: L.Map, options: LayerControllerOptions) {
+  constructor (mapRoot: L.Map, options: LayerControllerOptions<PowerGridDisplayOptions>) {
     super(mapRoot, {
       name: 'PowerGrid',
       zIndex: 420,
@@ -110,49 +110,6 @@ export class PowerGridController extends LayerController<
     this.data = getContext('PowerGridData');
 
     mapRoot.createPane('layer-PowerGridCoverage').style.zIndex = "408";
-
-    const map = this.mapRoot;
-    map.pm.disableGlobalEditMode();
-    map.pm.disableGlobalDragMode();
-    if (this.editEnabled) {
-      map.pm.addControls({
-        position: 'topleft',
-        drawMarker: false,
-        drawCircleMarker: false,
-        drawPolyline: false,
-        drawPolygon: false,
-        drawRectangle: false,
-        drawCircle: false,
-        drawText: false,
-        rotateMode: false,
-        cutPolygon: false,
-      });
-      map.on("pm:globaldragmodetoggled", (e) => {
-        console.log(`drag mode: ${e.enabled}`);
-        if (e.enabled) {
-          for (const l of (this.mapBaseLayer?.pm.getLayers() || []) as GridMapFeatureLayer[]) {
-            const f = l.feature as GridFeature;
-            if (!f)
-              continue;
-            if (f.properties.type == 'power_grid_pdu') {
-              l.pm.enableLayerDrag();
-            }
-            else {
-              l.pm.disableLayerDrag();
-            }
-          }
-        }
-      });
-      map.on("pm:globaleditmodetoggled", (e) => {
-        console.log(`edit mode: ${e.enabled}`);
-        this.editInProgress = e.enabled;
-      });
-    } else {
-      this.editInProgress = false;
-      map.pm.disableGlobalDragMode();
-      map.pm.disableGlobalEditMode();
-      map.pm.removeControls();
-    }
 
     $effect(() => {
       for (const l of (this.mapLayers || []) as GridMapFeatureLayer[]) {
@@ -201,6 +158,53 @@ export class PowerGridController extends LayerController<
     });
   }
 
+  setupEditControls(show: boolean) {
+    const map = this.mapRoot;
+    map.pm.disableGlobalEditMode();
+    map.pm.disableGlobalDragMode();
+    if (show) {
+      map.pm.addControls({
+        position: 'topleft',
+        drawMarker: false,
+        drawCircleMarker: false,
+        drawPolyline: false,
+        drawPolygon: false,
+        drawRectangle: false,
+        drawCircle: false,
+        drawText: false,
+        rotateMode: false,
+        cutPolygon: false,
+      });
+      map.on("pm:globaldragmodetoggled", (e) => {
+        console.log(`drag mode: ${e.enabled}`);
+        if (e.enabled) {
+          for (const l of (this.mapBaseLayer?.pm.getLayers() || []) as GridMapFeatureLayer[]) {
+            const f = l.feature as GridFeature;
+            if (!f)
+              continue;
+            if (f.properties.type == 'power_grid_pdu') {
+              l.pm.enableLayerDrag();
+            }
+            else {
+              l.pm.disableLayerDrag();
+            }
+          }
+        }
+      });
+      map.on("pm:globaleditmodetoggled", (e) => {
+        console.log(`edit mode: ${e.enabled}`);
+        this.editInProgress = e.enabled;
+      });
+    } else {
+      this.editInProgress = false;
+      map.pm.disableGlobalDragMode();
+      map.pm.disableGlobalEditMode();
+      map.pm.removeControls();
+    }
+
+
+  }
+
   notifyDataChanged() {
     if (this.layerHighlighted) {
       this.highlightFeature(this.layerHighlighted);
@@ -239,7 +243,8 @@ export class PowerGridController extends LayerController<
   }
 
   async load(timeEnd?: Date) {
-    this.data.load(timeEnd);
+    await this.data.load(timeEnd);
+    this.setupEditControls(this.data.editable);
   }
 
   onEachFeature(feature: GridFeature, layer: GridMapFeatureLayer): void {

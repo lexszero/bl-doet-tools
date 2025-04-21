@@ -42,8 +42,8 @@
         {@render header()}
       {:else}
         <p class="font-bold">{title}</p>
+        <button class="btn-icon hover:preset-tonal" onclick={popoverClose}><IconClose /></button>
       {/if}
-      <button class="btn-icon hover:preset-tonal" onclick={popoverClose}><IconClose /></button>
     </header>
     <div class={contentClasses}>
       {@render content?.()}

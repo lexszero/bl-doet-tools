@@ -1,151 +1,112 @@
-import { getUnixTime } from "date-fns";
-import type {
-  Point,
-  LineString,
-  Polygon
-} from "geojson";
-
-import type { Feature, FeatureCollection } from '$lib/utils/geojson';
-import type { Named } from '$lib/utils/types';
+import { get } from 'svelte/store';
+import { browser } from '$app/environment';
+import { persisted, type Persisted } from "svelte-persisted-store";
 
 const API_BASE_URL = 'https://bl.skookum.cc/api';
 //const API_BASE_URL = 'http://localhost:8000';
 
-export interface ProjectInfo {
-  timestamps: [number];
-};
+interface Token {
+  access_token?: string;
+  refresh_token?: string;
+}
 
-export interface ItemizedLogEntry {
-  item_id?: string;
-  level: number;
+export interface Info {
+  user?: {
+    name: string
+  };
+  projects: string[];
+}
+
+interface APIError {
+  error: string;
   message: string;
-};
-
-export interface PowerAreaProperties extends Named {
-  description?: string;
-  population?: number;
-  total_power?: number;
-  area?: number;
 }
 
-export type PowerAreaFeature = Feature<Polygon, PowerAreaProperties>;
-export type PowerAreaFeatureCollection = FeatureCollection<Polygon, PowerAreaProperties>;
-
-export interface PlacementEntityProperties extends Named {
-  description?: string;
-  contactInfo?: string;
-  nrOfPeople?: number;
-  nrOfVechiles?: number;
-  amplifiedSound?: number;
-  powerNeed?: number;
-
-  _nearPDUs?: [GridPDUFeature, number][];
-};
-
-export type PlacementFeature = Feature<Polygon, PlacementEntityProperties>;
-export type PlacementFeatureCollection = FeatureCollection<Polygon, PlacementEntityProperties>;
-
-interface GridFeatureCommonProperties extends Named {
-  description?: string;
-  power_size: string;
-  power_native?: boolean;
-
-  _pathToSource?: string[];
-  _drc?: ItemizedLogEntry[];
-}
-
-export interface GridPDUProperties extends GridFeatureCommonProperties {
-  type: "power_grid_pdu"
-  power_source?: boolean
-  cable_in?: string;
-  cables_out?: string[];
-
-  _consumers: string[];
-}
-
-export type GridPDUFeature = Feature<Point, GridPDUProperties>;
-
-export interface GridCableProperties extends GridFeatureCommonProperties {
-  type: "power_grid_cable"
-  pdu_from?: string;
-  pdu_to?: string;
-  length_m?: number;
-
-  _length?: number;
-}
-
-export type GridCableFeature = Feature<LineString, GridCableProperties>;
-
-export type GridFeatureProperties = GridPDUProperties | GridCableProperties;
-export type GridFeature = Feature<Point | LineString, GridFeatureProperties>;
-
-export interface PowerGridData {
-  timestamp: string;
-  log: ItemizedLogEntry[];
-  features: FeatureCollection<Point | LineString, GridPDUProperties | GridCableProperties>;
+function checkResponse(response: Response, body?: APIError) {
+  if (!response.ok) {
+    const msg = `API request failed (${response.status} ${response.statusText})`;
+    if (body) {
+      throw new Error(`${msg}: ${body.message} (${body.error})`)
+    } else {
+      throw new Error(msg)
+    }
+  }
 }
 
 export class API {
   baseUrl: string;
-  authToken?: string;
+  accessToken: Persisted<string | undefined>;
+  refreshToken: Persisted<string | undefined>;
 
-  constructor(project: string, authToken?: string) {
-    this.baseUrl = `${API_BASE_URL}/${project}/`;
-    this.authToken = authToken;
+  constructor() {
+    this.baseUrl = API_BASE_URL;
+    this.accessToken = persisted<string | undefined>('accessToken', undefined);
+    this.refreshToken = persisted<string | undefined>('refreshToken', undefined);
   };
 
-  setAuthToken(authToken: string) {
-    this.authToken = authToken;
+  updateToken(token: Token) {
+    if (token.access_token)
+      this.accessToken.set(token.access_token);
+    if (token.refresh_token)
+      this.refreshToken.set(token.refresh_token);
+  }
+
+  async login(username: string, password: string) {
+    const url = this.baseUrl + '/_auth/login';
+    const response = await fetch(url, {
+      method: 'POST',
+      body: new URLSearchParams({
+        username: username,
+        password: password
+      })
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      if (body.error) {
+        return body
+      }
+    }
+    this.updateToken(body);
+  }
+
+  logout() {
+    this.accessToken.set("");
+    this.refreshToken.set("");
+  }
+
+  async refreshAccessToken() {
+    const response = await fetch(this.baseUrl+'/_auth/refresh', {
+      headers: {'Authorization': 'Bearer ' + get(this.refreshToken)}
+    }).then(x => x.json() as Token);
+    this.updateToken(response);
+  }
+
+  async _tryFetch(url: RequestInfo, options?: RequestInit) {
+    const headers = options?.headers || {};
+    const token = get(this.accessToken);
+    if (token) {
+      headers['Authorization'] = 'Bearer ' + get(this.accessToken);
+    }
+    return fetch(url, {...options, headers: headers});
   };
 
   async fetch(url: RequestInfo, options?: RequestInit) {
-    const headers = options?.headers || {};
-    if (this.authToken) {
-      headers['Authorization'] = 'Bearer ' + this.authToken;
-    }
-    return fetch(url, {
-      ...options,
-      headers: headers
-    })
-  };
+    await this.infoPromise;
 
-  async fetchJSON(path: string, params: object = {}): Promise<object> {
-    let url = this.baseUrl+path;
-    const p = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => p.append(k, v))
-    if (p.size) {
-      url += `?${p}`;
-    };
-    return await this.fetch(url).then(x=>x.json());
-  };
-
-  async getCollectionGeoJSON(collection: string, timeStart?: Date, timeEnd?: Date) {
-    return this.fetchJSON(
-      `data/${collection}/items.geojson`,
-      {
-        time_start: timeStart ? getUnixTime(timeStart) : 0,
-        time_end: getUnixTime(timeEnd ? timeEnd : Date())
+    let response = await this._tryFetch(url, options);
+    let body = await response.json();
+    if (!response.ok) {
+      if (body.error == 'invalid_token') {
+        await this.refreshAccessToken();
+        response = await this._tryFetch(url, options);
+        body = await response.json();
       }
-    );
-  }
-
-  async getPowerAreasGeoJSON(timeStart?: Date, timeEnd?: Date) {
-    return {features: await this.getCollectionGeoJSON('power_areas', timeStart, timeEnd)} as PowerAreaFeatureCollection;
+    }
+    checkResponse(response, body);
+    return body;
   };
 
-  async getPowerGridGeoJSON(timeStart?: Date, timeEnd?: Date) {
-    return await this.getCollectionGeoJSON('power_grid', timeStart, timeEnd);
-  };
-
-  async getPowerGridProcessed(timeEnd?: Date): Promise<PowerGridData> {
-    return await this.fetchJSON('power_map/grid', {time_end: getUnixTime(timeEnd ? timeEnd : Date())}) as PowerGridData;
-  };
-
-  async getPlacementEntitiesGeoJSON(timeStart?: Date, timeEnd?: Date) {
-    return {features: await this.getCollectionGeoJSON('placement', timeStart, timeEnd)} as PlacementFeatureCollection;
-  }
-
-  async getChangeTimestamps(): Promise<ProjectInfo> {
-    return (await this.fetchJSON('data/change_timestamps')) as ProjectInfo;
+  async getInfo(): Promise<Info> {
+    return await this.fetch(this.baseUrl+'/info');
   }
 };

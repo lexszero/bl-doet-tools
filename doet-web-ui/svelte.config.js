@@ -12,7 +12,7 @@ const config = {
 	},
 
   paths: {
-    base: "/new_ui_test"
+    base: "/doet-web-ui"
   }
 };
 

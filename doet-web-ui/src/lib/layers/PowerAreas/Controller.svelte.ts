@@ -1,9 +1,10 @@
 import { getContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import type {Polygon} from 'geojson';
-import type {PowerAreaFeature, PowerAreaProperties} from '$lib/api';
+import type {PowerAreaFeature, PowerAreaProperties, PowerAreasDisplayOptions} from './types';
 import type {PowerGridData} from '$lib/layers/PowerGrid/data.svelte';
 import { LayerController, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
+import type {FeaturesDataElement} from '$lib/api_project';
 
 export class PowerAreasController extends LayerController<
   Polygon,
@@ -14,7 +15,7 @@ export class PowerAreasController extends LayerController<
 
   data: PowerGridData;
 
-  constructor (mapRoot: L.Map, options: LayerControllerOptions) {
+  constructor (mapRoot: L.Map, options: LayerControllerOptions<PowerAreasDisplayOptions>) {
     super(mapRoot, {
       name: 'PowerAreas',
       zIndex: 405,
@@ -28,8 +29,9 @@ export class PowerAreasController extends LayerController<
   }
 
   async load(timeStart?: Date, timeEnd?: Date) {
+    const data = await this.data.api.getDataViewElement<FeaturesDataElement<PowerAreaFeature>>('power_areas', timeStart, timeEnd);
     this.features = new SvelteMap<string, PowerAreaFeature>(
-      (await this.data.api.getPowerAreasGeoJSON(timeStart, timeEnd))?.features.map(
+      data.features.map(
         (f: PowerAreaFeature) => ([f.id, f])
       )
     );

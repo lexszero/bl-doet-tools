@@ -4,13 +4,16 @@ import { parseJSON as parseTimestamp } from 'date-fns';
 import { coordsToLatLng, distance, isSamePoint } from '$lib/utils/geo';
 
 import type {
-  API,
   GridFeature,
   GridCableFeature,
   GridPDUFeature,
   GridPDUProperties,
-  ItemizedLogEntry
-} from '$lib/api';
+  ItemizedLogEntry,
+  PowerGridDataElement
+} from './types';
+
+import { ProjectAPI } from '$lib/api_project';
+import {getContext} from 'svelte';
 
 export const Vref_LL = 400;
 export const Vref_LN = Vref_LL / Math.sqrt(3);
@@ -123,7 +126,7 @@ export interface LossCalculationResult {
 }
 
 export class PowerGridData {
-  api: API;
+  api: ProjectAPI;
   features: SvelteMap<string, GridFeature> = $state(new SvelteMap<string, GridFeature>);
 
   featuresLoaded: Map<string, GridFeature> = new Map();
@@ -131,22 +134,24 @@ export class PowerGridData {
 
   timestamp?: Date;
   log?: ItemizedLogEntry[] = $state();
+  editable: boolean = false;
 
   lossCalculationParams: LossCalculationParams = { loadPercentage: 50 };
 
-  constructor(api: API) {
-    this.api = api;
+  constructor() {
+    this.api = getContext('api');
     this.features = new SvelteMap<string, GridFeature>();
     this.featuresChanged = new SvelteMap<string, GridFeature | null>();
   }
 
   async load(timeEnd?: Date) {
-    const data = await this.api.getPowerGridProcessed(timeEnd);
+    const data = await this.api.getDataViewElement<PowerGridDataElement>('power_grid', undefined, timeEnd);
     this.timestamp = parseTimestamp(data.timestamp);
+    this.editable = data.editable;
     console.info(`PowerGridData: last revision at `, this.timestamp);
 
     const features = new Map<string, GridFeature>(
-      data.features.features.map(
+      data.features.map(
         (it: GridFeature) => ([it.id, it])
       ));
     for (const f of features.values()) {
