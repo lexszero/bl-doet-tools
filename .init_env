@@ -1,1 +1,5 @@
-source "$(pipenv --venv)/bin/activate"
+{
+	pushd api
+	source "$(pipenv --venv)/bin/activate"
+	popd
+}
