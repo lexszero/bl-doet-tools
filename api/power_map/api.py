@@ -14,8 +14,8 @@ from power_map.power_area import PowerArea, PowerAreaStats, PowerAreaInfo
 from power_map.power_consumer import PowerConsumerColoringMode, PowerConsumerPropertiesWithStatsStyled
 from power_map.power_grid import PowerGridData
 from power_map.power_grid_base import PowerGridItemSizeOrder, PowerItemBase
-from power_map.power_grid_cable import PowerGridCable, PowerGridCablePropertiesWithStats, PowerGridCablePropertiesWithStatsStyled
-from power_map.power_grid_pdu import PowerGridPDU, PowerGridPDUPropertiesWithStats, PowerGridPDUPropertiesWithStatsStyled
+from power_map.power_grid_cable import PowerGridCable, PowerGridProcessedCableProperties, PowerGridCablePropertiesWithStatsStyled
+from power_map.power_grid_pdu import PowerGridPDU, PowerGridProcessedPDUProperties, PowerGridPDUPropertiesWithStatsStyled
 from power_map.utils import NameDescriptionModel
 
 def write_csv(f, collection: Iterable[Any], properties_fn: Callable[[Any], list[Any]], columns: Optional[Iterable[str]]):
@@ -63,7 +63,7 @@ async def get_power_areas_csv(
             dependencies=[RequiredUserRole_Any])
 async def get_power_grid_geojson(
         power_grid: PowerGridDep,
-        ) -> FeatureCollection[Feature[Point, PowerGridPDUPropertiesWithStats] | Feature[LineString, PowerGridCablePropertiesWithStats]]:
+        ) -> FeatureCollection[Feature[Point, PowerGridProcessedPDUProperties] | Feature[LineString, PowerGridProcessedCableProperties]]:
     return to_geojson_feature_collection(
             power_grid.grid_items,
             PowerItemBase.feature_properties,

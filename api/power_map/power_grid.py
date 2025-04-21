@@ -20,25 +20,25 @@ from power_map.power_consumer import PowerConsumer
 from power_map.power_grid_cable import (
         PowerGridCable,
         PowerGridCableFeature,
-        PowerGridCablePropertiesWithStats
+        PowerGridProcessedCableProperties
         )
 from power_map.power_grid_pdu import (
         PowerGridPDU,
         PowerGridPDUFeature,
-        PowerGridPDUPropertiesWithStats
+        PowerGridProcessedPDUProperties
         )
 from power_map.utils import log
 from power_map.itemized_log import ItemizedLogEntry, ItemizedLogCollector
 
 PowerGridItem = PowerGridCable | PowerGridPDU
 PowerGridFeature = PowerGridCableFeature | PowerGridPDUFeature
-PowerGridFeatureWithStats = Feature[Point, PowerGridPDUPropertiesWithStats] | Feature[LineString, PowerGridCablePropertiesWithStats]
+PowerGridProcessedFeature = Feature[Point, PowerGridProcessedPDUProperties] | Feature[LineString, PowerGridProcessedCableProperties]
 
 PowerGridSnapshot = list[PowerGridFeature]
 
 PowerGridFeatureModel = RootModel[PowerGridFeature]
 
-PowerGridFeatureCollectionType = FeatureCollection[Feature[Point, PowerGridPDUPropertiesWithStats] | Feature[LineString, PowerGridCablePropertiesWithStats]]
+PowerGridFeatureCollectionType = FeatureCollection[Feature[Point, PowerGridProcessedPDUProperties] | Feature[LineString, PowerGridProcessedCableProperties]]
 
 class PowerGridData(BaseModel):
     timestamp: datetime
@@ -72,16 +72,20 @@ def cut_line_at_points(line: ShapelyLineString, points: Iterable[ShapelyPoint]) 
 def sort_by_size(items: list[PowerGridItem], descending=True):
     items.sort(key=lambda it: it.size, reverse=descending)
 
+class PowerGridRawFeatureCollection(VersionedCollection[PowerGridFeature]):
+    store_collection_name = 'power_grid_raw'
+    store_item_type = 'power_grid_item'
+    store_item_class = TypeAdapter(PowerGridFeature)
+
+class PowerGridProcessedCollection(VersionedCollection[PowerGridProcessedFeature]):
+    store_collection_name = 'power_grid_processed'
+    store_item_type = 'power_grid_item'
+    store_item_class = TypeAdapter(PowerGridProcessedFeature)
+
 class PowerGridFeatureCollection(VersionedCollection[PowerGridFeature]):
     store_collection_name = 'power_grid'
     store_item_type = 'power_grid_item'
     store_item_class = TypeAdapter(PowerGridFeature)
-
-class PowerGridSnapshotCollection(VersionedCollection[PowerGridSnapshot]):
-    store_collection_name = 'power_grid_full'
-    store_item_type = 'power_grid_snapshot'
-    store_item_class = TypeAdapter(PowerGridSnapshot)
-
 
 class PowerGrid(PowerArea):
     _log: ItemizedLogCollector = PrivateAttr()

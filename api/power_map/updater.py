@@ -4,8 +4,9 @@ from math import inf
 from typing import Any, Optional
 import asyncstdlib as A
 
+from devtools import debug
 from pydantic import BaseModel
-from shapely import LineString, Point, Polygon, distance, equals, equals_exact, intersection
+from shapely import LineString, Point, Polygon, distance, equals, intersection
 from shapely.geometry import shape
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +19,8 @@ from core.user import UserInDB, get_user_db
 from power_map.loader import Loader
 from power_map.placement import PlacementEntityFeatureCollection
 from power_map.power_area import PowerAreaFeatureCollection
-from power_map.power_grid import PowerGridFeatureCollection
+from power_map.power_grid import PowerGrid, PowerGridFeatureCollection, PowerGridProcessedCollection
+from power_map.power_grid_base import PowerItemBase
 
 log = Log.getChild('updater')
 
@@ -190,11 +192,24 @@ class UpdateContext:
                 list(self.loader.power_area_features())
                 )
 
-    async def update_grid(self):
+    async def update_grid_raw(self):
         await self._update_collection_with_features(
                 await PowerGridFeatureCollection.bind(self.db, self.project, allow_create=True),
                 list(self.loader.power_grid_features())
                 )
+
+    async def update_grid_processed(self):
+        c_src = await PowerGridFeatureCollection.bind(self.db, self.project, allow_create=False)
+
+        grid = PowerGrid()
+        grid.add_grid_features([f async for f in c_src.all_last_values()])
+        features = [
+                f.to_geojson_feature(PowerItemBase.feature_properties)
+                for f in grid.grid_items
+                ]
+
+        c_dst = await PowerGridProcessedCollection.bind(self.db, self.project, allow_create=True)
+        await self._update_collection_with_features(c_dst, features)
 
     async def update_placement(self):
         await self._update_collection_with_features(
@@ -203,15 +218,17 @@ class UpdateContext:
                 )
 
     async def update_all(self):
+        log.info(f"Updating data for project {self.project.name}")
         try:
             await self.update_areas()
         except Exception as e:
             log.error(e)
 
         try:
-            await self.update_grid()
+            await self.update_grid_raw()
+            await self.update_grid_processed()
         except Exception as e:
-            log.error(e)
+            log.error(e, exc_info=e)
 
         try:
             await self.update_placement()

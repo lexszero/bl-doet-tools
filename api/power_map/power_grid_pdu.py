@@ -10,12 +10,11 @@ class PowerGridPDUProperties(PowerGridItemPropertiesBase):
     type: Literal['power_grid_pdu'] = Field('power_grid_pdu', repr=False)
     power_source: bool = False
 
-class PowerGridPDUPropertiesWithStats(PowerGridPDUProperties):
-    nr_consumers: int
+class PowerGridProcessedPDUProperties(PowerGridPDUProperties):
     cable_in: Optional[str]
     cables_out: list[str] = Field(default_factory=list)
 
-class PowerGridPDUPropertiesWithStatsStyled(PowerGridPDUPropertiesWithStats, PointStyle):
+class PowerGridPDUPropertiesWithStatsStyled(PowerGridProcessedPDUProperties, PointStyle):
     pass
 
 PowerGridPDUFeature = Feature[Point, PowerGridPDUProperties]
@@ -24,7 +23,7 @@ class PowerGridPDU(
         PowerItemBase,
         GeometryPoint,
         PowerGridPDUProperties):
-    _PropertiesModel = PowerGridPDUPropertiesWithStats
+    _PropertiesModel = PowerGridProcessedPDUProperties
     _PropertiesStyledModel = PowerGridPDUPropertiesWithStatsStyled
 
     _consumers: list['PowerConsumer'] = PrivateAttr(default_factory=list)
@@ -80,7 +79,7 @@ class PowerGridPDU(
 
 __all__ = [
         'PowerGridPDUProperties',
-        'PowerGridPDUPropertiesWithStats',
+        'PowerGridProcessedPDUProperties',
         'PowerGridPDUPropertiesWithStatsStyled',
         'PowerGridPDUFeature',
         'PowerGridPDU'

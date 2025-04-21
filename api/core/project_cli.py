@@ -2,7 +2,7 @@ import sys
 from typing import Annotated, Optional
 from devtools import pformat
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 import typer
 from rich import print
 
@@ -13,6 +13,7 @@ from core.log import log
 from core.project import Project
 from core.project_config import ProjectConfig
 from core.project_default_config import DEFAULT_PROJECT_CONFIG
+from core.store import StoreCollection, StoreItemRevision
 
 project = AsyncTyper()
 
@@ -21,12 +22,14 @@ async def list():
     async with await get_db_session() as db:
         for p in await db.scalars(select(Project)):
             perms = await p.get_all_permissions()
+            colls = await p.awaitable_attrs.collections
             print(f'''[bold]Project: {p.name}[/bold] [id={p.id}]
 
     Configuration:
     {pformat(p.data, indent=2)}
 
     Permissions: {[str(p) for p in perms]}
+    Collections: {[str(c) for c in colls]}
 =====================================
 ''')
 
@@ -101,4 +104,28 @@ async def set_public(project_name: str, public: bool):
         print("Updated config: ", project.config)
         await db.commit()
 
+@project.command()
+async def data_list(project_name: str):
+    async with await get_db_session() as db:
+        project = await get_project(db, project_name)
+        print(f"Project {project.name} collections:")
+        colls = await project.awaitable_attrs.collections
+        for name, c in colls.items():
+            info = await c.info()
+            print(f"    {name}: item_type={info.item_type}, {info.num_items} items, {info.num_revisions} revisions")
 
+@project.command()
+async def data_delete(project_name: str, collection: str):
+    async with await get_db_session() as db:
+        project = await get_project(db, project_name)
+        colls = await project.awaitable_attrs.collections
+        if collection not in colls:
+            log.error(f"Collection {collection} doesn't exist")
+            typer.Exit(1)
+        c = colls.get(collection)
+        info = await c.info()
+        print(f"Found collection {project.name}/{collection}\nitem_type={info.item_type}, {info.num_items} items, {info.num_revisions} revisions")
+        typer.confirm(f"This will IRREVERSIBLY delete all data in {project.name}/{collection}. Proceed?", abort=True)
+        await db.execute(delete(StoreItemRevision).where(StoreItemRevision.collection_id == c.id))
+        await db.execute(delete(StoreCollection).where(StoreCollection.id == c.id))
+        await db.commit()

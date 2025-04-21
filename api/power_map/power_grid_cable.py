@@ -11,12 +11,11 @@ from power_map.utils import log as log_default
 class PowerGridCableProperties(PowerGridItemPropertiesBase):
     type: Literal['power_grid_cable'] = Field('power_grid_cable', repr=False)
 
-class PowerGridCablePropertiesWithStats(PowerGridCableProperties):
-    length_m: float
+class PowerGridProcessedCableProperties(PowerGridCableProperties):
     pdu_from: Optional[str]
     pdu_to: Optional[str]
 
-class PowerGridCablePropertiesWithStatsStyled(PowerGridCablePropertiesWithStats, LineStyle):
+class PowerGridCablePropertiesWithStatsStyled(PowerGridProcessedCableProperties, LineStyle):
     pass
 
 PowerGridCableFeature = Feature[LineString, PowerGridCableProperties]
@@ -26,7 +25,7 @@ class PowerGridCable(
         GeometryLineString,
         PowerGridCableProperties
         ):
-    _PropertiesModel = PowerGridCablePropertiesWithStats
+    _PropertiesModel = PowerGridProcessedCableProperties
     _PropertiesStyledModel = PowerGridCablePropertiesWithStatsStyled
 
     _pdu_from: Optional['PowerGridPDU'] = None
@@ -110,7 +109,7 @@ class PowerGridCable(
 
 __all__ = [
         'PowerGridCableProperties',
-        'PowerGridCablePropertiesWithStats',
+        'PowerGridProcessedCableProperties',
         'PowerGridCablePropertiesWithStatsStyled',
         'PowerGridCable'
         ]
