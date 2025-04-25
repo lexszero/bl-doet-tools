@@ -1,11 +1,12 @@
 from abc import ABC
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, ClassVar, Dict, Generic, Iterable, List, Optional, Self, TypeVar
 from pydantic import BaseModel, TypeAdapter
 from sqlalchemy import ForeignKey, Index, delete, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession, async_object_session
 from sqlalchemy.orm import Mapped, attribute_keyed_dict, mapped_column, relationship
+from sqlalchemy.types import DateTime
 
 from common.db import DBModel
 from common.db_async import DBSessionDep
@@ -43,7 +44,7 @@ class StoreItemRevision(DBModel, AsyncAttrs):
     user_id: Mapped[int] = mapped_column(ForeignKey('user.id'), nullable=False)
     item_id: Mapped[str] = mapped_column(nullable=False)
     revision: Mapped[int] = mapped_column(default=0, nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(server_default=func.now())
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     deleted: Mapped[bool] = mapped_column(default=False)
 
     data: Mapped[dict[str, Any]] = mapped_column(JSONB)
@@ -147,9 +148,9 @@ class VersionedCollection(ABC, Generic[ModelT]):
         self._db = db
         self._collection = collection
         if time_start:
-            self._time_start = time_start.replace(tzinfo=None)
+            self._time_start = time_start
         if time_end:
-            self._time_end = time_end.replace(tzinfo=None)
+            self._time_end = time_end
 
 
         #log.info(f"{self.__class__.__name__}: time interval {self._time_start} - {self._time_end}")
@@ -168,7 +169,7 @@ class VersionedCollection(ABC, Generic[ModelT]):
         return result
 
     def _to_dict(self, value: ModelT) -> dict[str, Any]:
-        return value.model_dump()
+        return value.model_dump(mode='json')
 
     async def _revision_info(self, r: StoreItemRevision) -> ItemRevisionInfo:
         return ItemRevisionInfo(
@@ -306,21 +307,37 @@ class VersionedCollection(ABC, Generic[ModelT]):
             if value:
                 yield value
 
-    async def add(self, user: User, item_id: str, data: Optional[ModelT]) -> StoreItemRevision:
-        revision = 0
-        last = await self._item_last_revision(item_id, include_deleted=True)
-        if last:
-            revision = last.revision+1
+    async def add(
+            self,
+            user: User,
+            item_id: str,
+            data: Optional[ModelT],
+            timestamp: Optional[datetime] = None,
+            revision: Optional[int] = None,
+            deleted: bool = False,
+            ) -> StoreItemRevision:
+        if not revision:
+            last = await self._item_last_revision(item_id, include_deleted=True)
+            if last:
+                revision = last.revision+1
+            else:
+                revision = 0
+        if timestamp:
+            ts = timestamp.astimezone(timezone.utc)
+        else:
+            ts = datetime.now(timezone.utc)
 
         item = StoreItemRevision(
                 collection_id=self._collection.id,
                 user=user,
                 item_id=item_id,
+                data=data and self._to_dict(data) or None,
+                timestamp=ts,
                 revision=revision,
-                data=data and self._to_dict(data) or None
+                deleted=deleted
                 )
         self._db.add(item)
-        log.info(f"{self.__class__.__name__}: Added new revision {revision} for item {item_id}")
+        log.info(f"{self.store_collection_name}: Added new revision {item.revision} (timestamp: {item.timestamp}) for item {item_id}")
         return item
 
     async def last_timestamp(self) -> datetime | None:

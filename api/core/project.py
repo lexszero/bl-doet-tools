@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from math import ceil
 from typing import Any, Iterable, Mapping, Optional, Self
 
@@ -87,10 +87,7 @@ class Project(DBModel, AsyncAttrs):
 
         return (await db.scalars(q)).unique()
 
-    async def get_all_changes(self,
-            collections: Optional[list[str]] = None,
-            time_start: Optional[datetime] = None,
-            time_end: Optional[datetime] = None):
+    async def get_all_changes(self, collections: Optional[list[str]] = None):
         db = self._db()
         filter_collections = (StoreCollection.project_id == self.id)
         if collections:
@@ -120,7 +117,7 @@ class Project(DBModel, AsyncAttrs):
         return await db.scalar(
                 select(func.max(StoreItemRevision.timestamp))
                 .join(subquery, StoreItemRevision.collection_id == subquery.c.id)
-                .where(StoreItemRevision.timestamp < (time_end or datetime.now(tz=None)))
+                .where(StoreItemRevision.timestamp < (time_end or datetime.now(timezone.utc)))
                 )
 
     async def get_change_timestamps(self):
@@ -129,7 +126,7 @@ class Project(DBModel, AsyncAttrs):
             ts = ceil(item.timestamp.timestamp())
             if ts not in tss:
                 tss.append(ts)
-        return [datetime.fromtimestamp(ts) for ts in tss]
+        return [datetime.fromtimestamp(ts, tz=timezone.utc) for ts in tss]
 
     def get_view_config(self, view_name: str, client_roles: frozenset[Role]):
         view_config = self.data.views.get(view_name)
@@ -161,7 +158,7 @@ class Project(DBModel, AsyncAttrs):
             context: DataRequestContext,
             ):
         layer = self.get_view_element(view_name, element_alias, context.client_project_roles)
-        log.debug(f"Rendering {self.name}/v/{view_name}/{layer_name}")
+        log.debug(f"Rendering {self.name}/v/{view_name}/{element_alias}")
         return await layer.get(context)
 
     async def get_view(

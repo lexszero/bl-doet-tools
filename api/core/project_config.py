@@ -17,6 +17,7 @@ def get_all_subclasses(cls):
 
 class ProjectConfig(BaseModel):
     name: str
+    frozen: bool = False
     elements: dict[str, AnyMapLayerConfig]
     views: dict[str, MapViewConfig] = Field(default_factory=dict)
     public: bool = False

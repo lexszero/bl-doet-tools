@@ -56,11 +56,17 @@ PlacementEntityFeature = Feature[Polygon, PlacementEntityProperties]
 #    def from_dto(cls, data: _PlacementEntityFeature) -> Self:
 #        return cls.model_validate(data)
 
-class PlacementEntityRevision(BaseModel):
+class FeatureRevision(abc.ABC, Generic[ModelT]):
+    @property
+    @abc.abstractmethod
+    def feature(self) -> ModelT:
+        pass
+
+class PlacementEntityRevision(BaseModel, FeatureRevision[PlacementEntityFeature]):
     id: int
     revision: int
     geojson: PlacementEntityFeature = Field(alias='geoJson')
-    timestamp: datetime = Field(alias='timeStamp')
+    timestamp: datetime_cet = Field(alias='timeStamp')
     deleted: bool = Field(False, alias='isDeleted')
     delete_reason: Optional[str] = Field(None, alias='deleteReason')
 
@@ -77,6 +83,10 @@ class PlacementEntityRevision(BaseModel):
         if not self.geojson.id:
             self.geojson.id = self.id
         return self
+
+    @property
+    def feature(self):
+        return self.geojson
 
     model_config = ConfigDict(
             alias_generator=to_camel,

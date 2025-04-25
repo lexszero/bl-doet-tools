@@ -1,10 +1,9 @@
-from datetime import datetime
-from typing import Annotated, Iterable, Optional, Tuple
+from datetime import datetime, timezone
+from typing import Iterable, Optional
 from cachetools import TTLCache
 from cachetools_async import cached
 from fastapi import Depends
 from pydantic import BaseModel, PrivateAttr, RootModel, TypeAdapter
-from pyproj import get_proj_operations_map
 
 from common.db_async import DBSessionDep, get_db_session
 from common.geometry import (
@@ -94,7 +93,7 @@ class PowerGrid(PowerArea):
     def __init__(self, timestamp=None):
         super().__init__(id="<TopLevel>", name="<TopLevel>", geometry=None)
         self._log = ItemizedLogCollector(log.getChild('validation'))
-        self._timestamp = timestamp or datetime.now(tz=None)
+        self._timestamp = timestamp or datetime.now(timezone.utc)
 
     def add_area_feature(self, f: PowerAreaFeature) -> PowerArea:
         area = PowerArea.from_feature(f)

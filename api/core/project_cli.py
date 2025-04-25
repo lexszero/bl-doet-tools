@@ -10,20 +10,19 @@ from common.cli import AsyncTyper
 from common.db_async import get_db_session
 from core.dependencies import get_project
 from core.log import log
-from core.project import Project
+from core.project import Project, create_project
 from core.project_config import ProjectConfig
 from core.project_default_config import DEFAULT_PROJECT_CONFIG
 from core.store import StoreCollection, StoreItemRevision
+from core.user import get_user_db
+from power_map.data_bl24_test import PowerGrid_BL24_Test
 
 project = AsyncTyper()
 
-@project.command()
-async def list():
-    async with await get_db_session() as db:
-        for p in await db.scalars(select(Project)):
-            perms = await p.get_all_permissions()
-            colls = await p.awaitable_attrs.collections
-            print(f'''[bold]Project: {p.name}[/bold] [id={p.id}]
+async def print_project_info(p: Project):
+    perms = await p.get_all_permissions()
+    colls = await p.awaitable_attrs.collections
+    print(f'''[bold]Project: {p.name}[/bold] [id={p.id}]
 
     Configuration:
     {pformat(p.data, indent=2)}
@@ -32,6 +31,20 @@ async def list():
     Collections: {[str(c) for c in colls]}
 =====================================
 ''')
+
+@project.command()
+async def list():
+    async with await get_db_session() as db:
+        for p in await db.scalars(select(Project)):
+            await print_project_info(p)
+
+@project.command()
+async def create(name: str, username: str):
+    async with await get_db_session() as db:
+        user = await get_user_db(db, username)
+        project = await create_project(db, name, owner=user, config=DEFAULT_PROJECT_CONFIG)
+        await print_project_info(project)
+        await db.commit()
 
 @project.command()
 async def data_update(project_name: str, commit: bool = typer.Option(False)):
@@ -43,7 +56,8 @@ async def data_update(project_name: str, commit: bool = typer.Option(False)):
     updatable_projects = {
         'bl24': PowerGrid_BL24,
         'bl25': PowerGrid_BL25,
-        'bl25_test': PowerGrid_BL25_Test
+        'bl25_test': PowerGrid_BL25_Test,
+        'bl24_test': PowerGrid_BL24_Test
         }
 
     if commit:
