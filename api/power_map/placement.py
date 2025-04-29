@@ -127,7 +127,11 @@ class PlacementEntityFeatureCollection(VersionedCollection[PlacementEntityFeatur
     store_item_class = PlacementEntityFeature
 
 def transform_placement_scrub_private_data(f: PlacementEntityFeature) -> PlacementEntityFeature:
-    if f.properties:
-        f.properties.contact_info = None
+    props = f.properties
+    if props:
+        if props.contact_info:
+            props.contact_info = "<redacted>"
+        if props.tech_contact_info:
+            props.tech_contact_info = "<redacted>"
 
     return f
