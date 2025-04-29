@@ -14,7 +14,7 @@ from common.errors import NotFoundError
 from common.log import Log
 from common.model_utils import BaseModel, ModelJson
 
-from core.permission import ClientPermissions, Permission, PermissionInDB
+from core.permission import ClientPermissions, Permission, PermissionInDB, grant_permission
 
 log = Log.getChild('user')
 
@@ -60,10 +60,10 @@ class UserInDB(DBModel, AsyncAttrs, AsyncSessionMixin):
 
     @property
     def permissions(self) -> ClientPermissions:
-        return {
+        return frozenset({
                 Permission(object_id=p.object_id, object_type=p.object_type, role=p.role)
                 for p in self._permissions
-                }
+                })
 
     async def set_password(self, db: AsyncSession, password: str):
         new_hash = password_hash(password)
@@ -72,16 +72,8 @@ class UserInDB(DBModel, AsyncAttrs, AsyncSessionMixin):
         db.add(self)
         await db.flush()
 
-    async def grant_permission(self, db: AsyncSession, perm: Permission):
-        db.add(PermissionInDB(
-            user=self,
-            object_type=perm.object_type,
-            object_id=perm.object_id,
-            role=perm.role
-            ))
-
-        await db.flush()
-
+    async def grant_permission(self, perm: Permission):
+        await grant_permission(self._db(), self.id, perm)
 
 async def get_user_db(db: DBSessionDep, name: str):
     user = await db.scalar(select(UserInDB).where(UserInDB.name == name))

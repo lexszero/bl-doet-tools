@@ -7,12 +7,11 @@ from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
 from common.geometry import Feature, FeatureCollection, Polygon, Point, LineString, to_geojson_feature_collection
-from core.dependencies import RequiredUserRole_Any
+from core.dependencies import RequiredProjectRole_Any
 from core.permission import Role
 from power_map.dependencies import PowerGridDep
 from power_map.power_area import PowerArea, PowerAreaStats, PowerAreaInfo
 from power_map.power_consumer import PowerConsumerColoringMode, PowerConsumerPropertiesWithStatsStyled
-from power_map.power_grid import PowerGridData
 from power_map.power_grid_base import PowerGridItemSizeOrder, PowerItemBase
 from power_map.power_grid_cable import PowerGridCable, PowerGridProcessedCableProperties, PowerGridCablePropertiesWithStatsStyled
 from power_map.power_grid_pdu import PowerGridPDU, PowerGridProcessedPDUProperties, PowerGridPDUPropertiesWithStatsStyled
@@ -28,7 +27,7 @@ def write_csv(f, collection: Iterable[Any], properties_fn: Callable[[Any], list[
 router = APIRouter()
 
 @router.get("/areas.geojson",
-            dependencies=[RequiredUserRole_Any])
+            dependencies=[RequiredProjectRole_Any])
 async def get_power_areas_geojson(
         power_grid: PowerGridDep,
         ) -> FeatureCollection[Feature[Polygon, PowerAreaStats]]:
@@ -38,7 +37,7 @@ async def get_power_areas_geojson(
             )
 
 @router.get("/areas.json",
-            dependencies=[RequiredUserRole_Any])
+            dependencies=[RequiredProjectRole_Any])
 async def get_power_areas_json(
         power_grid: PowerGridDep,
         ) -> list[PowerAreaInfo]:
@@ -48,7 +47,7 @@ async def get_power_areas_json(
         ) for area in power_grid.areas_recursive() if area.geometry]
 
 @router.get("/areas.csv",
-            dependencies=[RequiredUserRole_Any])
+            dependencies=[RequiredProjectRole_Any])
 async def get_power_areas_csv(
         power_grid: PowerGridDep,
         ) -> PlainTextResponse:
@@ -60,7 +59,7 @@ async def get_power_areas_csv(
         return PlainTextResponse(b.getvalue(), media_type="text/csv")
 
 @router.get("/grid.geojson",
-            dependencies=[RequiredUserRole_Any])
+            dependencies=[RequiredProjectRole_Any])
 async def get_power_grid_geojson(
         power_grid: PowerGridDep,
         ) -> FeatureCollection[Feature[Point, PowerGridProcessedPDUProperties] | Feature[LineString, PowerGridProcessedCableProperties]]:
@@ -69,24 +68,8 @@ async def get_power_grid_geojson(
             PowerItemBase.feature_properties,
             )
 
-@router.get("/grid",
-            dependencies=[RequiredUserRole_Any])
-async def get_power_grid_full(
-        power_grid: PowerGridDep,
-        log_level: str = 'WARNING'
-        ) -> PowerGridData:
-    min_level = logging.getLevelNamesMapping().get(log_level, logging.WARNING)
-    return PowerGridData(
-            timestamp=power_grid._timestamp,
-            log=[x for x in power_grid._log.entries if x.level >= min_level],
-            features=to_geojson_feature_collection(
-                power_grid.grid_items,
-                PowerItemBase.feature_properties,
-                ))
-
-
 @router.get("/grid_styled.geojson",
-            dependencies=[RequiredUserRole_Any])
+            dependencies=[RequiredProjectRole_Any])
 async def get_power_grid_styled_geojson(
         power_grid: PowerGridDep
         ) -> FeatureCollection[Feature[Point, PowerGridPDUPropertiesWithStatsStyled] | Feature[LineString, PowerGridCablePropertiesWithStatsStyled]]:
@@ -95,7 +78,7 @@ async def get_power_grid_styled_geojson(
             PowerItemBase.feature_properties_styled)
 
 @router.get("/grid_coverage.geojson",
-            dependencies=[RequiredUserRole_Any])
+            dependencies=[RequiredProjectRole_Any])
 async def get_power_grid_coverage_geojson(
         power_grid: PowerGridDep,
         ) -> FeatureCollection[Feature[Polygon, NameDescriptionModel]]:
@@ -147,7 +130,7 @@ async def get_power_grid_pdus_csv(
 
 
 @router.get("/placement_entities.geojson",
-            dependencies=[RequiredUserRole_Any],
+            dependencies=[RequiredProjectRole_Any],
             response_model_exclude_none=True)
 async def get_placement_entities_geojson(
         power_grid: PowerGridDep,

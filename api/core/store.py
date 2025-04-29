@@ -12,7 +12,8 @@ from common.db import DBModel
 from common.errors import InternalError, NotFoundError
 from common.model_utils import ModelT
 from common.log import Log
-from core.permission import Permission, PermissionInDB, Role
+from core.data_request import DataRequestContext
+from core.permission import ClientPermissions, Permission, PermissionInDB, Role, get_roles
 from core.user import User, UserInDB
 
 log = Log.getChild('store')
@@ -83,6 +84,9 @@ class StoreCollection(DBModel, AsyncAttrs):
     def __repr__(self) -> str:
         return f"<StoreCollection[{self.id}]: {self.project.name}/{self.name}>"
 
+    def roles_for(self, client_permissions: ClientPermissions):
+        return get_roles(client_permissions, 'collection', str(self.id))
+
     async def info(self) -> CollectionInfo:
         return CollectionInfo(
                 id=self.id,
@@ -127,17 +131,18 @@ class VersionedCollection(ABC, Generic[ModelT]):
                 name=cls.store_collection_name,
                 item_type=cls.store_item_type
                 )
+            (await project.awaitable_attrs.collections)[cls.store_collection_name] = collection
             db.add(collection)
             await db.flush()
 
-            result = cls(collection)
-            await project.owner_user.grant_permission(db, Permission(
+            result = cls(collection, time_start=time_start, time_end=time_end)
+            await project.owner_user.grant_permission(Permission(
                 object_type='collection',
                 object_id=str(collection.id),
                 role=Role.Owner
                 ))
 
-            log.info(f"{cls.__name__}: Created collection {collection.name}")
+            log.info(f"{cls.store_collection_name}: Created collection")
 
             return result
         else:
@@ -352,19 +357,3 @@ class VersionedCollection(ABC, Generic[ModelT]):
                 select(func.max(StoreItemRevision.timestamp))
                 .where(self._filter_revisions())
                 )
-
-async def get_versioned_collection(
-        project: 'Project',
-        collection_name: str,
-        time_start: Optional[datetime] = None,
-        time_end: Optional[datetime] = None,
-        ):
-    collection = (await project.awaitable_attrs.collections).get(collection_name)
-    if not collection:
-        raise NotFoundError("Collection not found")
-    for cls in VersionedCollection.__subclasses__():
-        if cls.store_item_type == collection.item_type:
-            return cls(collection, time_start=time_start, time_end=time_end)
-    raise RuntimeError(f"Unable to determine VersionedCollection class for {collection}")
-
-

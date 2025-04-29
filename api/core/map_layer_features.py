@@ -8,7 +8,8 @@ from geojson_pydantic.features import Feat
 from common.errors import ConfigurationError, InternalError
 from core.data_request import DataRequestContext
 from core.data_view import DataViewBase, DataViewConfigBase, DataViewResultBase
-from core.store import get_versioned_collection
+from core.permission import Role
+from core.store import StoreCollection
 
 _Feat = TypeVar('_Feat', bound=Feature)
 
@@ -36,11 +37,8 @@ class MapLayer_Features(
     TRANSFORMS: ClassVar[Optional[dict[str, FeatureTransform]]] = None
 
     async def get(self, context: DataRequestContext):
-        collection = await get_versioned_collection(
-                context.project,
-                self.config.collection,
-                context.time_start,
-                context.time_end)
+        store_collection: StoreCollection = await context.project.get_store_collection(self.config.collection)
+        collection = store_collection.instantiate(context)
         features = await a.list(collection.all_last_values())
         if self.config.transform:
             if not self.TRANSFORMS:
@@ -52,5 +50,6 @@ class MapLayer_Features(
         return MapLayerData_Features(
             type='features',
             timestamp=await collection.last_timestamp(),
-            features=features
+            features=features,
+            editable=bool(store_collection.roles_for(context.client_permissions).intersection([Role.Editor, Role.Admin, Role.Owner]))
         )

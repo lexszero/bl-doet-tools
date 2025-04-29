@@ -19,15 +19,15 @@ async def get_project(db: DBSessionDep, project_name: str) -> Project:
 
 ProjectDep = Annotated[Project, Depends(get_project)]
 
-def require_user_roles(*args: Role):
+def require_project_roles(*args: Role):
     roles = frozenset(args)
     def _check_role(project: ProjectDep, client_permissions: ClientPermissionsDep):
         if not project.roles_for(client_permissions).intersection(roles):
             raise PermissionDeniedError()
     return _check_role
 
-RequiredUserRole_Any = Depends(require_user_roles(Role.Guest, Role.Viewer, Role.Editor, Role.Admin, Role.Owner))
-RequiredUserRole_Edit = Depends(require_user_roles(Role.Editor, Role.Admin, Role.Owner))
+RequiredProjectRole_Any = Depends(require_project_roles(Role.Guest, Role.Viewer, Role.Editor, Role.Admin, Role.Owner))
+RequiredProjectRole_Edit = Depends(require_project_roles(Role.Editor, Role.Admin, Role.Owner))
 
 async def get_data_request_context(
     project: ProjectDep,

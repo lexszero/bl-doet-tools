@@ -66,7 +66,7 @@ async def grant_project_role(
     async with await get_db_session() as db:
         u = await get_user_db(db, username)
         p = await get_project(db, project_name)
-        await u.grant_permission(db, Permission(
+        await u.grant_permission(Permission(
             object_type='project',
             object_id=str(p.id),
             role=role

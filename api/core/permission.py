@@ -1,12 +1,11 @@
 from enum import Enum
 from typing import Any, Set
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter
-from pydantic_core.core_schema import frozenset_schema
+from pydantic import BaseModel
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from common.db_async import DBModel
+from common.db_async import DBModel, AsyncSession
 
 class Role(str, Enum):
     Owner = 'owner'
@@ -60,3 +59,15 @@ class PermissionInDB(DBModel):
 
     def __repr__(self):
         return f"<Perm: {self.user.name} / {self.object_type}:{self.object_id}:{self.role}>"
+
+async def grant_permission(db: AsyncSession, user_id: int, perm: Permission):
+    p = PermissionInDB(
+        user_id=user_id,
+        object_type=perm.object_type,
+        object_id=perm.object_id,
+        role=perm.role
+        )
+    db.add(p)
+    await db.flush()
+    return p
+

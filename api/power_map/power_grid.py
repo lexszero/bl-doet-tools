@@ -1,17 +1,14 @@
 from datetime import datetime, timezone
 from typing import Iterable, Optional
-from cachetools import TTLCache
-from cachetools_async import cached
-from fastapi import Depends
 from pydantic import BaseModel, PrivateAttr, RootModel, TypeAdapter
 
-from common.db_async import DBSessionDep, get_db_session
 from common.geometry import (
         coord_transform, XFRM_GEO_TO_PROJ,
         Feature, FeatureCollection,
         Point, LineString,
         ShapelyPoint, ShapelyLineString,
         )
+from core.map_layer_features import MapLayerData_Features
 from core.store import VersionedCollection
 from power_map.placement import PlacementEntityFeature, PlacementEntityFeatureCollection
 from power_map.power_area import PowerArea, PowerAreaFeature, PowerAreaFeatureCollection
@@ -38,12 +35,6 @@ PowerGridSnapshot = list[PowerGridFeature]
 PowerGridFeatureModel = RootModel[PowerGridFeature]
 
 PowerGridFeatureCollectionType = FeatureCollection[Feature[Point, PowerGridProcessedPDUProperties] | Feature[LineString, PowerGridProcessedCableProperties]]
-
-class PowerGridData(BaseModel):
-    timestamp: datetime
-    log: list[ItemizedLogEntry]
-    features: PowerGridFeatureCollectionType
-    editable: bool
 
 NEAR_THRESHOLD_M = 1
 
@@ -257,13 +248,10 @@ class PowerGrid(PowerArea):
         self.add_item(PowerConsumer.from_feature(f))
 
 async def get_power_grid(project: 'Project', timestamp: Optional[datetime] = None) -> PowerGrid:
-    collections = await project.awaitable_attrs.collections
+    c_grid = await PowerGridFeatureCollection.bind(project, False, time_end=timestamp)
 
     grid = PowerGrid(timestamp=await project.get_last_change_timestamp())
-    async for f in PowerAreaFeatureCollection(collections['power_areas'], time_end=timestamp).all_last_values():
-        grid.add_area_feature(f)
-
-    grid.add_grid_features([f async for f in PowerGridFeatureCollection(collections['power_grid'], time_end=timestamp).all_last_values()])
+    grid.add_grid_features([f async for f in c_grid.all_last_values()])
 
     #async for f in PlacementEntityFeatureCollection(collections['placement'], time_end=timestamp).all_last_values():
     #    grid.add_placement_feature(f)

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import cached_property
 from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
 from core.permission import ClientPermissions, Role
 

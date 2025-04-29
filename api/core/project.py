@@ -53,6 +53,12 @@ class Project(DBModel, AsyncAttrs, AsyncSessionMixin):
         else:
             return get_roles(client_permissions, 'project', self.id)
 
+    async def get_store_collection(self, collection_name: str):
+        collection: StoreCollection = (await self.awaitable_attrs.collections).get(collection_name)
+        if not collection:
+            raise NotFoundError("Collection not found")
+        return collection
+
     async def get_all_permissions(self):
         db = self._db()
         subq = (union(
