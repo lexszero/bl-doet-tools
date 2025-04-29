@@ -23,10 +23,6 @@ import {
 
 import {
   PowerGridData,
-  type LossCalculationResult,
-  Vref_LN,
-  gridItemSizeData,
-  gridItemSizes,
 } from './data.svelte';
 
 import {
@@ -49,6 +45,19 @@ import {
 } from '$lib/layers/LayerController.svelte';
 
 import { type PowerGridDisplayOptions } from './types';
+import { 
+  cableLength,
+  calculatePathLoss,
+  getCableAmps,
+  type LossInfoCable,
+  type LossInfoPDU
+} from './calculations';
+import {
+  getGridItemSizeInfo,
+  gridItemSizes,
+  Vref_LL,
+  Vref_LN
+} from './constants';
 
 type GridMapFeatureLayer = MapFeatureLayer<geojson.Point | geojson.LineString, GridFeatureProperties>;
 
@@ -345,12 +354,16 @@ export class PowerGridController extends LayerController<
   }
 
   updateStyle(): void {
+    this.data.updateCalculatedInfo({
+      method: 'capacity',
+      fractionLoad: this.displayOptions.loadPercent/100
+    })
     super.updateStyle();
     this.updateCoverage();
   }
 
   styleBySize = (feature: GridFeature) => {
-    const st = gridItemSizeData(feature.properties.power_size)?.style;
+    const st = getGridItemSizeInfo(feature)?.style;
     return st ? {
       weight: st.weight * this.displayOptions.scaleCable,
       color: st.color
@@ -358,10 +371,22 @@ export class PowerGridController extends LayerController<
   }
 
   styleByLoss = (feature: GridFeature) => {
-    const r = this.data?.calculatePathLoss(
-      this.data.getGridPathToSource(feature),
-      { loadPercentage: this.displayOptions.loadPercent })
-    const color = r ? colormap('plasma', r.VdropPercent, 0, 10, false) : '#808080';
+    if (!feature.properties._loss)
+      return { color: '#F00', fillColor: '#F00' }
+
+    let VdropPercent = 0;
+    switch (feature.properties.type) {
+      case 'power_grid_cable': {
+        const info = feature.properties._loss as LossInfoCable;
+        VdropPercent = (Vref_LL - (info.V - info.Vdrop)) / Vref_LL * 100;
+        break;
+      }
+      case 'power_grid_pdu': {
+        const info = feature.properties._loss as LossInfoPDU;
+        VdropPercent = (Vref_LL - info.V) / Vref_LL * 100;
+      }
+    }
+    const color = colormap('plasma', VdropPercent, 0, 10, false);
     return {...this.styleBySize(feature), color, fillColor: color}
   };
 
@@ -408,7 +433,7 @@ export class PowerGridController extends LayerController<
   featureColorForStatus = (f: GridFeature) => `${this.featureStatus(f)}`;
   
   featureProperties = (f: GridFeature) => {
-    const exclude = ['name', 'type', 'power_size', 'length_m', 'pdu_from', 'pdu_to', 'cable_in', 'cables_out', '_drc', '_pathToSource'];
+    const exclude = ['name', 'type', 'power_size', 'length_m', 'pdu_from', 'pdu_to', 'cable_in', 'cables_out', '_drc', '_pathToSource', '_loss'];
     const result: InfoItem[] = [];
     result.push({
       label: 'Size',
@@ -420,7 +445,7 @@ export class PowerGridController extends LayerController<
       const props = f.properties;
       result.push({
         label: 'Length',
-        value: `${this.data.cableLength(f as GridCableFeature).toFixed(1)} m`,
+        value: `${cableLength(f as GridCableFeature).toFixed(1)} m`,
         icon: IconRuler
       });
       if (props.pdu_from) {
@@ -441,6 +466,24 @@ export class PowerGridController extends LayerController<
             chips: [featureChip(p)]
           });
         }
+      }
+      if (props._loss) {
+        const l = props._loss as LossInfoCable;
+        result.push(
+          {
+            label: 'I',
+            value: `${l.I.toFixed(1)} A`
+          },
+          {
+            label: 'Vin',
+            value: `${l.V.toFixed(1)} V`
+          },
+          {
+            label: 'Vdrop',
+            value: `${l.Vdrop.toFixed(1)} Vdrop`
+          },
+
+        )
       }
     }
     else if (f.properties.type == 'power_grid_pdu') {
@@ -477,6 +520,23 @@ export class PowerGridController extends LayerController<
           icon: IconPDU,
           chips: pdus.reduce((chips: ChipItem[], f) => (f ? [...chips, featureChip(f)] : chips), [])
         })
+      }
+      if (props._loss) {
+        const l = props._loss as LossInfoPDU;
+        result.push(
+          {
+            label: 'I in',
+            value: `${l.I_in.toFixed(1)} A`
+          },
+          {
+            label: 'I load',
+            value: `${l.I_load.toFixed(1)} A`
+          },
+          {
+            label: 'Vin',
+            value: `${l.V.toFixed(1)} V`
+          },
+        );
       }
     }
     return [...result, ...(Object.entries(f.properties)
@@ -560,18 +620,18 @@ export class PowerGridController extends LayerController<
     }
     const result: Array<InfoItem> = [];
 
-    const path = this.highlightedGridPath?.map((l) => this.features.get(l.feature.id));
-    const pathResult = this.data?.calculatePathLoss(path,
-      { loadAmps: Math.min(...(path?.map((f) => f ? gridItemSizeData(f.properties.power_size).max_amps : 0) || [])) }
+    const path = this.highlightedGridPath?.map((l) => this.features.get(l.feature.id)).filter((f) => !!f);
+    const pathResult = calculatePathLoss(path,
+      { loadAmps: Math.min(...(path?.map((f) => f ? getGridItemSizeInfo(f).max_amps : 0) || [])) }
     );
 
     const allResults = [
       ...loadLevels.map((loadPercentage) => [
         `${loadPercentage}%`,
-        this.data?.calculatePathLoss(path, { loadPercentage })
+        calculatePathLoss(path, { loadPercentage }),
       ]),
       [ 'path', pathResult ]
-    ] as Array<[string, LossCalculationResult]>;
+    ] as Array<[string, LossInfoCable]>;
 
     result.push({
       label: "Path length",
@@ -585,7 +645,7 @@ export class PowerGridController extends LayerController<
     },
     {
       label: "Pmax",
-      value: `${(pathResult.I*Vref_LN*3/1000).toFixed(1)} kW`,
+      value: `${(pathResult.I*Vref_LN*pathResult.Phases/1000).toFixed(1)} kW`,
       icon: IconPower
     },
     {
@@ -597,13 +657,14 @@ export class PowerGridController extends LayerController<
     );
 
     for (const [label, r] of allResults) {
+      const VdropPercent = r.Vdrop/Vref_LL*100;
       result.push(
         {
           label: `Loss @ ${label}`,
-          value: `${r.Vdrop.toFixed(1)} V (${r.VdropPercent.toFixed(0)}%), ${(r.Ploss/1000.0).toFixed(1)} kW`,
+          value: `${r.Vdrop.toFixed(1)} V (${VdropPercent.toFixed(1)}%), ${(r.Ploss/1000.0).toFixed(1)} kW`,
           classes: (
-            (r.VdropPercent < 5) ? ""
-            : (r.VdropPercent < 10) ? "text-warning-500"
+            (VdropPercent < 5) ? ""
+            : (VdropPercent < 10) ? "text-warning-500"
             : "text-error-500"
           )
         },
@@ -637,7 +698,7 @@ export class PowerGridController extends LayerController<
     for (const f of this.features.values()) {
       if (f.properties.type == 'power_grid_cable') {
         const size = f.properties.power_size;
-        const length = this.data.cableLength(f as GridCableFeature);
+        const length = cableLength(f as GridCableFeature);
         totalCableLength.set(size, (totalCableLength.get(size) || 0) + length);
         totalAllCableLength += length;
       }

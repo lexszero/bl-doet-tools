@@ -1,7 +1,8 @@
+import {getContext} from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import L from 'leaflet';
 import { parseJSON as parseTimestamp } from 'date-fns';
-import { coordsToLatLng, distance, isSamePoint } from '$lib/utils/geo';
+import { coordsToLatLng, isSamePoint } from '$lib/utils/geo';
 
 import type {
   GridFeature,
@@ -13,93 +14,15 @@ import type {
 } from './types';
 
 import { ProjectAPI } from '$lib/api_project';
-import {getContext} from 'svelte';
-
-export const Vref_LL = 400;
-export const Vref_LN = Vref_LL / Math.sqrt(3);
-
-interface StyleWeightColor {
-  weight: number;
-  color: string;
-}
-
-interface GridItemSizeData {
-  phases: 3 | 1;
-  max_amps: number;
-  ohm_per_km: number;
-  style: StyleWeightColor;
-}
-
-export const gridItemSizes = ['250', '125', '63', '32', '16', '1f'];
-export const gridItemSizeData = (size: string) => ({
-    '250': {
-      phases: 3,
-      max_amps: 250,
-      ohm_per_km: 0.366085,
-      style: {
-        weight: 6,
-        color: '#B50E85',
-      }
-    },
-    '125': {
-      phases: 3,
-      max_amps: 125,
-      ohm_per_km: 0.522522,
-      style: {
-        weight: 5,
-        color: '#C4162A',
-      }
-    },
-    '63': {
-      phases: 3,
-      max_amps: 63,
-      ohm_per_km: 1.14402,
-      style: {
-        weight: 4,
-        color: '#F2495C',
-      }
-    },
-    '32': {
-      phases: 3,
-      max_amps: 32,
-      ohm_per_km: 3.05106,
-      style: {
-        weight: 3,
-        color: '#FF9830',
-      }
-    },
-    '16': {
-      phases: 3,
-      max_amps: 16,
-      ohm_per_km: 7.32170,
-      style: {
-        weight: 2,
-        color: '#FADE2A'
-      }
-    },
-    '1f': {
-      phases: 1,
-      max_amps: 16,
-      ohm_per_km: 7.32170,
-      style: {
-        weight: 1,
-        color: '#5794F2'
-      }
-    },
-    'unknown': {
-      phases: undefined,
-      max_amps: undefined,
-      ohm_per_km: undefined,
-      style: {
-        weight: 5,
-        color: '#FF0000'
-      }
-    },
-  }[size] as GridItemSizeData);
-
-function gridItemSizeLE(a: string, b: string) {
-  return gridItemSizes.indexOf(a) >= gridItemSizes.indexOf(b);
-}
+import { Vref_LL, getGridItemSizeInfo, gridItemSizeLE } from './constants';
+import {
+  calculateCableLoss,
+  calculatePathLoss,
+  getCableAmps,
+  type LossInfoPDU,
+  type LossParamsCable,
+  type LossParamsPDU,
+} from './calculations';
 
 function applyToGridFeature<T>(f: GridFeature, pduFn?: ((f: GridPDUFeature) => T), cableFn?: ((f: GridCableFeature) => T)): T | undefined {
   switch (f.properties.type) {
@@ -108,21 +31,6 @@ function applyToGridFeature<T>(f: GridFeature, pduFn?: ((f: GridPDUFeature) => T
     case 'power_grid_cable':
       return cableFn?.(f as GridCableFeature);
   }
-}
-
-interface LossCalculationParams {
-  loadAmps?: number;
-  loadPercentage?: number;
-};
-
-export interface LossCalculationResult {
-  Phases: 3 | 1;
-  L: number;
-  R: number;
-  I: number;
-  Vdrop: number;
-  VdropPercent: number;
-  Ploss: number;
 }
 
 export class PowerGridData {
@@ -136,7 +44,10 @@ export class PowerGridData {
   log?: ItemizedLogEntry[] = $state();
   editable: boolean = false;
 
-  lossCalculationParams: LossCalculationParams = { loadPercentage: 50 };
+  lossCalculationParams: LossParamsPDU = {
+    method: 'capacity',
+    fractionLoad: 0.5
+  };
 
   constructor() {
     this.api = getContext('api');
@@ -185,9 +96,9 @@ export class PowerGridData {
       }
       this.log = data.log.toSorted((a, b) => (b.level - a.level));
     }
-    this.updateCalculatedInfo(this.lossCalculationParams);
     this.featuresLoaded = features;
     this.resetChanges();
+    this.updateCalculatedInfo(this.lossCalculationParams);
   }
 
   resetChanges() {
@@ -213,120 +124,99 @@ export class PowerGridData {
   }
 
   updateCalculatedInfo(
-    params: LossCalculationParams) {
+    params: LossParamsPDU) {
     this.lossCalculationParams = params;
     for (const f of this.features.values()) {
-      if (f.properties.type == 'power_grid_pdu') {
-        this.calculatePathLoss(this.getGridPathToSource(f), params)
+      if (f.properties.type == 'power_grid_pdu' && f.properties.power_source) {
+        const pdu = f as GridPDUFeature;
+        this.updateLossFromPDU(pdu, Vref_LL, getGridItemSizeInfo(f).max_amps, this.lossCalculationParams);
       }
     }
   }
 
   getLossToSource(
     feature: GridFeature,
-    params: LossCalculationParams = this.lossCalculationParams
+    params: LossParamsPDU = this.lossCalculationParams
   ) {
-    return this.calculatePathLoss(
+    return calculatePathLoss(
       this.getGridPathToSource(feature),
-      params
+      params.fractionLoad
     );
   }
 
-  cableLength(feature: GridCableFeature): number {
-    if (feature.properties._length) {
-      return feature.properties._length;
-    }
-    let length = 0;
-    for (let i = 0; i < feature.geometry.coordinates.length - 1; i++) {
-      const p1 = feature.geometry.coordinates[i];
-      const p2 = feature.geometry.coordinates[i+1];
-      const d = distance(coordsToLatLng(p1), coordsToLatLng(p2));
-      length += d || 0;
-    }
-    return length;
-  }
+  updateLossFromPDU(
+    pdu: GridPDUFeature,
+    V_in: number,
+    I_in: number,
+    params: LossParamsPDU
+  ) {
+    //console.debug(`updateLossFromPDU ${pdu.id} V_in=${V_in} I_in=${I_in} params=${JSON.stringify(params)}`);
+    const cables_out = pdu.properties.cables_out?.map((id) => this.getCable(id)) || [];
 
-  calculateCableLoss(
-    cable: GridCableFeature,
-    params: LossCalculationParams = this.lossCalculationParams
-  ): LossCalculationResult {
-    const sizeData = gridItemSizeData(cable.properties.power_size);
-    const L = this.cableLength(cable);
-    const R = L * sizeData.ohm_per_km / 1000.0;
-    const I = (
-       (params.loadAmps) ? Math.min(sizeData.max_amps, params.loadAmps)
-       : (params.loadPercentage) ? sizeData.max_amps * params.loadPercentage / 100.0
-         : 0
-     );
-
-    const Vdrop = 
-       (sizeData.phases == 3) ?
-       (R * I * Math.sqrt(3)) :
-       (R * I * 2);
-    const Ploss = Vdrop * I;
-    return {
-      Phases: sizeData.phases,
-      L,
-      R,
-      I,
-      Vdrop,
-      VdropPercent: Vdrop/Vref_LL*100.0,
-      Ploss };
-  }
-
-  calculatePathLoss(
-    path: Array<GridFeature> | undefined,
-    params: LossCalculationParams = this.lossCalculationParams
-  ): LossCalculationResult {
-    let Length = 0;
-    let Resistance = 0;
-    let Imax = Infinity;
-    let pathPhases: 3 | 1 = 3;
-    let pathVdrop = 0;
-    let pathPloss = 0;
-
-    if (!path || path.length < 1) {
-      return {
-        Phases: 3,
-        L: Infinity,
-        R: Infinity,
-        I: 0,
-        Vdrop: Infinity,
-        VdropPercent: 100,
-        Ploss: 0
-      }
-    }
-
-    for (const feature of path) {
-      if (feature.properties.type == 'power_grid_cable') {
-        const cable = feature as GridCableFeature;
-        const sizeData = gridItemSizeData(cable.properties.power_size);
-        const { Phases, L, R, Vdrop, Ploss } = this.calculateCableLoss(cable, params)
-
-        Length += L;
-        Resistance += R;
-        if (Phases < pathPhases) {
-          pathPhases = Phases;
-        }
-
-        const cableImax = sizeData.max_amps;
-        if (cableImax < Imax)
-          Imax = cableImax;
-
-        pathVdrop += Vdrop;
-        pathPloss += Ploss;
-      }
-    }
-
-    return {
-      Phases: pathPhases,
-      L: Length,
-      R: Resistance,
-      I: Imax,
-      Vdrop: pathVdrop / Math.sqrt(3),
-      VdropPercent: pathVdrop / Vref_LL / Math.sqrt(3) * 100.0,
-      Ploss: pathPloss
+    interface Calc {
+      getCableAmps: ((cable: GridCableFeature) => number);
+      getCableParams: ((cable: GridCableFeature) => LossParamsCable);
+      getPDUAmps: ((pdu: GridPDUFeature) => number);
+      fractionLoad: number;
     };
+
+    let calc: Calc | undefined = undefined;
+
+    switch (params.method) {
+      case 'capacity': {
+        calc = {
+          fractionLoad: 0,
+          getCableParams: () => ({loadPercentage: params.fractionLoad*100}),
+          getCableAmps: (cable: GridCableFeature) => getCableAmps({loadPercentage: params.fractionLoad*100}, getGridItemSizeInfo(cable).max_amps),
+          getPDUAmps: (pdu: GridPDUFeature) => getGridItemSizeInfo(pdu).max_amps
+        };
+        break;
+      };
+
+      case 'flow': {
+        const Imax_totalForward = cables_out.map((c) => c ? getGridItemSizeInfo(c).max_amps : 0).reduce((sum, I) => (I ? sum+I : sum), 0);
+        const getCableAmps = (cable: GridCableFeature | undefined) => {
+          if (!cable)
+            return 0;
+          const Imax = getGridItemSizeInfo(cable).max_amps;
+          const fractionForward = 1 - params.fractionLoad * (1-Imax/250);
+          return I_in * fractionForward * (Imax / Imax_totalForward);
+        };
+        calc = {
+          fractionLoad: (cables_out.length) ? 1 : params.fractionLoad,
+          getCableAmps: getCableAmps,
+          getCableParams: (cable: GridCableFeature) => ({loadAmps: getCableAmps(cable)}),
+          getPDUAmps: (pdu: GridPDUFeature) => (pdu.properties.cable_in ? getCableAmps(this.getCable(pdu.properties.cable_in)) : 0)
+        };
+        break;
+      }
+    }
+
+    if (!calc)
+      throw new Error("Unsupported loss calculation method")
+
+    const lossPDU: LossInfoPDU = {
+      V: V_in,
+      I_in: I_in,
+      I_load: I_in * calc.fractionLoad,
+    };
+    pdu.properties._loss = lossPDU;
+
+//    console.debug(`PDU ${pdu.id}: `, lossPDU);
+
+    for (const cable of cables_out) {
+      if (!cable)
+        continue;
+
+      const lossCable = calculateCableLoss(cable, V_in, calc.getCableAmps(cable));
+      cable.properties._loss = lossCable;
+
+ //     console.debug(`Cable ${cable.id}: `, lossCable);
+
+      const pduTo = this.getPDU(cable.properties.pdu_to);
+      if (pduTo)
+        this.updateLossFromPDU(pduTo, V_in - lossCable.Vdrop, calc.getPDUAmps(pduTo), params)
+    }
   }
 
   forEachGridFeatureDownstream(feature: GridFeature, fn: ((f: GridFeature) => undefined)) {
@@ -429,7 +319,7 @@ export class PowerGridData {
   }
 
   updateCableGeometry(cable: GridCableFeature) {
-    cable.properties._length = undefined;
+    cable.properties._loss = undefined;
     this.markChanged(cable);
   }
 

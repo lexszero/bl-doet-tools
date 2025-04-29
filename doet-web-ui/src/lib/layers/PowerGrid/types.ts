@@ -1,8 +1,9 @@
 import type {FeaturesDataElement} from '$lib/api_project';
 import { type BasicLayerDisplayOptions } from '$lib/layers/LayerController.svelte';
-import type { Feature, FeatureCollection } from '$lib/utils/geojson';
+import type { Feature } from '$lib/utils/geojson';
 import type { Named } from '$lib/utils/types';
 import type { Point, LineString } from 'geojson';
+import type { LossInfoCable, LossInfoPDU } from './calculations';
 
 interface GridFeatureCommonProperties extends Named {
   description?: string;
@@ -19,7 +20,6 @@ export interface ItemizedLogEntry {
   message: string;
 };
 
-
 export interface GridPDUProperties extends GridFeatureCommonProperties {
   type: "power_grid_pdu"
   power_source?: boolean
@@ -27,6 +27,7 @@ export interface GridPDUProperties extends GridFeatureCommonProperties {
   cables_out?: string[];
 
   _consumers: string[];
+  _loss?: LossInfoPDU;
 }
 
 export type GridPDUFeature = Feature<Point, GridPDUProperties>;
@@ -35,9 +36,8 @@ export interface GridCableProperties extends GridFeatureCommonProperties {
   type: "power_grid_cable"
   pdu_from?: string;
   pdu_to?: string;
-  length_m?: number;
 
-  _length?: number;
+  _loss?: LossInfoCable;
 }
 
 export type GridCableFeature = Feature<LineString, GridCableProperties>;
