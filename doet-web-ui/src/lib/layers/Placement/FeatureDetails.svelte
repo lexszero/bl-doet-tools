@@ -11,6 +11,7 @@
   import type { InfoItem } from "$lib/utils/types";
 
   import { IconContact, IconDescription, IconPlug, IconPower, IconPDU, IconWarning } from "$lib/Icons";
+  import IconImage from '@lucide/svelte/icons/image';
 
   let {
     ctl,
@@ -70,6 +71,7 @@
       result.push({
         label: "Grid plan",
         content: showImage,
+        icon: IconImage
       });
       console.debug(result);
     }
