@@ -7,10 +7,8 @@ import type {PlacementFeature, PlacementEntityProperties} from './types';
 import colormap from '$lib/utils/colormap';
 import { distance, coordsToLatLng, coordsToLatLngs } from '$lib/utils/geo';
 
-import { featureChip, LayerController, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
-import { IconPlacementEntity, IconPDU, IconPower, IconSound, IconPeople } from '$lib/Icons';
-import IconDescription from '@lucide/svelte/icons/badge-info';
-import IconContact from '@lucide/svelte/icons/contact';
+import { LayerController, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
+import { IconContact, IconDescription, IconPlacementEntity, IconPDU, IconPower, IconSound, IconPeople } from '$lib/Icons';
 import IconVehicle from '@lucide/svelte/icons/bus';
 
 import { PowerGridData } from '$lib/layers/PowerGrid/data.svelte';
@@ -18,6 +16,20 @@ import { type PlacementDisplayOptions } from './types';
 
 import { type InfoItem } from '$lib/utils/types';
 import type {FeaturesDataElement} from '$lib/api_project';
+import {getPlugTypeInfo, Vref_LN} from '../PowerGrid/constants';
+import type {GridCableFeature, GridPDUFeature, ItemizedLogEntry} from '../PowerGrid/types';
+import {Severity} from '$lib/utils/misc';
+import {calculatePathLoss} from '../PowerGrid/calculations';
+
+export function plugLoadPercent(feature: PlacementFeature) {
+  const props = feature.properties;
+  if (!props.powerPlugType)
+    return Infinity;
+
+  const plug = getPlugTypeInfo(props.powerPlugType)
+  const plugPmax = Vref_LN * plug.max_amps * plug.phases;
+  return (feature.properties.powerNeed || 0) / plugPmax * 100;
+}
 
 const defaultStyle = {
   weight: 0.5,
@@ -117,7 +129,7 @@ export class PlacementController extends LayerController<
                 length_m: d
               }} as GridCableFeature
             ];
-            const loss = this.data.calculatePathLoss(path, {loadPercentage: this.displayOptions.gridLoadPercent});
+            const loss = calculatePathLoss(path, {loadPercentage: this.displayOptions.gridLoadPercent});
             color = colormap('plasma', loss.R, 0, 1.0);
           } else {
             color = '#ff0000'
@@ -155,7 +167,6 @@ export class PlacementController extends LayerController<
       });
     }
 
-    /*
     if (props.contactInfo) {
       result.push({
         label: 'Contact',
@@ -163,7 +174,6 @@ export class PlacementController extends LayerController<
         icon: IconContact
       });
     }
-    */
 
     if (props.nrOfPeople) {
       result.push({
@@ -195,20 +205,12 @@ export class PlacementController extends LayerController<
       icon: IconPower
     });
 
-
-    const near = this.getNearPDUs(f);
-    //console.log(nearestPDU, nearestDistance);
-    if (near?.length) {
-      const [nearestPDU, nearestDistance] = near[0];
-      result.push({
-        label: "Nearest PDU",
-        value: `${nearestDistance.toFixed(0)} m`,
-        icon: IconPDU,
-        chips: [featureChip(nearestPDU)]
-      });
-    }
-
-    const exclude = ['type', 'name', 'description', 'contactInfo', 'nrOfPeople', 'nrOfVechiles', 'powerNeed', 'amplifiedSound', '_nearPDUs'];
+    const exclude = [
+      'type', 'name', 'description', 'contactInfo', 'nrOfPeople', 'nrOfVechiles', 'amplifiedSound', 'color',
+      'powerNrPDUs', 'powerDistance',
+      'techContactInfo', 'powerPlugType', 'powerExtraInfo', 'powerImage', 'powerAppliances', 'powerNeed',
+      '_nearPDUs',
+    ];
     return [...result, ...(Object.entries(props)
       .filter(([k]) => (!exclude.includes(k)))
       .map(([k, v]) => ({label: k, value: v} as InfoItem))
@@ -239,6 +241,47 @@ export class PlacementController extends LayerController<
     return pdusInRange;
   }
 
+  featureWarnings(feature: PlacementFeature, strict: boolean = false) {
+    const result: ItemizedLogEntry[] = [];
+    const props = feature.properties;
+    const pwr = feature.properties.powerNeed
+
+    if (!pwr)
+      return result;
+
+    if (strict) {
+      if (props.powerPlugType) {
+        const loadPercent = plugLoadPercent(feature);
+        if (loadPercent > 100) {
+          result.push({
+            level: loadPercent > 300 ? Severity.Error : Severity.Warning,
+            message: `Power need ${pwr} is ${loadPercent}% load permitted for ${props.powerPlugType}`
+          });
+        }
+      } else {
+        result.push({
+          level: Severity.Error,
+          message: "Missing power plug type"
+        });
+      }
+
+      if (!props.techContactInfo) {
+        result.push({
+          level: Severity.Error,
+          message: "Missing tech contact info"
+        });
+      }
+    }
+
+    const near = this.getNearPDUs(feature);
+    if (!near.length) {
+      result.push({
+        level: Severity.Error,
+        message: `No PDUs within ${this.displayOptions.pduSearchRadius}m radius`
+      })
+    }
+    return result;
+  }
 };
 
 export default PlacementController;

@@ -18,12 +18,14 @@
   <tbody>
     {#each items as it}
       {@const Icon = it.icon}
-      {#if it.chips || it.value}
+      {#if it.chips || it.value || it.content}
         <tr class={`justify-items-start ${it.classes}`}>
-          <td>{#if Icon}<Icon />{/if}</td>
+          <td>{#if Icon}<Icon size="16"/>{/if}</td>
           <td>{it.label}</td>
           <td>
-            {#if it.chips}
+            {#if it.content}
+              {@render it.content()}
+            {:else if it.chips}
               {#each it.chips as chip}
                 <button type="button" class="chip preset-outlined-surface-500"
                   onclick={() => {if (chip.id) onClickChip?.(chip.id)}}
@@ -33,9 +35,8 @@
                   {chip.label}
                 </button>
               {/each}
-            {/if}
-            {#if it.value}
-              <span>{it.value}</span>
+            {:else if it.value}
+              {it.value}
             {/if}
           </td>
         </tr>

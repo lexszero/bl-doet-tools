@@ -2,7 +2,13 @@ import { type BasicLayerDisplayOptions } from '$lib/layers/LayerController.svelt
 import type { Feature, FeatureCollection } from '$lib/utils/geojson';
 import type { Named } from '$lib/utils/types';
 import type { Polygon } from 'geojson';
-import type { GridPDUFeature } from '../PowerGrid/types';
+import type { GridPDUFeature, PowerPlugType } from '../PowerGrid/types';
+
+export interface PowerAppliance {
+  name: string;
+  amount: number;
+  watt: number;
+}
 
 export interface PlacementEntityProperties extends Named {
   description?: string;
@@ -10,6 +16,12 @@ export interface PlacementEntityProperties extends Named {
   nrOfPeople?: number;
   nrOfVechiles?: number;
   amplifiedSound?: number;
+
+  techContactInfo?: string;
+  powerPlugType?: PowerPlugType;
+  powerExtraInfo?: string;
+  powerImage?: string;
+  powerAppliances?: PowerAppliance[];
   powerNeed?: number;
 
   _nearPDUs?: [GridPDUFeature, number][];
@@ -17,7 +29,6 @@ export interface PlacementEntityProperties extends Named {
 
 export type PlacementFeature = Feature<Polygon, PlacementEntityProperties>;
 export type PlacementFeatureCollection = FeatureCollection<Polygon, PlacementEntityProperties>;
-
 
 export interface PlacementDisplayOptions extends BasicLayerDisplayOptions {
     mode: 'power_need' | 'grid_n_pdus' | 'grid_distance' | 'grid_loss' | 'sound',

@@ -1,5 +1,7 @@
 
 import IconClose from '@lucide/svelte/icons/x';
+import IconContact from '@lucide/svelte/icons/contact';
+import IconDescription from '@lucide/svelte/icons/badge-info';
 import IconWarning from '@lucide/svelte/icons/triangle-alert';
 import IconFeatureDefault from '@lucide/svelte/icons/map-pin';
 import IconCable from '@lucide/svelte/icons/cable';
@@ -15,6 +17,8 @@ import IconSound from '@lucide/svelte/icons/volume-2';
 
 export {
   IconClose,
+  IconContact,
+  IconDescription,
   IconWarning,
   IconFeatureDefault,
   IconCable,

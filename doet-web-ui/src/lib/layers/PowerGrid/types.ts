@@ -49,6 +49,8 @@ export interface PowerGridDataElement extends FeaturesDataElement<GridFeature> {
   log: ItemizedLogEntry[];
 }
 
+
+
 export interface PowerGridDisplayOptions extends BasicLayerDisplayOptions {
   mode: 'size' | 'loss';
   loadPercent: number;
@@ -56,4 +58,14 @@ export interface PowerGridDisplayOptions extends BasicLayerDisplayOptions {
   coverageRadius: number;
   scalePDU: number;
   scaleCable: number;
+};
+
+export enum PowerPlugType {
+  SinglePhase_Schuko = '1p_schuko',
+  SinglePhase_Danish = '1p_dk',
+  SinglePhase_CEE = '1p_cee',
+  ThreePhase_16A = '3p_16',
+  ThreePhase_32A = '3p_32',
+  ThreePhase_63A = '3p_63',
+  ThreePhase_125A = '3p_125'
 };

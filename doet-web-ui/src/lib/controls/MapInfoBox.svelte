@@ -1,7 +1,10 @@
 <script lang="ts">
 import { type Snippet } from 'svelte';
+
+import L from 'leaflet';
 import { Control } from 'sveaflet';
-import { type Icon } from '$lib/Icons';
+
+import { type IconType } from '$lib/Icons';
 
 let {
   title,
@@ -13,8 +16,8 @@ let {
   open = $bindable(false),
   children,
 }: {
-  title?: string,
-  icon: IconType,
+  title?: Snippet,
+  icon?: IconType,
   position: 'topleft' | 'topright' | 'bottomleft' | 'bottomright';
   classButton?: string,
   classBody?: string;
@@ -23,30 +26,39 @@ let {
   children?: Snippet,
   } = $props();
 
+  let instance: L.Control | undefined = $state();
+  $effect(() => {
+    if (instance) {
+      L.DomEvent.disableClickPropagation(instance.getContainer());
+    }
+  })
+
 </script>
 
 {#snippet header()}
-  {@const ButtonIcon = icon}
   <div class="flex grow h4 justify-between">
-    {#if open}
-      <span>{title}</span>
+    {#if title}
+      <span>{@render title()}</span>
     {/if}
-    <button type="button" class={["btn btn-sm", classButton, "preset-" + (open ? "filled" : "outline") + "-primary-500"]}
-      onclick={() => {open = !open}}>
-      <ButtonIcon class="w-auto h-auto" />
-    </button>
+    {#if icon}
+      {@const ButtonIcon = icon}
+      <button type="button" class={["btn btn-sm", classButton, "preset-" + (open ? "filled" : "outline") + "-primary-500"]}
+        onclick={() => {open = !open}}>
+        <ButtonIcon class="w-auto h-auto" />
+      </button>
+    {/if}
   </div>
 {/snippet}
 
 {#if visible}
-  <Control options={{position: position}} class="map-info-box">
+  <Control bind:instance={instance} options={{position: position}} class="map-info-box">
     {#if position == 'topright'}
-    {@render header()}
-    <hr class="hr" />
+      {@render header()}
+      <hr class="hr" />
     {/if}
-    
+
     {#if open}
-      <div class={["flex grow flex-col overflow-scroll", classBody]}>
+      <div class={["flex grow flex-col overflow-auto", classBody]}>
       {@render children?.()}
       </div>
     {/if}

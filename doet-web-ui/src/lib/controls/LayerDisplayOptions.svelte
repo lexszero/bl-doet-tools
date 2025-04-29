@@ -28,7 +28,9 @@ let {
     </div>
   {/snippet}
 
-  {#snippet control()}{title}{/snippet}
+  {#snippet control()}
+    {title}
+  {/snippet}
 
   {#snippet panel()}
     <!--

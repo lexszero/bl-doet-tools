@@ -8,6 +8,8 @@ import type {Feature, FeatureCollection} from '$lib/utils/geojson';
 
 import { type IconType, IconFeatureDefault } from '$lib/Icons';
 import { type SearchboxItem, type InfoItem, type ChipItem } from '$lib/utils/types';
+import { type ItemizedLogEntry } from './PowerGrid/types';
+import {logLevelToString} from '$lib/utils/misc';
 
 export function featureChip<G extends geojson.Geometry, P extends {name: string}>(f?: Feature<G, P>): ChipItem{
   return f ? {id: f.id, label: f.properties.name} : {label: "<unknown>"}
@@ -243,4 +245,43 @@ export class LayerController<
     }
     this.layerHighlighted = undefined;
   }
+
+  featureWarnings(_: Feature<G, P>): ItemizedLogEntry[] {
+    return [];
+  }
+
+  warningsSummary(): ItemizedLogEntry[] {
+    const result: ItemizedLogEntry[] = [];
+    for (const feature of this.features.values()) {
+      const log = this.featureWarnings(feature);
+      if (!log.length)
+        continue;
+      const byLevel = new Map<number, ItemizedLogEntry[]>();
+      for (const r of log) {
+        if (!byLevel.has(r.level))
+          byLevel.set(r.level, []);
+        (byLevel.get(r.level) || []).push(r);
+      }
+      if (byLevel.size > 1) {
+        result.push({
+          item_id: feature.id,
+          level: Math.max(...byLevel.values().map((recs) => recs.length)),
+          message: [...byLevel.entries().map(([level, recs]) => (`${recs.length} ${logLevelToString(level)}s`))].join(', ')
+        });
+      } else if (byLevel.size == 1) {
+        const r = byLevel.values().next().value[0];
+        result.push({item_id: feature.id, ...r});
+      }
+    }
+    return result;
+  }
+
+  warnings(): ItemizedLogEntry[] {
+    const result: ItemizedLogEntry[] = [];
+    for (const feature of this.features.values()) {
+      result.push(...this.featureWarnings(feature));
+    }
+    return result;
+  }
+
 }

@@ -11,9 +11,10 @@ import {
   type GridFeature,
   type GridFeatureProperties,
   type GridPDUFeature,
+  type ItemizedLogEntry,
 } from "./types";
 
-import { logLevelToColor } from '$lib/utils/misc';
+import { logLevelToColor, logLevelToString } from '$lib/utils/misc';
 import type { ChipItem, InfoItem } from '$lib/utils/types';
 import {
   isSamePoint,
@@ -48,7 +49,6 @@ import { type PowerGridDisplayOptions } from './types';
 import { 
   cableLength,
   calculatePathLoss,
-  getCableAmps,
   type LossInfoCable,
   type LossInfoPDU
 } from './calculations';
@@ -374,18 +374,8 @@ export class PowerGridController extends LayerController<
     if (!feature.properties._loss)
       return { color: '#F00', fillColor: '#F00' }
 
-    let VdropPercent = 0;
-    switch (feature.properties.type) {
-      case 'power_grid_cable': {
-        const info = feature.properties._loss as LossInfoCable;
-        VdropPercent = (Vref_LL - (info.V - info.Vdrop)) / Vref_LL * 100;
-        break;
-      }
-      case 'power_grid_pdu': {
-        const info = feature.properties._loss as LossInfoPDU;
-        VdropPercent = (Vref_LL - info.V) / Vref_LL * 100;
-      }
-    }
+    const r = calculatePathLoss(this.data.getGridPathToSource(feature), { loadPercentage: this.displayOptions.loadPercent });
+    const VdropPercent = r.Vdrop / r.V * 100;
     const color = colormap('plasma', VdropPercent, 0, 10, false);
     return {...this.styleBySize(feature), color, fillColor: color}
   };
@@ -791,6 +781,10 @@ export class PowerGridController extends LayerController<
       this.mapRoot.removeLayer(this.mapCoverageLayer);
       this.mapCoverageLayer = undefined;
     }
+  }
+
+  featureWarnings(feature: GridFeature): ItemizedLogEntry[] {
+    return feature.properties._drc || [];
   }
 
 }

@@ -1,9 +1,8 @@
 <script lang="ts">
   import { browser } from '$app/environment'
   import { setContext } from 'svelte';
-  import type { PageProps } from './$types';
 
-  import { AppBar, Combobox, Switch } from '@skeletonlabs/skeleton-svelte';
+  import { AppBar, Combobox, Switch, Tabs } from '@skeletonlabs/skeleton-svelte';
   import UserMenu from '$lib/controls/UserMenu.svelte';
   import PopoverInfoBox from '$lib/controls/PopoverInfoBox.svelte';
   import PropertiesTable from '$lib/controls/PropertiesTable.svelte';
@@ -17,7 +16,7 @@
   import { PowerGridData } from '$lib/layers/PowerGrid/data.svelte?client';
   import DisplayOptions from '$lib/layers/DisplayOptions.svelte';
 
-  import { IconWarning } from '$lib/Icons';
+  import { IconPlacement, IconPower, IconWarning } from '$lib/Icons';
   import IconHistory from '@lucide/svelte/icons/history';
   import IconInfo from '@lucide/svelte/icons/info';
   import IconLayers from '@lucide/svelte/icons/layers';
@@ -27,7 +26,6 @@
   
   import { copy as copyToClipboard } from 'svelte-copy';
   import lz from 'lz-string';
-	import {page} from '$app/state';
 
 
   let { project }: {project: string} = $props();
@@ -66,6 +64,15 @@
     }
     return url.toString();
   }
+
+  let warningsGrid = $derived(map?.layers.PowerGrid.warningsSummary() || []);
+  let warningsPlacement = $derived(map?.layers.Placement.warningsSummary() || []);
+  let nWarnings = $derived(warningsGrid.length + warningsPlacement.length);
+  let warningsGroup = $derived(
+    warningsGrid.length > 0 ? 'PowerGrid'
+    : warningsPlacement.length > 0 ? 'Placement'
+    : ""
+  );
 </script>
 
 <AppBar background="bg-surface-200-800" padding='p-1'>
@@ -108,15 +115,15 @@
   {/snippet}
 
   {#snippet trail()}
-    {#if grid?.log?.length}
-      {@const log = grid.log}
+    {#if nWarnings}
+      {@const allWarnings = [...warningsPlacement, ...warningsGrid]}
       <PopoverInfoBox title="Warnings"
         contentClasses="overflow-auto max-h-[500px]"
         positionerClasses="max-h-screen"
         >
         {#snippet trigger()}
         {#each [Severity.Error, Severity.Warning, Severity.Info] as severity}
-          {@const count = log.filter((r) => (r.level == severity)).length}
+          {@const count = allWarnings.filter((r) => (r.level == severity)).length}
           {#if count > 0}
             <div class={`flex flex-row text-${logLevelToColor(severity)}-500`}>
               <IconWarning />
@@ -125,7 +132,40 @@
           {/if}
         {/each}
         {/snippet}
-        {#snippet content()}<WarningsTable items={grid?.log} />{/snippet}
+        {#snippet content()}
+          <Tabs
+            value={warningsGroup}
+            onValueChange={(e) => { warningsGroup = e.value }}
+            activationMode="automatic"
+            >
+            {#snippet list()}
+              {#if warningsGrid.length}
+                <Tabs.Control value="PowerGrid">
+                  {#snippet lead()}<IconPower size="16" />{/snippet}
+                  Power grid [{warningsGrid.length}]
+                </Tabs.Control>
+              {/if}
+              {#if warningsPlacement.length}
+                <Tabs.Control value="Placement">
+                  {#snippet lead()}<IconPlacement size="16" />{/snippet}
+                  Placement [{warningsPlacement.length}]
+                </Tabs.Control>
+              {/if}
+            {/snippet}
+            {#snippet content()}
+              {#if warningsGrid.length}
+                <Tabs.Panel value="PowerGrid">
+                  <WarningsTable items={warningsGrid} />
+                </Tabs.Panel>
+              {/if}
+              {#if warningsPlacement.length}
+                <Tabs.Panel value="Placement">
+                  <WarningsTable items={warningsPlacement} />
+                </Tabs.Panel>
+              {/if}
+            {/snippet}
+          </Tabs>
+        {/snippet}
       </PopoverInfoBox>
     {/if}
     

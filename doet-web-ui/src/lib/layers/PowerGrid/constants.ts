@@ -1,12 +1,19 @@
-import type {GridFeature} from "./types";
+import {
+  type GridFeature,
+  PowerPlugType
+} from "./types";
 
 interface StyleWeightColor {
   weight: number;
   color: string;
 }
 
+type NPhase = 3 | 1;
+const ThreePhase: NPhase = 3;
+const SinglePhase: NPhase = 1;
+
 interface GridItemSizeData {
-  phases: 3 | 1;
+  phases: NPhase;
   max_amps: number;
   pdu_fractionLoad: number;
   ohm_per_km: number;
@@ -15,7 +22,7 @@ interface GridItemSizeData {
 
 const gridItemSizeData = {
   '250': {
-    phases: 3,
+    phases: ThreePhase,
     max_amps: 250,
     pdu_fractionLoad: 0.01,
     ohm_per_km: 0.366085,
@@ -25,7 +32,7 @@ const gridItemSizeData = {
     }
   },
   '125': {
-    phases: 3,
+    phases: ThreePhase,
     max_amps: 125,
     pdu_fractionLoad: 0.2,
     ohm_per_km: 0.522522,
@@ -35,7 +42,7 @@ const gridItemSizeData = {
     }
   },
   '63': {
-    phases: 3,
+    phases: ThreePhase,
     max_amps: 63,
     pdu_fractionLoad: 0.3,
     ohm_per_km: 1.14402,
@@ -45,7 +52,7 @@ const gridItemSizeData = {
     }
   },
   '32': {
-    phases: 3,
+    phases: ThreePhase,
     max_amps: 32,
     pdu_fractionLoad: 0.5,
     ohm_per_km: 3.05106,
@@ -55,7 +62,7 @@ const gridItemSizeData = {
     }
   },
   '16': {
-    phases: 3,
+    phases: ThreePhase,
     max_amps: 16,
     pdu_fractionLoad: 0.8,
     ohm_per_km: 7.32170,
@@ -65,18 +72,20 @@ const gridItemSizeData = {
     }
   },
   '1f': {
-    phases: 1,
+    phases: SinglePhase,
     max_amps: 16,
     ohm_per_km: 7.32170,
+    pdu_fractionLoad: 1,
     style: {
       weight: 1,
       color: '#5794F2'
     }
   },
   'unknown': {
-    phases: undefined,
-    max_amps: undefined,
-    ohm_per_km: undefined,
+    phases: ThreePhase,
+    max_amps: 0,
+    ohm_per_km: Infinity,
+    pdu_fractionLoad: 0,
     style: {
       weight: 5,
       color: '#FF0000'
@@ -86,6 +95,25 @@ const gridItemSizeData = {
 
 export function getGridItemSizeInfo(f: GridFeature) {
   return gridItemSizeData[f.properties.power_size] as GridItemSizeData;
+}
+
+export function getPlugTypeInfo(t: PowerPlugType): GridItemSizeData {
+  switch (t) {
+    case PowerPlugType.SinglePhase_Schuko:
+    case PowerPlugType.SinglePhase_Danish:
+    case PowerPlugType.SinglePhase_CEE:
+      return gridItemSizeData['1f'];
+    case PowerPlugType.ThreePhase_16A:
+      return gridItemSizeData['16'];
+    case PowerPlugType.ThreePhase_32A:
+      return gridItemSizeData['32'];
+    case PowerPlugType.ThreePhase_63A:
+      return gridItemSizeData['63'];
+    case PowerPlugType.ThreePhase_125A:
+      return gridItemSizeData['125'];
+    default:
+      return gridItemSizeData['unknown'];
+  }
 }
 
 export const gridItemSizes = ['250', '125', '63', '32', '16', '1f'];

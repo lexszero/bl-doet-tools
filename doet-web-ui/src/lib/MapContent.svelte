@@ -33,6 +33,8 @@ export interface MapContentInterface {
   import { default as PowerAreasLayer } from '$lib/layers/PowerAreas/Controller.svelte';
   import { default as PowerGridLayer } from '$lib/layers/PowerGrid/Controller.svelte';
   import { default as PlacementLayer } from '$lib/layers/Placement/Controller.svelte';
+  import { default as PlacementFeatureDetails } from '$lib/layers/Placement/FeatureDetails.svelte';
+
   import { type MapDisplayOptionsDTO } from '$lib/layers/types';
 
   import { TimeRange } from '$lib/utils/misc';
@@ -128,6 +130,7 @@ export interface MapContentInterface {
           : (layerPowerAreas.layerHighlighted) ? {ctl: layerPowerAreas, layer: layerPowerAreas.layerHighlighted}
             : undefined
   );
+  let detailsGroup = $state('general');
 
   function getFeature(id?: string) {
     if (!id)
@@ -206,7 +209,7 @@ export interface MapContentInterface {
 {#snippet featureInfoHeader(ctl: LayerController<Geometry, Named>, feature: Feature<Geometry, Named>, prefix?: string)}
   {@const FeatureIcon = ctl.featureIcon(feature)}
   {@const statusColor = ctl.featureColorForStatus(feature)}
-  <div class="flex grow h5 justify-start">
+  <div class="flex h5 justify-start">
     {#if prefix}
       <span>{prefix}</span>
     {/if}
@@ -216,24 +219,30 @@ export interface MapContentInterface {
   <span class="text-xs text-surface-500 justify-end">id: {feature.id}</span>
 {/snippet}
 
-<Control options={{position: 'bottomleft'}} class="map-info-box max-w-[500px] m-2">
-  {#if details}
-    {@const feature = details.layer.feature}
+{#key details}
+{#if details}
+  {@const feature = details.layer.feature}
+  <MapInfoBox open={true} visible={true} position='bottomleft' classBody="min-w-[200px] max-w-[500px]">
     {@render featureInfoHeader(details.ctl, feature)}
-    <div class="flex justify-start justify-items-start">
+    {#if details.ctl == layerPlacement}
+      <PlacementFeatureDetails ctl={layerPlacement} feature={details.layer.feature} onClickChip={selectFeature} />
+    {:else}
       <PropertiesTable items={details.ctl.featureProperties(feature)} onClickChip={selectFeature} />
-    </div>
+    {/if}
     {#if feature.properties._drc}
     <div class="flex">
       <WarningsTable items={feature.properties._drc} />
     </div>
     {/if}
-  {:else}
+  </MapInfoBox>
+{:else}
+  <MapInfoBox open={true} visible={true} position='bottomleft' classBody="max-w-[500px]">
     Hover over a feature to see details
-  {/if}
-</Control>
+  </MapInfoBox>
+{/if}
+{/key}
 
-<MapInfoBox visible={(!!layerPowerGrid.layerSelected) || false} open={true} position="bottomright" icon={IconPathInfo} classBody="max-w-[500px]">
+<MapInfoBox visible={(!!layerPowerGrid.layerSelected) || false} open={true} position="bottomright" classBody="max-w-[500px]" icon={IconPathInfo}>
   {@const ctl = layerPowerGrid}
   {#if ctl.layerSelected}
     {@const feature = ctl.layerSelected.feature}
