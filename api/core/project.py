@@ -216,7 +216,7 @@ async def create_project(db: DBSessionDep, name: str, owner: UserInDB, config: P
     db.add(p)
     await db.flush()
 
-    await owner.grant_permission(db, PermissionInDB(
+    await owner.grant_permission(PermissionInDB(
         object_type='project',
         object_id=str(p.id),
         role=Role.Owner))

@@ -10,6 +10,7 @@ from common.cli import AsyncTyper
 from common.db_async import get_db_session
 from core.dependencies import get_project
 from core.log import log
+from core.permission import grant_permission
 from core.project import Project, create_project
 from core.project_config import ProjectConfig
 from core.project_default_config import DEFAULT_PROJECT_CONFIG
@@ -45,6 +46,34 @@ async def create(name: str, username: str):
         project = await create_project(db, name, owner=user, config=DEFAULT_PROJECT_CONFIG)
         await print_project_info(project)
         await db.commit()
+
+@project.command()
+async def clone(existing_name: str, new_name: str, link_collections: bool = False, copy_permissions: bool = False):
+    async with await get_db_session() as db:
+        p_existing = await get_project(db, existing_name)
+        p_new = await create_project(db, new_name, p_existing.owner_user, p_existing.config)
+
+        if link_collections:
+            collections_src = await p_existing.awaitable_attrs.collections
+            collections_dst = await p_new.awaitable_attrs.collections
+            for name, collection in collections_src.items():
+                collections_dst[name] = collection
+
+        if copy_permissions:
+            for p in await p_existing.get_all_permissions():
+                if p.object_type == 'project':
+                    p.object_id = str(p_new.id)
+                    await grant_permission(db, p.user_id, p)
+
+@project.command()
+async def delete(name: str):
+    async with await get_db_session() as db:
+        project = await get_project(db, name)
+
+        typer.confirm(f"This will IRREVERSIBLY delete all data in {project.name}. Proceed?", abort=True)
+        await db.delete(project)
+        await db.commit()
+
 
 @project.command()
 async def data_update(project_name: str, commit: bool = typer.Option(False)):
