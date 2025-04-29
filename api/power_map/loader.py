@@ -1,4 +1,4 @@
-import abc
+from datetime import datetime, timezone
 from functools import cached_property
 import re
 from pydantic_core import PydanticCustomError
@@ -12,14 +12,18 @@ from fastkml.features import Placemark
 
 from shapely.geometry import Point as ShapelyPoint
 
+from common.datetime import timezone_cet
 from common.geometry import Point, LineString, ShapelyBaseGeometry, shape
-from power_map.utils import *
+from common.log import Log
+from power_map.project_config import PROJECT_CONFIG
 from power_map.placement import PlacementEntityFeature, PlacementEntityRevision, PlacementEntityRevisionCollection
 from power_map.power_area import PowerArea, PowerAreaFeature, PowerAreaProperties
 from power_map.power_grid import PowerGrid, PowerGridFeature
 from power_map.power_grid_base import PowerGridItemSize
 from power_map.power_grid_cable import PowerGridCableFeature, PowerGridCableProperties
 from power_map.power_grid_pdu import PowerGridPDUProperties, PowerGridPDUFeature
+
+log = Log.getChild("loader")
 
 def feature_name_desc(feature):
     #return feature.properties.get('Name'), feature.properties.get('description')
@@ -82,6 +86,9 @@ class Loader():
 
     PLACEMENT_ENTITIES_URL: str
     PLACEMENT_ENTITIES_FILENAME: str
+    PLACEMENT_ENTITIES_INCREMENTAL: bool = False
+
+    DEFAULT_PROJECT_CONFIG = PROJECT_CONFIG
 
     @classmethod
     def is_ignored_area(cls, feature) -> bool:
@@ -215,20 +222,20 @@ class Loader():
                     log.warning(f"unexpected feature: {feature_desc(feature)}")
 
     @classmethod
-    def _placement_entities(cls) -> Iterable[PlacementEntityRevision]:
+    def _get_placement_revisions(cls, path: str = "", params: dict[str, str] = {}) -> list[PlacementEntityRevision]:
         if cls.OFFLINE or not cls.PLACEMENT_ENTITIES_URL:
             if not cls.PLACEMENT_ENTITIES_FILENAME:
                 return []
             with open(cls.PLACEMENT_ENTITIES_FILENAME, 'r') as f:
                 data = f.read()
         else:
-            data = requests.get(cls.PLACEMENT_ENTITIES_URL).content
-        result = PlacementEntityRevisionCollection.validate_json(data)
-        log.info(f"Got {len(result)} placement entities")
-        return result
+            data = requests.get(cls.PLACEMENT_ENTITIES_URL+path, params=params).content
+        return PlacementEntityRevisionCollection.validate_json(data)
 
     def placement_features(self) -> Iterable[PlacementEntityFeature]:
-        for item in self._placement_entities():
+        revs = self._get_placement_revisions()
+        log.info(f"Placement: got total {len(revs)} placement entities")
+        for item in revs:
             if item.deleted:
                 continue
             if not item.geojson.properties:
@@ -237,6 +244,14 @@ class Loader():
                 continue
             item.geojson.id = f"_{item.id}"
             yield item.geojson
+
+    def placement_revisions(self, time_start: datetime) -> Iterable[PlacementEntityRevision]:
+        # FIXME: hack to get latest revision with timezone
+        req_time_start = time_start.replace(tzinfo=timezone.utc).astimezone(timezone_cet)
+        log.debug(f"Placement: Request new revisions since {time_start} / {req_time_start}")
+        revs = self._get_placement_revisions("/raw", {'startTime': req_time_start.replace(tzinfo=None).isoformat()})
+        log.info(f"Placement: got {len(revs)} new entity revisions since {time_start}")
+        return revs
 
     def build(self) -> PowerGrid:
         grid = PowerGrid()
@@ -249,5 +264,4 @@ class Loader():
             grid.add_placement_feature(f)
 
         return grid
-
 

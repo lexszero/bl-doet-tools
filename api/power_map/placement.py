@@ -1,30 +1,49 @@
-from datetime import datetime
-from typing import Annotated, Any, Optional, Self
+import abc
+from dataclasses import dataclass
+import enum
+from typing import Annotated, Any, Generic, Optional, Self
 
 from pydantic import BeforeValidator, ConfigDict, Field, TypeAdapter, ValidationInfo, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 from pydantic_extra_types.color import Color
 
+from common.datetime import datetime_cet
+from common.model_utils import ModelT
 from common.geometry import Feature, Polygon
 from core.store import VersionedCollection
+from power_map.power_grid_base import PowerPlugType
 from power_map.utils import BaseModel, NameDescriptionModel, log
 
 WeakInt = Annotated[Optional[int], BeforeValidator(lambda v: v)]
 WeakFloat = Annotated[Optional[float], BeforeValidator(lambda v: v)]
 
+@dataclass
+class PowerAppliance:
+    name: str
+    watt: WeakInt = Field(0)
+    amount: WeakInt = Field(1)
+
 class PlacementEntityProperties(NameDescriptionModel):
+    name: str = ''
     contact_info: Optional[str] = Field("")
     nr_of_people: WeakInt = Field(0)
     nr_of_vehicles: WeakInt = Field(0, alias='nrOfVechiles')
     additional_sqm: WeakFloat = Field(0)
-    power_need: WeakInt = Field(0)
     amplified_sound: WeakInt = Field(0)
     color: Optional[Color] = Field(None)
     suppressWarnings: Optional[bool] = Field(False)
 
+    tech_contact_info: Optional[str] = None
+    power_plug_type: Optional[PowerPlugType] = None
+    power_extra_info: Optional[str] = None
+    power_image: Optional[str] = None
+    power_need: WeakInt = Field(0)
+    power_appliances: list[PowerAppliance] = Field(default_factory=list)
+
     model_config = ConfigDict(
             alias_generator=to_camel,
-            populate_by_name=True
+            populate_by_name=True,
+            extra='allow'
             )
 
 #    @field_validator('nr_of_people', 'nr_of_vehicles', 'additional_sqm', 'power_need', 'amplified_sound'
@@ -39,9 +58,16 @@ class PlacementEntityProperties(NameDescriptionModel):
             log.warning(f"Negative power: '{name}' wants {power_need} W, fixing up")
             return -power_need
         elif power_need > 100000:
-            log.warning(f"Unrealisticly high power need: '{name}' wants {power_need} W, ignoring")
+            log.warning(f"Unrealistically high power need: '{name}' wants {power_need} W, ignoring")
             return 0
         return power_need
+
+    @field_validator('power_plug_type', mode='before')
+    @classmethod
+    def validate_power_plug_type(cls, value: Any):
+        if not value:
+            return None
+        return PowerPlugType(value)
 
 PlacementEntityFeature = Feature[Polygon, PlacementEntityProperties]
 

@@ -9,6 +9,15 @@ from power_map.utils import NameDescriptionModel
 
 PowerGridItemSizeOrder: list[str] = ['unknown', '1f', '16', '32', '63', '125', '250']
 
+class PowerPlugType(str, Enum):
+    SinglePhase_Schuko = '1p_schuko'
+    SinglePhase_Danish = '1p_dk'
+    SinglePhase_CEE = '1p_cee'
+    ThreePhase_16A = '3p_16'
+    ThreePhase_32A = '3p_32'
+    ThreePhase_63A = '3p_63'
+    ThreePhase_125A = '3p_125'
+
 class PowerGridItemSize(str, Enum):
     Unknown = 'unknown'
     SinglePhase_16A = '1f'

@@ -1,10 +1,10 @@
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import re
 from math import inf
 from typing import Any, Optional
 import asyncstdlib as A
 
-from devtools import debug
 from pydantic import BaseModel
 from shapely import LineString, Point, Polygon, distance, equals, intersection
 from shapely.geometry import shape
@@ -173,33 +173,56 @@ class UpdateContext:
         for item in features_known:
             pairs.append((item, None))
 
+        n_added, n_deleted, n_changed = 0, 0, 0
         for known, new in pairs:
             if not new:
                 log.debug(f"Deleted: {known.id}")
                 await collection.add(self.user, known.id, None)
+                n_deleted += 1
             elif not known:
                 log.debug(f"Added {new.id} ({new.properties.name})")
                 await collection.add(self.user, new.id, new)
+                n_added += 1
             elif feature_changed(known, new):
                 #debug(known, new)
                 log.debug(f"Updated {new.id} ({new.properties.name})")
                 await collection.add(self.user, new.id, new)
+                n_changed += 1
+
+        coll = collection._collection
+        log.info(f"{await coll.project.awaitable_attrs.name}/{coll.name}: {n_added} added, {n_deleted} deleted, {n_changed} changed")
+
+    async def _update_collection_with_revisions(self, collection: VersionedCollection, revisions: list[Any]):
+        n_added = 0
+        for rev in revisions:
+            item = rev.feature
+            item.id = f"_{item.id}"
+
+            await collection.add(self.user, item.id, item,
+                                 timestamp=rev.timestamp.astimezone(timezone.utc),
+                                 revision=rev.revision,
+                                 deleted=rev.deleted,
+                                 )
+            n_added += 1
+            log.debug(f"Added new revision {rev.revision} for {rev.feature.id} ({rev.feature.properties.name})")
+        coll = collection._collection
+        log.info(f"{await coll.project.awaitable_attrs.name}/{coll.name}: {n_added} revisions added")
 
 
     async def update_areas(self):
         await self._update_collection_with_features(
-                await PowerAreaFeatureCollection.bind(self.db, self.project, allow_create=True),
+                await PowerAreaFeatureCollection.bind(self.project, allow_create=True),
                 list(self.loader.power_area_features())
                 )
 
     async def update_grid_raw(self):
         await self._update_collection_with_features(
-                await PowerGridFeatureCollection.bind(self.db, self.project, allow_create=True),
+                await PowerGridFeatureCollection.bind(self.project, allow_create=True),
                 list(self.loader.power_grid_features())
                 )
 
     async def update_grid_processed(self):
-        c_src = await PowerGridFeatureCollection.bind(self.db, self.project, allow_create=False)
+        c_src = await PowerGridFeatureCollection.bind(self.project, allow_create=False)
 
         grid = PowerGrid()
         grid.add_grid_features([f async for f in c_src.all_last_values()])
@@ -208,14 +231,27 @@ class UpdateContext:
                 for f in grid.grid_items
                 ]
 
-        c_dst = await PowerGridProcessedCollection.bind(self.db, self.project, allow_create=True)
+        c_dst = await PowerGridProcessedCollection.bind(self.project, allow_create=True)
         await self._update_collection_with_features(c_dst, features)
 
     async def update_placement(self):
-        await self._update_collection_with_features(
-                await PlacementEntityFeatureCollection.bind(self.db, self.project, allow_create=True),
-                list(self.loader.placement_features())
+        collection = await PlacementEntityFeatureCollection.bind(self.project, allow_create=True)
+        if self.loader.PLACEMENT_ENTITIES_INCREMENTAL:
+            time_start = await collection.last_timestamp()
+            if time_start:
+                time_start += timedelta(milliseconds=1)
+            else:
+                time_start = datetime.fromtimestamp(0)
+            await self._update_collection_with_revisions(
+                collection,
+                list(self.loader.placement_revisions(time_start)),
                 )
+
+        else:
+            await self._update_collection_with_features(
+                    collection,
+                    list(self.loader.placement_features())
+                    )
 
     async def update_all(self):
         log.info(f"Updating data for project {self.project.name}")
@@ -226,6 +262,7 @@ class UpdateContext:
 
         try:
             await self.update_grid_raw()
+            await self.db.flush()
             await self.update_grid_processed()
         except Exception as e:
             log.error(e, exc_info=e)
@@ -233,7 +270,7 @@ class UpdateContext:
         try:
             await self.update_placement()
         except Exception as e:
-            log.error(e)
+            log.error(e, exc_info=e)
 
 class Updater:
     _user_name: str
