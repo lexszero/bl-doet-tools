@@ -18,7 +18,7 @@
   <SegmentItem value={value}>
     <div class="flex flex-row">
       {#each icons as I}
-        <I />
+        <I size="16" />
       {/each}
     </div>
   </SegmentItem>
@@ -26,19 +26,19 @@
 
 <LayerDisplayOptions value={ctl.layerName} title="Placement" icon={IconPlacement}>
   {@const mode = ctl.displayOptions.mode}
-  <div class="flex justify-between items-center gap-4 p-1">
+  <div class="flex justify-between items-center gap-4">
     <p>Color by</p>
     <Segment bind:value={ctl.displayOptions.mode}>
       {@render segItemIcons('grid_n_pdus', [IconPDU, IconNumber])}
       {@render segItemIcons('grid_distance', [IconPDU, IconRuler])}
       {@render segItemIcons('grid_loss', [IconCable, IconResistance])}
-      <SegmentItem value="power_need"><IconPower /></SegmentItem>
-      <SegmentItem value="sound"><IconSound /></SegmentItem>
+      {@render segItemIcons('power_need', [IconPower])}
+      {@render segItemIcons('sound', [IconSound])}
     </Segment>
   </div>
 
   {#if mode == 'power_need'}
-    <div class="flex justify-between items-center gap-4 p-1">
+    <div class="flex justify-between items-center gap-4">
       <p>Power thresholds</p>
       <Slider bind:value={ctl.displayOptions.powerNeedThresholds}
         min={0} max={20000} step={500}
@@ -49,7 +49,7 @@
       <span>{ctl.displayOptions.powerNeedThresholds.map((v) => unitFormat(v, 'W'))}</span>
     </div>
   {:else if mode == 'grid_n_pdus' || mode == 'grid_distance'}
-    <div class="flex justify-between items-center gap-4 p-1">
+    <div class="flex justify-between items-center gap-4">
       <p>PDU range</p>
       <Slider bind:value={ctl.displayOptions.pduSearchRadius}
         min={0} max={200} step={5}
@@ -59,7 +59,7 @@
     </div>
   {:else if mode == 'grid_loss'}
   {:else if mode == 'sound'}
-    <div class="flex justify-between items-center gap-4 p-1">
+    <div class="flex justify-between items-center gap-4">
       <p>Max sound power</p>
       <Slider bind:value={ctl.displayOptions.soundMax}
         min={0} max={10000} step={100}

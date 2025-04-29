@@ -20,7 +20,7 @@ let {
   } = $props();
 </script>
 
-<Accordion.Item value={value} panelPadding="px-4">
+<Accordion.Item spaceY="space-y-1" value={value} panelPadding="px-4">
   {#snippet lead()}
     {@const LayerIcon = icon}
     <div class="flex flex-row">
@@ -32,7 +32,7 @@ let {
 
   {#snippet panel()}
     <!--
-    <div class="flex justify-between items-center gap-4 p-1">
+    <div class="flex justify-between items-center gap-4">
       <p>Opacity</p>
       <Slider bind:value={opacity}
         min={0} max={1} step={0.05}

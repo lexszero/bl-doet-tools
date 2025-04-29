@@ -14,21 +14,21 @@
 <LayerDisplayOptions value={ctl.layerName} title="Power grid" icon={IconPower}>
   {@const mode = ctl.displayOptions.mode}
 
-  <div class="flex justify-between items-center gap-4 p-1">
+  <div class="flex justify-between items-center gap-4">
     <p>Show coverage</p>
     <Switch checked={ctl.displayOptions.showCoverage}
       onCheckedChange={(e) => {ctl.displayOptions.showCoverage = e.checked}}
       />
   </div>
 
-  <div class="flex justify-between items-center gap-4 p-1">
+  <div class="flex justify-between items-center gap-4">
     <p>Thickness</p>
     <Slider bind:value={ctl.displayOptions.scaleCable}
       min={0.5} max={3} step={0.1}
       />
   </div>
 
-  <div class="flex justify-between items-center gap-4 p-1">
+  <div class="flex justify-between items-center gap-4">
     <p>Color by</p>
     <Segment bind:value={ctl.displayOptions.mode}>
       <SegmentItem value="size">Cable size</SegmentItem>
@@ -37,7 +37,7 @@
   </div>
 
   {#if mode == 'loss'}
-    <div class="flex justify-between items-center gap-4 p-1">
+    <div class="flex justify-between items-center gap-4">
       <p>Grid load</p>
       <Slider bind:value={ctl.displayOptions.loadPercent}
         min={0} max={100} step={5}

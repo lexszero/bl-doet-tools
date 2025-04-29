@@ -10,14 +10,14 @@
 </script>
 
 <LayerDisplayOptions value={ctl.layerName} title="Power areas" icon={IconPower} bind:visible={ctl.displayOptions.visible}>
-  <div class="flex justify-between items-center gap-4 p-1">
+  <div class="flex justify-between items-center gap-4">
     <p>Show total power need</p>
     <Switch checked={ctl.displayOptions.showTotalPower}
       onCheckedChange={(e) => {ctl.displayOptions.showTotalPower = e.checked}}
       />
   </div>
 
-  <div class="flex justify-between items-center gap-4 p-1">
+  <div class="flex justify-between items-center gap-4">
     <p>Total power divider</p>
     <Slider bind:value={ctl.displayOptions.divTotalPower}
       min={1} max={10} step={1}

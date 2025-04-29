@@ -16,7 +16,7 @@
   })
 </script>
 
-<SkeletonSegment value={segmentValue} onValueChange={(e) => {
+<SkeletonSegment border="p-1" gap="gap-1" value={segmentValue} onValueChange={(e) => {
   value = e.value;
   }}>
   {@render children?.()}

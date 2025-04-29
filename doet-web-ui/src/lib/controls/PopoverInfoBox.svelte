@@ -29,7 +29,7 @@
   onOpenChange={(e) => (openState = e.open)}
   positioning={{placement: 'bottom'}}
   triggerBase="btn preset-filled-surface-100-900"
-  contentBase="card p-2 preset-box"
+  contentBase="card preset-box text-sm"
   zIndex="2000"
   arrow
   arrowBackground="!bg-surface-700 dark:!bg-surface-300"
@@ -37,12 +37,12 @@
   {...restProps}
 >
   {#snippet content()}
-    <header class="flex items-center justify-between">
+    <header class="flex items-center justify-between m-1">
       {#if header}
         {@render header()}
       {:else}
         <p class="font-bold">{title}</p>
-        <button class="btn-icon hover:preset-tonal" onclick={popoverClose}><IconClose /></button>
+        <button class="btn-icon hover:preset-tonal" onclick={popoverClose}><IconClose size="16"/></button>
       {/if}
     </header>
     <div class={contentClasses}>
