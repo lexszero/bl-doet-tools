@@ -9,7 +9,6 @@ from sqlalchemy.orm import Mapped, attribute_keyed_dict, mapped_column, relation
 from sqlalchemy.types import DateTime
 
 from common.db import DBModel
-from common.db_async import DBSessionDep
 from common.errors import InternalError, NotFoundError
 from common.model_utils import ModelT
 from common.log import Log
@@ -93,6 +92,13 @@ class StoreCollection(DBModel, AsyncAttrs):
                 num_revisions=len(await self.awaitable_attrs.revisions)
                 )
 
+    def instantiate(self, context: DataRequestContext):
+        for cls in VersionedCollection.__subclasses__():
+            if cls.store_item_type == self.item_type:
+                return cls(self, time_start=context.time_start, time_end=context.time_end)
+        raise InternalError(f"Unable to determine VersionedCollection class for {self}")
+
+
 Index('idx_collection_item_revision',
       StoreItemRevision.collection_id,
       StoreItemRevision.item_id,
@@ -110,7 +116,8 @@ class VersionedCollection(ABC, Generic[ModelT]):
     _time_end: Optional[datetime] = None
 
     @classmethod
-    async def bind(cls, db: DBSessionDep, project: 'Project', allow_create=False):
+    async def bind(cls, project: 'Project', allow_create=False, time_start: Optional[datetime] = None, time_end: Optional[datetime] = None):
+        db = project._db()
         collection = (await project.awaitable_attrs.collections).get(cls.store_collection_name)
         if collection:
             return cls(collection)
@@ -264,7 +271,7 @@ class VersionedCollection(ABC, Generic[ModelT]):
             item_id: str,
             include_deleted: bool = False
             ) -> Optional[ModelT]:
-        result = await self._item_last_revision(self._db, item_id, include_deleted=include_deleted)
+        result = await self._item_last_revision(item_id, include_deleted=include_deleted)
         if not (result and result.data):
             return None
         return self._from_dict(result.data)

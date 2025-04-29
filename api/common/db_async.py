@@ -3,8 +3,9 @@ import contextlib
 from typing import Any, Annotated, AsyncGenerator, AsyncIterator
 from fastapi import Depends
 
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession, async_object_session, async_sessionmaker, create_async_engine
 
+from common.errors import InternalError
 from common.settings import settings
 from common.db import DBModel, DATABASE_URL
 
@@ -64,4 +65,11 @@ async def create_db_and_tables():
     async with sessionmanager.connect() as conn:
         await conn.run_sync(DBModel.metadata.create_all)
 
-__all__ = ['create_db_and_tables', 'get_db_session', 'DBModel', 'AsyncSession']
+class AsyncSessionMixin:
+    def _db(self):
+        db = async_object_session(self)
+        if not db:
+            raise InternalError("db session not found")
+        return db
+
+__all__ = ['create_db_and_tables', 'get_db_session', 'DBModel', 'AsyncSession', 'AsyncSessionMixin']

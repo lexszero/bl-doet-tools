@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncAttrs, async_object_session
 from sqlalchemy.orm import Mapped, attribute_keyed_dict, joinedload, mapped_column, relationship
 from sqlalchemy.sql import literal
 
-from common.db_async import DBSessionDep, DBModel, AsyncSession
+from common.db_async import AsyncSessionMixin, DBSessionDep, DBModel, AsyncSession
 from common.errors import InternalError, InvalidRequestError, NotFoundError, PermissionDeniedError
 from common.model_utils import ModelJson
 
@@ -21,14 +21,14 @@ from core.permission import ClientPermissions, PermissionInDB, Role, get_roles
 from core.log import log
 from core.project_config import ProjectConfig, merge_config
 from core.map import AnyMapLayerData, MapViewData
-from core.store import StoreCollection, StoreItemRevision, VersionedCollection
+from core.store import StoreCollection, StoreItemRevision
 
 class View(BaseModel):
     name: str
     map_data: MapViewData
     change_timestamps: list[datetime]
 
-class Project(DBModel, AsyncAttrs):
+class Project(DBModel, AsyncAttrs, AsyncSessionMixin):
     __tablename__ = 'project'
 
     id: Mapped[int] = mapped_column(autoincrement=True, primary_key=True, index=True)
@@ -46,12 +46,6 @@ class Project(DBModel, AsyncAttrs):
     @property
     def config(self):
         return self.data
-
-    def _db(self):
-        db = async_object_session(self)
-        if not db:
-            raise InternalError("db session not found")
-        return db
 
     def roles_for(self, client_permissions: ClientPermissions):
         if self.config.public:

@@ -9,7 +9,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, exc, mapped_column, relationship
 import bcrypt
 
-from common.db_async import AsyncSession, DBSessionDep, DBModel
+from common.db_async import AsyncSession, AsyncSessionMixin, DBSessionDep, DBModel
 from common.errors import NotFoundError
 from common.log import Log
 from common.model_utils import BaseModel, ModelJson
@@ -42,7 +42,7 @@ class User(BaseModel):
     profile: Optional[UserProfile]
     permissions: ClientPermissions = Field(exclude=True)
 
-class UserInDB(DBModel, AsyncAttrs):
+class UserInDB(DBModel, AsyncAttrs, AsyncSessionMixin):
     __tablename__ = 'user'
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, index=True)
