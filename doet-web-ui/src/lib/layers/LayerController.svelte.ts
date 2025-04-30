@@ -8,8 +8,7 @@ import type {Feature, FeatureCollection} from '$lib/utils/geojson';
 
 import { type IconType, IconFeatureDefault } from '$lib/Icons';
 import { type SearchboxItem, type InfoItem, type ChipItem } from '$lib/utils/types';
-import { type ItemizedLogEntry } from './PowerGrid/types';
-import {logLevelToString} from '$lib/utils/misc';
+import {logLevelToString, type ItemLogEntry} from '$lib/utils/misc';
 
 export function featureChip<G extends geojson.Geometry, P extends {name: string}>(f?: Feature<G, P>): ChipItem{
   return f ? {id: f.id, label: f.properties.name} : {label: "<unknown>"}
@@ -246,17 +245,17 @@ export class LayerController<
     this.layerHighlighted = undefined;
   }
 
-  featureWarnings(_: Feature<G, P>): ItemizedLogEntry[] {
+  featureWarnings(_: Feature<G, P>): ItemLogEntry[] {
     return [];
   }
 
-  warningsSummary(): ItemizedLogEntry[] {
-    const result: ItemizedLogEntry[] = [];
+  warningsSummary(): ItemLogEntry[] {
+    const result: ItemLogEntry[] = [];
     for (const feature of this.features.values()) {
       const log = this.featureWarnings(feature);
       if (!log.length)
         continue;
-      const byLevel = new Map<number, ItemizedLogEntry[]>();
+      const byLevel = new Map<number, ItemLogEntry[]>();
       for (const r of log) {
         if (!byLevel.has(r.level))
           byLevel.set(r.level, []);
@@ -276,8 +275,8 @@ export class LayerController<
     return result;
   }
 
-  warnings(): ItemizedLogEntry[] {
-    const result: ItemizedLogEntry[] = [];
+  warnings(): ItemLogEntry[] {
+    const result: ItemLogEntry[] = [];
     for (const feature of this.features.values()) {
       result.push(...this.featureWarnings(feature));
     }

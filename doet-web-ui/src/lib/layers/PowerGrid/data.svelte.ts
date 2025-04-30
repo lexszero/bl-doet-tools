@@ -9,7 +9,6 @@ import type {
   GridCableFeature,
   GridPDUFeature,
   GridPDUProperties,
-  ItemizedLogEntry,
   PowerGridDataElement
 } from './types';
 
@@ -23,15 +22,8 @@ import {
   type LossParamsCable,
   type LossParamsPDU,
 } from './calculations';
+import {Severity, type ItemLogEntry} from '$lib/utils/misc';
 
-function applyToGridFeature<T>(f: GridFeature, pduFn?: ((f: GridPDUFeature) => T), cableFn?: ((f: GridCableFeature) => T)): T | undefined {
-  switch (f.properties.type) {
-    case 'power_grid_pdu':
-      return pduFn?.(f as GridPDUFeature);
-    case 'power_grid_cable':
-      return cableFn?.(f as GridCableFeature);
-  }
-}
 
 export class PowerGridData {
   api: ProjectAPI;
@@ -41,7 +33,7 @@ export class PowerGridData {
   featuresChanged: Map<string, GridFeature | null>;
 
   timestamp?: Date;
-  log?: ItemizedLogEntry[] = $state();
+  log?: ItemLogEntry[] = $state();
   editable: boolean = false;
 
   lossCalculationParams: LossParamsPDU = {

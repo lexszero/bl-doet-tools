@@ -2,6 +2,7 @@ import type {FeaturesDataElement} from '$lib/api_project';
 import { type BasicLayerDisplayOptions } from '$lib/layers/LayerController.svelte';
 import type { Feature } from '$lib/utils/geojson';
 import type { Named } from '$lib/utils/types';
+import type { ItemLogEntry } from '$lib/utils/misc';
 import type { Point, LineString } from 'geojson';
 import type { LossInfoCable, LossInfoPDU } from './calculations';
 
@@ -11,14 +12,8 @@ interface GridFeatureCommonProperties extends Named {
   power_native?: boolean;
 
   _pathToSource?: string[];
-  _drc?: ItemizedLogEntry[];
+  _drc?: ItemLogEntry[];
 }
-
-export interface ItemizedLogEntry {
-  item_id?: string;
-  level: number;
-  message: string;
-};
 
 export interface GridPDUProperties extends GridFeatureCommonProperties {
   type: "power_grid_pdu"
@@ -46,10 +41,8 @@ export type GridFeatureProperties = GridPDUProperties | GridCableProperties;
 export type GridFeature = Feature<Point | LineString, GridFeatureProperties>;
 
 export interface PowerGridDataElement extends FeaturesDataElement<GridFeature> {
-  log: ItemizedLogEntry[];
+  log: ItemLogEntry[];
 }
-
-
 
 export interface PowerGridDisplayOptions extends BasicLayerDisplayOptions {
   mode: 'size' | 'loss';

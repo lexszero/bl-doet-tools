@@ -11,10 +11,9 @@ import {
   type GridFeature,
   type GridFeatureProperties,
   type GridPDUFeature,
-  type ItemizedLogEntry,
 } from "./types";
 
-import { logLevelToColor, logLevelToString } from '$lib/utils/misc';
+import { logLevelToColor, logLevelToString, type ItemLogEntry } from '$lib/utils/misc';
 import type { ChipItem, InfoItem } from '$lib/utils/types';
 import {
   isSamePoint,
@@ -421,7 +420,7 @@ export class PowerGridController extends LayerController<
   };
 
   featureColorForStatus = (f: GridFeature) => `${this.featureStatus(f)}`;
-  
+
   featureProperties = (f: GridFeature) => {
     const exclude = ['name', 'type', 'power_size', 'length_m', 'pdu_from', 'pdu_to', 'cable_in', 'cables_out', '_drc', '_pathToSource', '_loss'];
     const result: InfoItem[] = [];
@@ -783,7 +782,7 @@ export class PowerGridController extends LayerController<
     }
   }
 
-  featureWarnings(feature: GridFeature): ItemizedLogEntry[] {
+  featureWarnings(feature: GridFeature): ItemLogEntry[] {
     return feature.properties._drc || [];
   }
 

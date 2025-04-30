@@ -1,15 +1,14 @@
 <script lang="ts">
-	import {getContext} from "svelte";
-  import type {ItemizedLogEntry} from "$lib/api";
-  import {logLevelToColor} from "$lib/utils/misc";
+  import { getContext } from "svelte";
+  import { logLevelToColor, type ItemLogEntry } from "$lib/utils/misc";
   import { IconWarning } from "$lib/Icons";
-	import type { MapContentInterface } from "$lib/MapContent.svelte";
+  import type { MapContentInterface } from "$lib/MapContent.svelte";
 
   let {
     items,
     classes
   }: {
-    items: ItemizedLogEntry[],
+    items: ItemLogEntry[],
     classes?: string,
   } = $props();
 

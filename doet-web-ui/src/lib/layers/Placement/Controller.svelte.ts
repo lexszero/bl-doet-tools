@@ -16,10 +16,10 @@ import { type PlacementDisplayOptions } from './types';
 
 import { type InfoItem } from '$lib/utils/types';
 import type {FeaturesDataElement} from '$lib/api_project';
-import {getPlugTypeInfo, Vref_LN} from '../PowerGrid/constants';
-import type {GridCableFeature, GridPDUFeature, ItemizedLogEntry} from '../PowerGrid/types';
-import {Severity} from '$lib/utils/misc';
-import {calculatePathLoss} from '../PowerGrid/calculations';
+import { calculatePathLoss } from '../PowerGrid/calculations';
+import { getPlugTypeInfo, Vref_LN } from '../PowerGrid/constants';
+import type { GridCableFeature, GridPDUFeature } from '../PowerGrid/types';
+import {Severity, type ItemLogEntry} from '$lib/utils/misc';
 
 export function plugLoadPercent(feature: PlacementFeature) {
   const props = feature.properties;
@@ -242,7 +242,7 @@ export class PlacementController extends LayerController<
   }
 
   featureWarnings(feature: PlacementFeature, strict: boolean = false) {
-    const result: ItemizedLogEntry[] = [];
+    const result: ItemLogEntry[] = [];
     const props = feature.properties;
     const pwr = feature.properties.powerNeed
 

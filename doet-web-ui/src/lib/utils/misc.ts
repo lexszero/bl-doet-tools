@@ -17,13 +17,19 @@ export enum Severity {
   Debug = 10,
 };
 
-export const logLevelToString = (level: number) => (
+export interface ItemLogEntry {
+  item_id?: string;
+  level: Severity;
+  message: string;
+};
+
+export const logLevelToString = (level: Severity) => (
   (level >= Severity.Error) ? 'error'
   : (level >= Severity.Warning) ? 'warning'
     : (level >= Severity.Info) ? 'info'
       : 'debug');
 
-export const logLevelToColor = (level: number) => (
+export const logLevelToColor = (level: Severity) => (
   (level >= Severity.Error) ? 'error'
   : (level >= Severity.Warning) ? 'warning'
     : (level >= Severity.Info) ? 'success'
