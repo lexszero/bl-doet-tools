@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from functools import cached_property
+import json
 import re
+from pydantic import ValidationError
 from pydantic_core import PydanticCustomError
 import requests
 
@@ -222,18 +224,22 @@ class Loader():
                     log.warning(f"unexpected feature: {feature_desc(feature)}")
 
     @classmethod
-    def _get_placement_revisions(cls, path: str = "", params: dict[str, str] = {}) -> list[PlacementEntityRevision]:
+    def _get_placement_revisions(cls, path: str = "", params: dict[str, str] = {}) -> Iterable[PlacementEntityRevision]:
         if cls.OFFLINE or not cls.PLACEMENT_ENTITIES_URL:
             if not cls.PLACEMENT_ENTITIES_FILENAME:
                 return []
             with open(cls.PLACEMENT_ENTITIES_FILENAME, 'r') as f:
-                data = f.read()
+                j = json.load(f)
         else:
-            data = requests.get(cls.PLACEMENT_ENTITIES_URL+path, params=params).content
-        return PlacementEntityRevisionCollection.validate_json(data)
+            j = requests.get(cls.PLACEMENT_ENTITIES_URL+path, params=params).json()
+        for item in j:
+            try:
+                yield PlacementEntityRevision.model_validate(item)
+            except ValidationError as e:
+                log.warning(f"Validation failed", exc_info=e)
 
     def placement_features(self) -> Iterable[PlacementEntityFeature]:
-        revs = self._get_placement_revisions()
+        revs = list(self._get_placement_revisions())
         log.info(f"Placement: got total {len(revs)} placement entities")
         for item in revs:
             if item.deleted:
@@ -249,7 +255,7 @@ class Loader():
         # FIXME: hack to get latest revision with timezone
         req_time_start = time_start.replace(tzinfo=timezone.utc).astimezone(timezone_cet)
         log.debug(f"Placement: Request new revisions since {time_start} / {req_time_start}")
-        revs = self._get_placement_revisions("/raw", {'startTime': req_time_start.replace(tzinfo=None).isoformat()})
+        revs = list(self._get_placement_revisions("/raw", {'startTime': req_time_start.replace(tzinfo=None).isoformat()}))
         log.info(f"Placement: got {len(revs)} new entity revisions since {time_start}")
         return revs
 

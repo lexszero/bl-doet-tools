@@ -198,7 +198,7 @@ class VersionedCollection(ABC, Generic[ModelT]):
             object_id=str(self._collection.id),
             role=role
             )
-        await user.grant_permission(self._db, permission)
+        await user.grant_permission(permission)
         return permission
 
     async def remove(self):
