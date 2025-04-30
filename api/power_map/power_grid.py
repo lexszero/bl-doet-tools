@@ -248,9 +248,13 @@ class PowerGrid(PowerArea):
         self.add_item(PowerConsumer.from_feature(f))
 
 async def get_power_grid(project: 'Project', timestamp: Optional[datetime] = None) -> PowerGrid:
+    c_areas = await PowerAreaFeatureCollection.bind(project, False, time_end=timestamp)
     c_grid = await PowerGridFeatureCollection.bind(project, False, time_end=timestamp)
 
-    grid = PowerGrid(timestamp=await project.get_last_change_timestamp())
+    grid = PowerGrid(timestamp=await c_grid.last_timestamp())
+    async for area in c_areas.all_last_values():
+        grid.add_area_feature(area)
+
     grid.add_grid_features([f async for f in c_grid.all_last_values()])
 
     #async for f in PlacementEntityFeatureCollection(collections['placement'], time_end=timestamp).all_last_values():
