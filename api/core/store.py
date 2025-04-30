@@ -124,7 +124,7 @@ class VersionedCollection(ABC, Generic[ModelT]):
         db = project._db()
         collection = (await project.awaitable_attrs.collections).get(cls.store_collection_name)
         if collection:
-            return cls(collection)
+            return cls(collection, time_start=time_start, time_end=time_end)
         elif allow_create:
             collection = StoreCollection(
                 project_id=project.id,
