@@ -1,15 +1,14 @@
 import logging
 from typing import ClassVar, Literal
 
-from common.geometry import to_geojson_feature_collection
 from core.data_request import DataRequestContext
 from core.data_view import DataViewBase
 from core.map_layer_features import MapLayer_Features
 from core.permission import Role
 from power_map.dependencies import get_power_grid_cached
 from power_map.placement import PlacementEntityFeature, transform_placement_scrub_private_data
-from power_map.power_grid import PowerGridFeature, PowerGridProcessedFeature
-from power_map.power_grid_base import PowerGridItemPropertiesBase, PowerItemBase
+from power_map.power_grid import PowerGridProcessedFeature
+from power_map.power_grid_base import PowerItemBase
 
 from power_map.map_layers_types import MapLayerConfig_PowerGrid, MapLayerData_PowerGrid_Features
 

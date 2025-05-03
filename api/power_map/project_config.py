@@ -22,13 +22,11 @@ _all_elements = {
             collection='power_areas',
             ),
         'power_grid_features': MapLayerConfig_PowerGrid(),
-        'placement_public': MapLayerConfig_Placement(
-            collection='placement',
-            transform='redacted'
             ),
-        'placement_restricted': MapLayerConfig_Placement(
-            permitted_for_roles=[Role.Editor, Role.Admin, Role.Owner],
+        'placement': MapLayerConfig_Placement(
             collection='placement',
+            transform='redacted',
+            editable=False,
             ),
         }
 
@@ -36,6 +34,7 @@ _default_view_elements = {
         'basemap': 'basemap',
         'power_areas': 'power_areas',
         'power_grid': 'power_grid_features',
+        'placement': 'placement',
         }
 
 PROJECT_CONFIG = ProjectConfig(
@@ -47,15 +46,6 @@ PROJECT_CONFIG = ProjectConfig(
                 map_options=_default_map_options,
                 elements={
                     **_default_view_elements,
-                    'placement': 'placement_public',
-                    }
-                ),
-            'full': MapViewConfig(
-                map_options=_default_map_options,
-                permitted_for_roles=[Role.Owner, Role.Admin, Role.Editor],
-                elements={
-                    **_default_view_elements,
-                    'placement': 'placement_restricted'
                     }
                 ),
             }

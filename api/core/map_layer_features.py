@@ -13,7 +13,7 @@ from core.store import StoreCollection
 
 _Feat = TypeVar('_Feat', bound=Feature)
 
-FeatureTransform = Callable[[Feat], Any]
+FeatureTransform = Callable[[Feat, DataRequestContext], Any]
 
 class MapLayerConfig_Features(DataViewConfigBase, Generic[_Feat]):
     type: Literal['features'] = 'features'
@@ -46,10 +46,14 @@ class MapLayer_Features(
             transform = self.TRANSFORMS.get(self.config.transform)
             if not transform:
                 raise ConfigurationError(f'unsupported transform: {self.config.transform}')
-            features = [transform(f) for f in features]
+            features = [transform(f, context) for f in features]
         return MapLayerData_Features(
             type='features',
             timestamp=await collection.last_timestamp(),
             features=features,
-            editable=bool(store_collection.roles_for(context.client_permissions).intersection([Role.Editor, Role.Admin, Role.Owner]))
+            editable=(
+                not context.project.config.frozen
+                and self.config.editable
+                and bool(store_collection.roles_for(context.client_permissions).intersection([Role.Editor, Role.Admin, Role.Owner]))
+                )
         )

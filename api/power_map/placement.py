@@ -10,6 +10,8 @@ from pydantic_extra_types.color import Color
 from common.datetime import datetime_cet
 from common.model_utils import ModelT
 from common.geometry import Feature, Polygon
+from core.data_request import DataRequestContext
+from core.permission import Role
 from core.store import VersionedCollection
 from power_map.power_grid_base import PowerPlugType
 from power_map.utils import BaseModel, NameDescriptionModel, log
@@ -126,8 +128,12 @@ class PlacementEntityFeatureCollection(VersionedCollection[PlacementEntityFeatur
     store_item_type = 'placement_entity'
     store_item_class = PlacementEntityFeature
 
-def transform_placement_scrub_private_data(f: PlacementEntityFeature) -> PlacementEntityFeature:
+RolesNonPublic = frozenset([Role.Owner, Role.Admin, Role.Editor, Role.Viewer])
+
+def transform_placement_scrub_private_data(f: PlacementEntityFeature, context: DataRequestContext) -> PlacementEntityFeature:
     props = f.properties
+    if context.client_project_roles.intersection(RolesNonPublic):
+        return f
     if props:
         if props.contact_info:
             props.contact_info = "<redacted>"

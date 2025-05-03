@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Iterable, Optional
-from pydantic import BaseModel, PrivateAttr, RootModel, TypeAdapter
+from pydantic import PrivateAttr, RootModel, TypeAdapter
 
 from common.geometry import (
         coord_transform, XFRM_GEO_TO_PROJ,
