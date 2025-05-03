@@ -23,18 +23,13 @@ export interface MapContentInterface {
   import WarningsTable from '$lib/controls/PropertiesTable.svelte';
   import MapInfoBox from '$lib/controls/MapInfoBox.svelte';
 
-  import type { LayerController, MapFeatureLayer } from './layers/LayerController.svelte';
-
   import { ProjectData } from '$lib/ProjectData.svelte';
   import { featureCachedProps } from './layers/LayerData.svelte';
   import FeatureLayer from './layers/FeatureLayer.svelte';
-  import PlacementFeatureDetails from './layers/Placement/FeatureDetails.svelte';
-  import PowerGridController from './layers/PowerGrid/Controller.svelte';
 
   import { type MapDisplayOptionsDTO } from '$lib/layers/types';
-
-  import IconPathInfo from '@lucide/svelte/icons/waypoints';
-
+  import type {AnyLayerController} from './layers/Layers';
+  import type {BasicLayerDisplayOptions, LayerController} from './layers/LayerController.svelte.js';
 
   let {
     mapRoot,
@@ -112,7 +107,7 @@ export interface MapContentInterface {
         data.getControllerFor(id)?.highlightFeature(id);
       },
       resetHighlight() {
-        details?.data.ctl?.resetHighlightedFeature();
+        details?.ctl.resetHighlightedFeature();
       },
       getCurrentDisplayOptions() {
         return Object.fromEntries(
@@ -126,28 +121,29 @@ export interface MapContentInterface {
     }
   });
 
-  interface LayerItem {
-    data: AnyLayerData;
-    layer: MapFeatureLayer<Geometry, object>;
+  interface LayerItem<G extends Geometry, P extends Props> {
+    ctl: LayerController<G, P, BasicLayerDisplayOptions>;
+    feature: Feature<G, P>;
   }
 
   let details = $derived.by(() => {
     let priority = 0;
-    let result: LayerItem | undefined;
+    let result: LayerItem<Geometry, Props> | undefined;
     if (!instance)
-      return;
+      return result;
     for (const ctl of data.allControllers) {
       if (ctl.layerHighlighted && ctl.options.priorityHighlight > priority) {
-        result = {data: ctl.data, layer: ctl.layerHighlighted};
+        result = {ctl: ctl, feature: ctl.layerHighlighted.feature};
         priority = ctl.options.priorityHighlight;
       }
       if (ctl.layerSelected && ctl.options.prioritySelect > priority) {
-        result = {data: ctl.data, layer: ctl.layerSelected};
+        result = {ctl: ctl, feature: ctl.layerSelected.feature};
         priority = ctl.options.prioritySelect;
       }
     }
     return result;
   });
+  $inspect(details);
 
 </script>
 
@@ -165,58 +161,40 @@ export interface MapContentInterface {
   {/each}
 {/key}
 
-{#snippet featureInfoHeader(ctl: LayerController<Geometry, Named>, feature: Feature<Geometry, Named>, prefix?: string)}
+{#snippet featureInfo(ctl: AnyLayerController, feature: Feature<Geometry, Props>)}
+  {@const FeatureDetails = ctl.FeatureDetailsComponent}
   {@const FeatureIcon = ctl.featureIcon(feature)}
   {@const statusColor = ctl.featureColorForStatus(feature)}
-  <div class="flex h6 justify-start">
-    {#if prefix}
-      <span>{prefix}</span>
-    {/if}
+
+  <div class="flex h6 justify-start items-center">
     <FeatureIcon size="16" class="stroke-{statusColor}-500"/>
     <span> {feature.properties.name}</span>
   </div>
   <span class="text-xs text-surface-500 justify-end">id: {feature.id}</span>
+
+  {#if FeatureDetails}
+    <FeatureDetails ctl={ctl} feature={feature} />
+  {:else}
+    <PropertiesTable items={ctl.featureProperties(feature)} onClickChip={instance.selectFeature} />
+      {#if featureCachedProps(feature).log?.length}
+        <div class="flex">
+          <WarningsTable items={feature} />
+        </div>
+      {/if}
+  {/if}
 {/snippet}
 
-{#key details}
 {#if details}
-  {@const feature = details.layer.feature}
-  <MapInfoBox open={true} visible={true} position='bottomleft' classBody="min-w-[200px] max-w-[500px]">
-    {@render featureInfoHeader(details.data.ctl, feature)}
-    {#if details.data == data.layers.placement}
-      <PlacementFeatureDetails ctl={data.layers.placement?.ctl} feature={feature} onClickChip={instance.selectFeature} />
-    {:else}
-      <PropertiesTable items={details.data.ctl.featureProperties(feature)} onClickChip={instance.selectFeature} />
-    {/if}
-    {#if featureCachedProps(feature).log?.length}
-    <div class="flex">
-      <WarningsTable items={feature} />
-    </div>
-    {/if}
-  </MapInfoBox>
-{:else}
-  <MapInfoBox open={true} visible={true} position='bottomleft' classBody="max-w-[500px]">
-    Hover over a feature to see details
+  <MapInfoBox open={true} visible={true} position='bottomleft' classBody="min-w-[200px] max-w-[500px] md:max-w-full max-h-[40vh] overflow-auto">
+
+    <!-- HACK: trying to work around Svelte bug.
+    When `details` becomes `undefined`, this whole block should disappear,
+    but because whatever was stored in `details` is now gone, $.get() wrappers
+    fail causing a crash on teardown, despite this block is explicitly wrapped
+    in `{#if details}`. 
+
+    https://github.com/sveltejs/svelte/issues/14389
+    -->
+    {@render featureInfo(details.ctl, details.feature)}
   </MapInfoBox>
 {/if}
-{/key}
-
-{#if data.layers.power_grid?.ctl?.layerSelected}
-<MapInfoBox visible={true} open={true} position="bottomright" classBody="max-w-[500px]" icon={IconPathInfo}>
-  {@const ctl: PowerGridController = data.layers.power_grid.ctl}
-  {#if ctl.layerSelected}
-    {@const feature = ctl.layerSelected.feature}
-    {@render featureInfoHeader(ctl, feature, "⚡")}
-    <PropertiesTable items={ctl.featureProperties(feature)}
-      onClickChip={instance.selectFeature}
-      onHoverChip={instance.highlightFeature}
-      onUnhoverChip={instance.resetHighlight}
-      />
-    <hr class="hr" />
-    <div class="h5">Metrics</div>
-    <PropertiesTable items={ctl.getHighlightedPathInfo()} />
-  {/if}
-</MapInfoBox>
-{/if}
-
-

@@ -2,6 +2,7 @@ import type {Layer} from '../LayerInterface';
 
 import PowerGridData from './data.svelte';
 import PowerGridController from './Controller.svelte';
+import FeatureDetails from './FeatureDetails.svelte';
 
 import {IconPower} from '$lib/Icons';
 

@@ -39,6 +39,7 @@ import {
 
 import { type PowerGridDisplayOptions } from './types';
 import DisplayOptions from './DisplayOptions.svelte';
+import FeatureDetails from './FeatureDetails.svelte';
 import { 
   cableLength,
   calculatePathLoss,
@@ -83,6 +84,7 @@ export class PowerGridController extends LayerController<
   PowerGridDisplayOptions
 > {
   DisplayOptionsComponent = DisplayOptions;
+  FeatureDetailsComponent = FeatureDetails;
   onDataChanged?: (() => undefined);
 
   editEnabled: boolean = $state(true);
@@ -96,7 +98,7 @@ export class PowerGridController extends LayerController<
       name: 'PowerGrid',
       zIndex: 420,
       priorityHighlight: 50,
-      prioritySelect: -1,
+      prioritySelect: 35,
       defaultDisplayOptions: {
         visible: true,
         opacity: 0.8,
@@ -584,67 +586,6 @@ export class PowerGridController extends LayerController<
       this.mapBaseLayer.resetStyle(l);
     }
     this.highlightedGridPath = undefined;
-  }
-
-  getHighlightedPathInfo(): Array<InfoItem> {
-    const loadLevels = [100, 75, 50];
-    if (!this.data) {
-      return []
-    }
-    const result: Array<InfoItem> = [];
-
-    const path = this.highlightedGridPath?.map((l) => this.data.features.get(l.feature.id)).filter((f) => !!f);
-    const pathResult = calculatePathLoss(path,
-      { loadAmps: Math.min(...(path?.map((f) => f ? getGridItemSizeInfo(f).max_amps : 0) || [])) }
-    );
-
-    const allResults = [
-      ...loadLevels.map((loadPercentage) => [
-        `${loadPercentage}%`,
-        calculatePathLoss(path, { loadPercentage }),
-      ]),
-      [ 'path', pathResult ]
-    ] as Array<[string, LossInfoCable]>;
-
-    result.push({
-      label: "Path length",
-      value: `${pathResult.L.toFixed(1)} m`,
-      icon: IconRuler
-    },
-    {
-      label: "Resistance",
-      value: `${pathResult.R.toFixed(2)} Ω`,
-      icon: IconResistance
-    },
-    {
-      label: "Pmax",
-      value: `${(pathResult.I*Vref_LN*pathResult.Phases/1000).toFixed(1)} kW`,
-      icon: IconPower
-    },
-    {
-      label: "Imax",
-      value: `${(pathResult.I).toFixed(1)} A`,
-      icon: IconPower
-    }
-
-    );
-
-    for (const [label, r] of allResults) {
-      const VdropPercent = r.Vdrop/Vref_LL*100;
-      result.push(
-        {
-          label: `Loss @ ${label}`,
-          value: `${r.Vdrop.toFixed(1)} V (${VdropPercent.toFixed(1)}%), ${(r.Ploss/1000.0).toFixed(1)} kW`,
-          classes: (
-            (VdropPercent < 5) ? ""
-            : (VdropPercent < 10) ? "text-warning-500"
-            : "text-error-500"
-          )
-        },
-      );
-    }
-
-    return result;
   }
 
   resetHighlightedFeature() {
