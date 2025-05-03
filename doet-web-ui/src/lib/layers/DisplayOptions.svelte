@@ -31,8 +31,8 @@
     {@const LayerDisplayOptions = ctl.DisplayOptionsComponent}
     {#if LayerDisplayOptions}
       {#if ctl}
+        <hr class="hr border-t-4 border-surface-500" />
         <LayerDisplayOptions ctl={ctl} />
-        <hr class="hr" />
       {/if}
     {/if}
   {/each}
