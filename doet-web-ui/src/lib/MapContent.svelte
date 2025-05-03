@@ -172,7 +172,7 @@ export interface MapContentInterface {
     {#if prefix}
       <span>{prefix}</span>
     {/if}
-    <FeatureIcon class="w-auto h-auto stroke-{statusColor}-500"/>
+    <FeatureIcon size="16" class="stroke-{statusColor}-500"/>
     <span> {feature.properties.name}</span>
   </div>
   <span class="text-xs text-surface-500 justify-end">id: {feature.id}</span>

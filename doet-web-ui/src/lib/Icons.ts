@@ -3,6 +3,7 @@ import IconArea from '@lucide/svelte/icons/drafting-compass';
 import IconClose from '@lucide/svelte/icons/x';
 import IconContact from '@lucide/svelte/icons/contact';
 import IconDescription from '@lucide/svelte/icons/badge-info';
+import IconMenu from '@lucide/svelte/icons/menu';
 import IconWarning from '@lucide/svelte/icons/triangle-alert';
 import IconFeatureDefault from '@lucide/svelte/icons/map-pin';
 import IconCable from '@lucide/svelte/icons/cable';
@@ -21,6 +22,7 @@ export {
   IconClose,
   IconContact,
   IconDescription,
+  IconMenu,
   IconWarning,
   IconFeatureDefault,
   IconCable,
