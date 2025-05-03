@@ -11,41 +11,52 @@
   import TimeTravelSlider from './TimeTravelSlider.svelte';
 
   import { ProjectAPI } from '$lib/api_project';
-  import Map from './Map.svelte?client';
+  import { ProjectData } from '$lib/ProjectData.svelte';
+  import Map from './Map.svelte';
   import { type MapContentInterface } from '$lib/MapContent.svelte';
-  import { PowerGridData } from '$lib/layers/PowerGrid/data.svelte?client';
   import DisplayOptions from '$lib/layers/DisplayOptions.svelte';
 
-  import { IconPlacement, IconPower, IconWarning } from '$lib/Icons';
+  import { IconWarning } from '$lib/Icons';
   import IconHistory from '@lucide/svelte/icons/history';
   import IconInfo from '@lucide/svelte/icons/info';
   import IconLayers from '@lucide/svelte/icons/layers';
   import IconLink from '@lucide/svelte/icons/link';
 
   import { TimeRange, Severity, logLevelToColor } from '$lib/utils/misc';
-  
-  import { copy as copyToClipboard } from 'svelte-copy';
+  import { type SearchboxItem } from '$lib/utils/types';
+
   import lz from 'lz-string';
 
 
-  let { project }: {project: string} = $props();
+  let {
+    project,
+    timeRange = $bindable(new TimeRange()),
+  }: {
+    project: string,
+    timeRange: TimeRange,
+  } = $props();
 
-  let api = $derived(new ProjectAPI(project));
+  let api = new ProjectAPI(project);
   setContext('api', api);
-  let grid: PowerGridData | undefined;
-  if (browser) {
-    grid = new PowerGridData(api);
-    setContext('PowerGridData', grid);
-  }
+
+  let data = new ProjectData();
+  setContext(ProjectData, data);
+
+  $effect(async () => {
+    if (timeRange)
+      await data.loadView('default', timeRange.start, timeRange.end)
+  });
 
   let map: MapContentInterface | undefined = $state();
   $effect(() => {
     setContext('Map', map);
   })
 
-  let timeRange: TimeRange = $state(new TimeRange());
-  let searchItems = $derived(Object.values(map?.layers || {}).reduce((all, layer) => ([...all, ...layer.searchItems]), []));
-  let searchValue = $state();
+  let searchValue: string | undefined = $state(undefined);
+  let searchItems: SearchboxItem[] = $derived(Object.values(data.layers).reduce(
+    (all, layer) => ([...all, ...layer.ctl?.searchItems || []])
+    , [] as SearchboxItem[]));
+
 
   let copyUrlWithSelected: boolean = $state(false);
 
@@ -65,14 +76,16 @@
     return url.toString();
   }
 
-  let warningsGrid = $derived(map?.layers.PowerGrid.warningsSummary() || []);
-  let warningsPlacement = $derived(map?.layers.Placement.warningsSummary() || []);
-  let nWarnings = $derived(warningsGrid.length + warningsPlacement.length);
-  let warningsGroup = $derived(
-    warningsGrid.length > 0 ? 'PowerGrid'
-    : warningsPlacement.length > 0 ? 'Placement'
-    : ""
-  );
+  let allWarnings = $derived(Object.values(data.warnings).reduce(
+    (all, log) => all.concat(log), []
+    ))
+  let warningsDefaultTab = $derived.by(() => {
+    for (const [name, log] of Object.entries(data.warnings)) {
+      if (log.length > 0)
+        return name;
+    }
+  });
+  let warningsTab = $state('');
 </script>
 
 <AppBar background="bg-surface-200-800" padding='p-1'>
@@ -115,8 +128,7 @@
   {/snippet}
 
   {#snippet trail()}
-    {#if nWarnings}
-      {@const allWarnings = [...warningsPlacement, ...warningsGrid]}
+    {#if allWarnings.length}
       <PopoverInfoBox title="Warnings"
         contentClasses="overflow-auto max-h-[500px]"
         positionerClasses="max-h-screen"
@@ -134,35 +146,31 @@
         {/snippet}
         {#snippet content()}
           <Tabs
-            value={warningsGroup}
-            onValueChange={(e) => { warningsGroup = e.value }}
+            value={warningsTab || warningsDefaultTab}
+            onValueChange={(e) => { warningsTab = e.value }}
             activationMode="automatic"
             >
             {#snippet list()}
-              {#if warningsGrid.length}
-                <Tabs.Control value="PowerGrid">
-                  {#snippet lead()}<IconPower size="16" />{/snippet}
-                  Power grid [{warningsGrid.length}]
-                </Tabs.Control>
-              {/if}
-              {#if warningsPlacement.length}
-                <Tabs.Control value="Placement">
-                  {#snippet lead()}<IconPlacement size="16" />{/snippet}
-                  Placement [{warningsPlacement.length}]
-                </Tabs.Control>
-              {/if}
+              {#each data.allLayers as layer}
+                {@const w = layer.warningsSummary}
+                {#if w?.length}
+                  {@const Icon = layer.layer.icon}
+                  <Tabs.Control value={layer.id}>
+                    {#snippet lead()}<Icon size="16" />{/snippet}
+                    {layer.layer.name} [{w.length}]
+                  </Tabs.Control>
+                {/if}
+              {/each}
             {/snippet}
             {#snippet content()}
-              {#if warningsGrid.length}
-                <Tabs.Panel value="PowerGrid">
-                  <WarningsTable items={warningsGrid} />
-                </Tabs.Panel>
-              {/if}
-              {#if warningsPlacement.length}
-                <Tabs.Panel value="Placement">
-                  <WarningsTable items={warningsPlacement} />
-                </Tabs.Panel>
-              {/if}
+              {#each data.allLayers as layer}
+                {@const w = layer.warningsSummary}
+                {#if w?.length}
+                  <Tabs.Panel value={layer.id}>
+                    <WarningsTable items={w} />
+                  </Tabs.Panel>
+                {/if}
+              {/each}
             {/snippet}
           </Tabs>
         {/snippet}
@@ -172,7 +180,7 @@
     <PopoverInfoBox title="Statistics">
       {#snippet trigger()}<IconInfo />{/snippet}
       {#snippet content()}
-        <PropertiesTable items={map?.layers.PowerGrid.getStatistics()}
+        <PropertiesTable items={data.layers.power_grid.ctl.getStatistics()}
           onClickChip={(id) => map?.selectFeature(id)}
           onHoverChip={(id) => map?.highlightFeature(id)}
           />
@@ -204,7 +212,9 @@
 </AppBar>
 
 {#if browser}
-  <Map
-    bind:content={map}
-    timeRange={timeRange}/>
+  {#key timeRange}
+    <Map
+      bind:content={map}
+      timeRange={timeRange}/>
+  {/key}
 {/if}

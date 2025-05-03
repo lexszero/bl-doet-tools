@@ -9,7 +9,7 @@
   let { ctl }: { ctl: Controller } = $props();
 </script>
 
-<LayerDisplayOptions value={ctl.layerName} title="Power areas" icon={IconPower} bind:visible={ctl.displayOptions.visible}>
+<LayerDisplayOptions value={ctl.data.id} title="Power areas" icon={IconPower} bind:visible={ctl.displayOptions.visible}>
   <div class="flex justify-between items-center gap-4">
     <p>Show total power need</p>
     <Switch checked={ctl.displayOptions.showTotalPower}

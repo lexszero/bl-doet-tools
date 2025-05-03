@@ -5,24 +5,20 @@
   import IconEyeOpen from '@lucide/svelte/icons/eye';
   import IconEyeClosed from '@lucide/svelte/icons/eye-closed';
 
-  import type {MapContentInterface} from '$lib/MapContent.svelte';
+  import {ProjectData} from '$lib/ProjectData.svelte';
 
-  import PowerAreasDisplayOptions from './PowerAreas/DisplayOptions.svelte';
-  import PowerGridDisplayOptions from './PowerGrid/DisplayOptions.svelte';
-  import PlacementDisplayOptions from './Placement/DisplayOptions.svelte';
-
-  const map = getContext<MapContentInterface>("Map");
+  const data = getContext<ProjectData>(ProjectData);
 
   let value = $derived(
-    Object.values(map?.layers)
+    data.allControllers
     .filter((ctl) => ctl.displayOptions.visible)
-    .map((ctl) => ctl.layerName)
+    .map((ctl) => ctl.data.id)
     || []);
 
   function onValueChange(e) {
     console.log(e);
-    for (const ctl of Object.values(map.layers)) {
-      ctl.displayOptions.visible = (e.value.indexOf(ctl.layerName) >= 0);
+    for (const l of data.allLayers) {
+      l.ctl.displayOptions.visible = (e.value.indexOf(l.id) >= 0);
     }
   }
 </script>
@@ -31,10 +27,14 @@
   {#snippet iconOpen()}<IconEyeOpen />{/snippet}
   {#snippet iconClosed()}<IconEyeClosed />{/snippet}
 
-  <PlacementDisplayOptions ctl={map.layers.Placement} />
-  <hr class="hr" />
-  <PowerAreasDisplayOptions ctl={map.layers.PowerAreas} />
-  <hr class="hr" />
-  <PowerGridDisplayOptions ctl={map.layers.PowerGrid} />
+  {#each data.allControllers as ctl}
+    {@const LayerDisplayOptions = ctl.DisplayOptionsComponent}
+    {#if LayerDisplayOptions}
+      {#if ctl}
+        <LayerDisplayOptions ctl={ctl} />
+        <hr class="hr" />
+      {/if}
+    {/if}
+  {/each}
 </Accordion>
 

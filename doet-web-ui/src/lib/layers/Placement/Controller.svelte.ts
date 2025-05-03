@@ -1,35 +1,21 @@
-import { getContext } from 'svelte';
-import { SvelteMap } from 'svelte/reactivity';
 import geojson from 'geojson';
 import L from "leaflet";
 
-import type {PlacementFeature, PlacementEntityProperties} from './types';
 import colormap from '$lib/utils/colormap';
-import { distance, coordsToLatLng, coordsToLatLngs } from '$lib/utils/geo';
+import { type InfoItem } from '$lib/utils/types';
 
 import { LayerController, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
-import { IconContact, IconDescription, IconPlacementEntity, IconPDU, IconPower, IconSound, IconPeople } from '$lib/Icons';
+
+import { IconContact, IconDescription, IconPower, IconSound, IconPeople, IconPlacementEntity } from '$lib/Icons';
 import IconVehicle from '@lucide/svelte/icons/bus';
 
-import { PowerGridData } from '$lib/layers/PowerGrid/data.svelte';
-import { type PlacementDisplayOptions } from './types';
+import type PlacementData from './data';
+import type { PlacementFeature, PlacementEntityProperties, PlacementDisplayOptions } from './types';
+import DisplayOptions from './DisplayOptions.svelte';
+import FeatureDetails from './FeatureDetails.svelte';
 
-import { type InfoItem } from '$lib/utils/types';
-import type {FeaturesDataElement} from '$lib/api_project';
 import { calculatePathLoss } from '../PowerGrid/calculations';
-import { getPlugTypeInfo, Vref_LN } from '../PowerGrid/constants';
-import type { GridCableFeature, GridPDUFeature } from '../PowerGrid/types';
-import {Severity, type ItemLogEntry} from '$lib/utils/misc';
-
-export function plugLoadPercent(feature: PlacementFeature) {
-  const props = feature.properties;
-  if (!props.powerPlugType)
-    return Infinity;
-
-  const plug = getPlugTypeInfo(props.powerPlugType)
-  const plugPmax = Vref_LN * plug.max_amps * plug.phases;
-  return (feature.properties.powerNeed || 0) / plugPmax * 100;
-}
+import type { GridCableFeature } from '../PowerGrid/types';
 
 const defaultStyle = {
   weight: 0.5,
@@ -41,14 +27,17 @@ export class PlacementController extends LayerController<
   PlacementEntityProperties,
   PlacementDisplayOptions
 > {
-  layerName = 'Placement';
+  DisplayOptionsComponent = DisplayOptions;
+  FeatureDetailsComponent = FeatureDetails;
 
-  data: PowerGridData;
-
-  constructor (mapRoot: L.Map, options: LayerControllerOptions<PlacementDisplayOptions>) {
-    super(mapRoot, {
+  declare data: PlacementData;
+  constructor (mapRoot: L.Map, data: PlacementData, options: LayerControllerOptions<PlacementDisplayOptions>) {
+    super(mapRoot, data, {
+      ...options,
       name: 'Placement',
       zIndex: 410,
+      priorityHighlight: 20,
+      prioritySelect: 40,
       defaultDisplayOptions: {
         visible: true,
         opacity: 0.5,
@@ -58,33 +47,18 @@ export class PlacementController extends LayerController<
         gridLoadPercent: 50,
         soundMax: 5000
       },
-      ...options
     });
-
-    this.data = getContext('PowerGridData');
-    $effect(() => {
-      this.updateStyle();
-    })
 
     $effect(() => {
       if (this.features &&
-        this.displayOptions.mode == 'grid_n_pdus' &&
+        (
+          this.displayOptions.mode === 'grid_n_pdus' ||
+          this.displayOptions.mode === 'grid_distance'
+        ) &&
         this.displayOptions.pduSearchRadius) {
-        for (const f of this.features.values()) {
-          f.properties._nearPDUs = undefined;
-        }
+          this.data.updateCache();
       }
     })
-  }
-
-  async load(timeStart?: Date, timeEnd?: Date) {
-    const data = await this.data.api.getDataViewElement<FeaturesDataElement<PlacementFeature>>('placement', timeStart, timeEnd);
-    for (const feature of data.features) {
-      feature.properties._nearPDUs = this.findNearPDUs(feature);
-    }
-    this.features = new SvelteMap<string, PlacementFeature>(data.features.map(
-      (f: PlacementFeature) => ([f.id, f])
-    ));
   }
 
   style = (f: PlacementFeature): L.PathOptions => {
@@ -103,12 +77,12 @@ export class PlacementController extends LayerController<
         }
 
         case 'grid_n_pdus': {
-          color = colormap('plasma', this.getNearPDUs(f).length, 0, 5, true);
+          color = colormap('plasma', this.data.getNearPDUs(f).length, 0, 5, true);
           break;
         }
 
         case 'grid_distance': {
-          const near = this.getNearPDUs(f);
+          const near = this.data.getNearPDUs(f);
           if (near?.length) {
             const [, d] = near[0];
             color = colormap('plasma', d, 5, this.displayOptions.pduSearchRadius, false);
@@ -119,11 +93,11 @@ export class PlacementController extends LayerController<
         }
 
         case 'grid_loss': {
-          const near = this.getNearPDUs(f);
+          const near = this.data.getNearPDUs(f);
           if (near.length) {
             const [pdu, d] = near[0];
             const path = [
-              ...this.data.getGridPathToSource(pdu) || [],
+              ...this.data.project.layers.power_grid?.getGridPathToSource(pdu) || [],
               { properties: {
                 power_size: '1f',
                 length_m: d
@@ -151,7 +125,6 @@ export class PlacementController extends LayerController<
       fillColor: color
     }
   };
-  highlightBringsToFront = false;
 
   featureIcon = () => IconPlacementEntity;
   featureLabel = (f: PlacementFeature) => `${f.properties.name} (${f.id})`;
@@ -209,7 +182,7 @@ export class PlacementController extends LayerController<
       'type', 'name', 'description', 'contactInfo', 'nrOfPeople', 'nrOfVechiles', 'amplifiedSound', 'color',
       'powerNrPDUs', 'powerDistance',
       'techContactInfo', 'powerPlugType', 'powerExtraInfo', 'powerImage', 'powerAppliances', 'powerNeed',
-      '_nearPDUs',
+      '_cache',
     ];
     return [...result, ...(Object.entries(props)
       .filter(([k]) => (!exclude.includes(k)))
@@ -217,71 +190,6 @@ export class PlacementController extends LayerController<
     )]
   };
 
-  getNearPDUs(feature: PlacementFeature): [GridPDUFeature, number][] {
-    if (!feature.properties._nearPDUs?.length) {
-      feature.properties._nearPDUs = this.findNearPDUs(feature);
-    }
-    return feature.properties._nearPDUs;
-  }
-
-  findNearPDUs(feature: PlacementFeature): [GridPDUFeature, number][] {
-    const pdusInRange = [];
-    const itemCenter = L.PolyUtil.centroid(coordsToLatLngs(feature.geometry.coordinates[0]));
-    for (const item of this.data.features.values()) {
-      if (item.properties.type != 'power_grid_pdu') {
-        continue;
-      }
-      const pdu = item as GridPDUFeature;
-      const d = distance(itemCenter, coordsToLatLng(pdu.geometry.coordinates)) || Infinity;
-      if (d < this.displayOptions.pduSearchRadius) {
-        pdusInRange.push([pdu, d] as [GridPDUFeature, number]);
-      }
-    }
-    pdusInRange.sort(([, ad], [, bd]) => (ad - bd));
-    return pdusInRange;
-  }
-
-  featureWarnings(feature: PlacementFeature, strict: boolean = false) {
-    const result: ItemLogEntry[] = [];
-    const props = feature.properties;
-    const pwr = feature.properties.powerNeed
-
-    if (!pwr)
-      return result;
-
-    if (strict) {
-      if (props.powerPlugType) {
-        const loadPercent = plugLoadPercent(feature);
-        if (loadPercent > 100) {
-          result.push({
-            level: loadPercent > 300 ? Severity.Error : Severity.Warning,
-            message: `Power need ${pwr} is ${loadPercent}% load permitted for ${props.powerPlugType}`
-          });
-        }
-      } else {
-        result.push({
-          level: Severity.Error,
-          message: "Missing power plug type"
-        });
-      }
-
-      if (!props.techContactInfo) {
-        result.push({
-          level: Severity.Error,
-          message: "Missing tech contact info"
-        });
-      }
-    }
-
-    const near = this.getNearPDUs(feature);
-    if (!near.length) {
-      result.push({
-        level: Severity.Error,
-        message: `No PDUs within ${this.displayOptions.pduSearchRadius}m radius`
-      })
-    }
-    return result;
-  }
 };
 
 export default PlacementController;

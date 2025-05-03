@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment'
-  import { Map, TileLayer } from 'sveaflet';
+  import { Map } from 'sveaflet';
 
   import { LocateControl } from "leaflet.locatecontrol";
   import "leaflet.locatecontrol/dist/L.Control.Locate.min.css";
@@ -18,7 +18,7 @@
   import type { MapContentInterface } from '$lib/MapContent.svelte';
 
   import { TimeRange } from '$lib/utils/misc';
-  import { compressToEncodedURIComponent, decompressFromEncodedURIComponent, } from 'lz-string';
+  import { decompressFromEncodedURIComponent, } from 'lz-string';
 
   L.PM.setOptIn(true);
 

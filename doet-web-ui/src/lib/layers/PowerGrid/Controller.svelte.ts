@@ -1,6 +1,3 @@
-import { getContext } from 'svelte';
-import { SvelteMap } from 'svelte/reactivity';
-
 import colormap from '$lib/utils/colormap';
 import * as geojson from "geojson";
 import L from 'leaflet';
@@ -13,17 +10,13 @@ import {
   type GridPDUFeature,
 } from "./types";
 
-import { logLevelToColor, logLevelToString, type ItemLogEntry } from '$lib/utils/misc';
+import { logLevelToColor } from '$lib/utils/misc';
 import type { ChipItem, InfoItem } from '$lib/utils/types';
 import {
   isSamePoint,
   coordsToLatLng,
   coordsToLatLngs,
 } from "$lib/utils/geo";
-
-import {
-  PowerGridData,
-} from './data.svelte';
 
 import {
   IconFeatureDefault,
@@ -45,11 +38,11 @@ import {
 } from '$lib/layers/LayerController.svelte';
 
 import { type PowerGridDisplayOptions } from './types';
+import DisplayOptions from './DisplayOptions.svelte';
 import { 
   cableLength,
   calculatePathLoss,
   type LossInfoCable,
-  type LossInfoPDU
 } from './calculations';
 import {
   getGridItemSizeInfo,
@@ -57,6 +50,7 @@ import {
   Vref_LL,
   Vref_LN
 } from './constants';
+import type PowerGridData from './data.svelte';
 
 type GridMapFeatureLayer = MapFeatureLayer<geojson.Point | geojson.LineString, GridFeatureProperties>;
 
@@ -83,25 +77,26 @@ function isCableStartOrEnd(cable: GridCableFeature, point: L.LatLng): boolean {
   return isCableStart(cable, point) || isCableEnd(cable, point);
 }
 
-
-
 export class PowerGridController extends LayerController<
   geojson.Point | geojson.LineString,
   GridFeatureProperties,
   PowerGridDisplayOptions
 > {
-  layerName = 'PowerGrid';
-
-  data: PowerGridData;
+  DisplayOptionsComponent = DisplayOptions;
   onDataChanged?: (() => undefined);
 
   editEnabled: boolean = $state(true);
   editInProgress: boolean = $state(false);
 
-  constructor (mapRoot: L.Map, options: LayerControllerOptions<PowerGridDisplayOptions>) {
-    super(mapRoot, {
+  declare data: PowerGridData;
+
+  constructor (mapRoot: L.Map, data: PowerGridData, options: LayerControllerOptions<PowerGridDisplayOptions>) {
+    super(mapRoot, data, {
+      ...options,
       name: 'PowerGrid',
       zIndex: 420,
+      priorityHighlight: 50,
+      prioritySelect: -1,
       defaultDisplayOptions: {
         visible: true,
         opacity: 0.8,
@@ -112,12 +107,11 @@ export class PowerGridController extends LayerController<
         scalePDU: 1.25,
         scaleCable: 1,
       },
-      ...options
     });
 
-    this.data = getContext('PowerGridData');
-
     mapRoot.createPane('layer-PowerGridCoverage').style.zIndex = "408";
+
+    this.setupEditControls(this.data.editable);
 
     $effect(() => {
       for (const l of (this.mapLayers || []) as GridMapFeatureLayer[]) {
@@ -161,7 +155,7 @@ export class PowerGridController extends LayerController<
     });
 
     $effect(() => {
-      if (this.features && this.displayOptions)
+      if (this.data.features && this.displayOptions)
         this.updateCoverage();
     });
   }
@@ -209,8 +203,6 @@ export class PowerGridController extends LayerController<
       map.pm.disableGlobalEditMode();
       map.pm.removeControls();
     }
-
-
   }
 
   notifyDataChanged() {
@@ -223,17 +215,11 @@ export class PowerGridController extends LayerController<
     this.onDataChanged?.();
   }
 
-  features = $derived(this.data?.features || new SvelteMap<string, GridFeature>());
-
-
   mapLayerOptions = () => ({
     ...super.mapLayerOptions(),
     pmIgnore: false
   });
 
-  allFeatures() {
-    return this.features;
-  }
   selectFeature(item: string | GridMapFeatureLayer, fly: boolean = false) {
     const layer = super.selectFeature(item, fly);
     console.debug(`Select grid feature ${layer?.feature.id}, editInProgress=${this.editInProgress}`);
@@ -252,7 +238,6 @@ export class PowerGridController extends LayerController<
 
   async load(timeEnd?: Date) {
     await this.data.load(timeEnd);
-    this.setupEditControls(this.data.editable);
   }
 
   onEachFeature(feature: GridFeature, layer: GridMapFeatureLayer): void {
@@ -370,7 +355,7 @@ export class PowerGridController extends LayerController<
   }
 
   styleByLoss = (feature: GridFeature) => {
-    if (!feature.properties._loss)
+    if (!feature.properties._cache?.loss)
       return { color: '#F00', fillColor: '#F00' }
 
     const r = calculatePathLoss(this.data.getGridPathToSource(feature), { loadPercentage: this.displayOptions.loadPercent });
@@ -410,7 +395,7 @@ export class PowerGridController extends LayerController<
 
   featureStatus(f: GridFeature) {
     const props = f.properties;
-    const maxLevel = (props._drc) ? Math.max(...props._drc.map((r) => (r.level))) : undefined;
+    const maxLevel = (props._cache) ? Math.max(...props._cache.log?.map((r) => (r.level))) : undefined;
     if (maxLevel) {
       return logLevelToColor(maxLevel)
     }
@@ -422,7 +407,7 @@ export class PowerGridController extends LayerController<
   featureColorForStatus = (f: GridFeature) => `${this.featureStatus(f)}`;
 
   featureProperties = (f: GridFeature) => {
-    const exclude = ['name', 'type', 'power_size', 'length_m', 'pdu_from', 'pdu_to', 'cable_in', 'cables_out', '_drc', '_pathToSource', '_loss'];
+    const exclude = ['name', 'type', 'power_size', 'length_m', 'pdu_from', 'pdu_to', 'cable_in', 'cables_out', '_cache'];
     const result: InfoItem[] = [];
     result.push({
       label: 'Size',
@@ -438,7 +423,7 @@ export class PowerGridController extends LayerController<
         icon: IconRuler
       });
       if (props.pdu_from) {
-        const p = this.features.get(props.pdu_from);
+        const p = this.data.getPDU(props.pdu_from);
         if (p)
           result.push({
             label: 'From',
@@ -447,7 +432,7 @@ export class PowerGridController extends LayerController<
           });
       }
       if (props.pdu_to) {
-        const p = this.features.get(props.pdu_to);
+        const p = this.data.getPDU(props.pdu_to);
         if (p) {
           result.push({
             label: 'To',
@@ -456,8 +441,8 @@ export class PowerGridController extends LayerController<
           });
         }
       }
-      if (props._loss) {
-        const l = props._loss as LossInfoCable;
+      if (props._cache?.loss) {
+        const l = props._cache.loss;
         result.push(
           {
             label: 'I',
@@ -471,14 +456,13 @@ export class PowerGridController extends LayerController<
             label: 'Vdrop',
             value: `${l.Vdrop.toFixed(1)} Vdrop`
           },
-
         )
       }
     }
     else if (f.properties.type == 'power_grid_pdu') {
       const props = f.properties;
       if (props.cable_in) {
-        const cableIn = this.features.get(props.cable_in) as GridCableFeature;
+        const cableIn = this.data.getCable(props.cable_in);
         if (cableIn) {
           result.push({
             label: 'Feed line',
@@ -486,7 +470,7 @@ export class PowerGridController extends LayerController<
             chips: [featureChip(cableIn)]
           });
           if (cableIn.properties.pdu_from) {
-            const pduFrom = this.features.get(cableIn.properties.pdu_from) as GridPDUFeature;
+            const pduFrom = this.data.getPDU(cableIn.properties.pdu_from);
             if (pduFrom) {
               result.push({
                 label: 'From PDU',
@@ -500,8 +484,8 @@ export class PowerGridController extends LayerController<
       if (props.cables_out) {
         const pdus = props.cables_out.map(
           (cableId: string) => {
-            const cable = this.features.get(cableId) as GridCableFeature;
-            return cable.properties.pdu_to ? this.features.get(cable.properties.pdu_to) : undefined;
+            const cable = this.data.getCable(cableId);
+            return cable?.properties.pdu_to ? this.data.getPDU(cable.properties.pdu_to) : undefined;
           });
         //console.log(pdus);
         result.push({
@@ -510,8 +494,8 @@ export class PowerGridController extends LayerController<
           chips: pdus.reduce((chips: ChipItem[], f) => (f ? [...chips, featureChip(f)] : chips), [])
         })
       }
-      if (props._loss) {
-        const l = props._loss as LossInfoPDU;
+      if (props._cache?.loss) {
+        const l = props._cache.loss;
         result.push(
           {
             label: 'I in',
@@ -609,7 +593,7 @@ export class PowerGridController extends LayerController<
     }
     const result: Array<InfoItem> = [];
 
-    const path = this.highlightedGridPath?.map((l) => this.features.get(l.feature.id)).filter((f) => !!f);
+    const path = this.highlightedGridPath?.map((l) => this.data.features.get(l.feature.id)).filter((f) => !!f);
     const pathResult = calculatePathLoss(path,
       { loadAmps: Math.min(...(path?.map((f) => f ? getGridItemSizeInfo(f).max_amps : 0) || [])) }
     );
@@ -684,7 +668,7 @@ export class PowerGridController extends LayerController<
     let maxDistanceToSource: [number, GridFeature?] = [0, undefined];
     let maxResistanceToSource: [number, GridFeature?] = [0, undefined];
 
-    for (const f of this.features.values()) {
+    for (const f of this.data.features.values()) {
       if (f.properties.type == 'power_grid_cable') {
         const size = f.properties.power_size;
         const length = cableLength(f as GridCableFeature);
@@ -781,11 +765,6 @@ export class PowerGridController extends LayerController<
       this.mapCoverageLayer = undefined;
     }
   }
-
-  featureWarnings(feature: GridFeature): ItemLogEntry[] {
-    return feature.properties._drc || [];
-  }
-
 }
 
 export default PowerGridController;

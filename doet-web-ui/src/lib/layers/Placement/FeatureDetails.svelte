@@ -1,14 +1,17 @@
 <script lang="ts">
+  import {getContext} from "svelte";
   import { Modal, Tabs } from "@skeletonlabs/skeleton-svelte";
 
-	import PopoverInfoBox from "$lib/controls/PopoverInfoBox.svelte";
   import PropertiesTable from "$lib/controls/PropertiesTable.svelte";
-	import WarningsTable from "$lib/controls/WarningsTable.svelte";
+  import WarningsTable from "$lib/controls/WarningsTable.svelte";
+
+  import type { InfoItem } from "$lib/utils/types";
+  import type { MapContentInterface } from "$lib/MapContent.svelte";
 
   import { featureChip } from "../LayerController.svelte";
-  import { plugLoadPercent, type PlacementController } from "./Controller.svelte";
+  import PlacementController from "./Controller.svelte";
   import type { PlacementFeature } from "./types";
-  import type { InfoItem } from "$lib/utils/types";
+  import { plugLoadPercent } from "./data";
 
   import { IconContact, IconDescription, IconPlug, IconPower, IconPDU, IconWarning } from "$lib/Icons";
   import IconImage from '@lucide/svelte/icons/image';
@@ -16,16 +19,12 @@
   let {
     ctl,
     feature,
-    onClickChip
   }: {
     ctl: PlacementController,
     feature: PlacementFeature,
-    onClickChip: ((id: string) => void);
     } = $props();
 
-  let detailsGroup = $state('general');
-
-  const warnings = ctl.featureWarnings(feature);
+  const map = getContext<MapContentInterface>('Map');
 
   function placementPowerProperties(feature: PlacementFeature): InfoItem[] {
     const props = feature.properties;
@@ -55,7 +54,7 @@
       },
     );
 
-    const near = ctl.getNearPDUs(feature);
+    const near = ctl.data.getNearPDUs(feature);
     if (near?.length) {
       const [nearestPDU, nearestDistance] = near[0];
       result.push({
@@ -73,11 +72,11 @@
         content: showImage,
         icon: IconImage
       });
-      console.debug(result);
     }
     return result;
   }
 
+  const warnings = ctl.data.featureWarnings.get(feature.id);
 </script>
 
 {#snippet showImage()}
@@ -95,11 +94,10 @@
 {/snippet}
 
 <Tabs
-  value={detailsGroup}
-  onValueChange={(e) => { detailsGroup = e.value }}
+  value={ctl.infoBoxTab}
+  onValueChange={(e) => ctl.setInfoBoxTab(e.value)}
   activationMode="automatic"
   >
-  {@const warnings = ctl.featureWarnings(feature)}
   {#snippet list()}
     <Tabs.Control value="general">General</Tabs.Control>
     <Tabs.Control value="power" labelClasses="flex row">
@@ -115,10 +113,10 @@
   {/snippet}
   {#snippet content()}
     <Tabs.Panel value="general">
-      <PropertiesTable items={ctl.featureProperties(feature)} onClickChip={onClickChip} />
+      <PropertiesTable items={ctl.featureProperties(feature)} onClickChip={map.selectFeature} />
     </Tabs.Panel>
     <Tabs.Panel value='power'>
-      <PropertiesTable items={placementPowerProperties(feature)} onClickChip={onClickChip} />
+      <PropertiesTable items={placementPowerProperties(feature)} onClickChip={map.selectFeature} />
       <hr class="hr-1" />
       <table class="table table-auto w-min=[200px] text-xs">
         {#if feature.properties.powerAppliances?.length}
