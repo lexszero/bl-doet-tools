@@ -21,7 +21,8 @@ _all_elements = {
         'power_areas': MapLayerConfig_Features(
             collection='power_areas',
             ),
-        'power_grid_features': MapLayerConfig_PowerGrid(),
+        'power_grid': MapLayerConfig_Features(
+            collection='power_grid_processed',
             ),
         'placement': MapLayerConfig_Placement(
             collection='placement',
@@ -33,7 +34,7 @@ _all_elements = {
 _default_view_elements = {
         'basemap': 'basemap',
         'power_areas': 'power_areas',
-        'power_grid': 'power_grid_features',
+        'power_grid': 'power_grid',
         'placement': 'placement',
         }
 

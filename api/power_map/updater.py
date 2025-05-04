@@ -97,8 +97,8 @@ def matching_fields(a: Optional[BaseModel], b: Optional[BaseModel]):
     if not a or not b:
         return 0
     n = 0
-    for field_name in a.model_fields.keys():
-        if field_name in b.model_fields:
+    for field_name in a.__class__.model_fields.keys():
+        if field_name in b.__class__.model_fields:
             va = getattr(a, field_name)
             vb = getattr(b, field_name)
             if va and vb and va == vb:

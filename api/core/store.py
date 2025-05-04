@@ -98,7 +98,7 @@ class StoreCollection(DBModel, AsyncAttrs):
 
     def instantiate(self, context: DataRequestContext):
         for cls in VersionedCollection.__subclasses__():
-            if cls.store_item_type == self.item_type:
+            if cls.store_item_type == self.item_type and cls.store_collection_name == self.name:
                 return cls(self, time_start=context.time_start, time_end=context.time_end)
         raise InternalError(f"Unable to determine VersionedCollection class for {self}")
 
