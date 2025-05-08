@@ -4,9 +4,9 @@ import { parseJSON as parseTimestamp } from 'date-fns';
 import type {Feature} from './utils/geojson';
 import type {Geometry} from 'geojson';
 
-import type {ProjectAPI} from './api_project';
+import type {MapOptions, ProjectAPI} from './api_project';
 
-import {LayerTemplates, LayerTemplatesOrdered, type AnyLayerController, type LayerID, type LayersData} from './layers/Layers';
+import {LayerTemplates, LayerTemplatesOrdered, type AnyLayerController, type AnyLayerData, type LayerID, type LayersData} from './layers/Layers';
 import type {Props} from './layers/LayerData.svelte';
 import type {BasicLayerDisplayOptions, LayerControllerOptions, MapFeatureLayer} from './layers/LayerController.svelte';
 
@@ -23,7 +23,7 @@ export class ProjectData {
   api: ProjectAPI;
 
   public layers: LayersData = $state({});
-  public changeTimestamps: Date[] | undefined;
+  public mapOptions: MapOptions | undefined = $state();
 
   constructor() {
     this.api = getContext('api')
@@ -40,7 +40,6 @@ export class ProjectData {
 
   async loadView(view: string = 'default', timeStart?: Date, timeEnd?: Date) {
     const data = await this.api.getDataView(view, timeStart, timeEnd);
-    this.changeTimestamps = data.change_timestamps.map((t) => parseTimestamp(t));
 
     const layers: LayersData = $state({});
     for (const [name, element] of Object.entries(data.map_data.layers) as [LayerID, object][]) {
@@ -56,6 +55,7 @@ export class ProjectData {
       layers[name] = layer;
     }
     this.layers = layers;
+    this.mapOptions = data.map_data.options;
 
     for (const l of Object.values(this.layers)) {
       l.updateCache();
@@ -66,10 +66,11 @@ export class ProjectData {
       this._signalReady();
       this._signalReady = undefined;
     }
+    return data;
   }
 
-  allLayers = $derived(Object.values(this.layers).toSorted((a, b) => (a.layer.order - b.layer.order)));
-  allControllers = $derived(this.allLayers.reduce((result, l) => (l.ctl ? [...result, l.ctl] : result), [] as AnyLayerController[]));
+  allLayers: Iterable<AnyLayerData> = $derived(Object.values(this.layers).toSorted((a, b) => (a.layer.order - b.layer.order)));
+  allControllers: Iterable<AnyLayerController> = $derived(this.allLayers.reduce((result, l) => (l.ctl ? [...result, l.ctl] : result), [] as AnyLayerController[]));
 
   initController<DO extends BasicLayerDisplayOptions>(id: LayerID, mapRoot: L.Map, options: Partial<LayerControllerOptions<DO>>) {
     const layer = LayerTemplatesOrdered.find((l) => l.id == id)
@@ -80,12 +81,16 @@ export class ProjectData {
     if (!data) {
       throw new Error(`No data for layer ${id}`);
     }
-    data.ctl = new layer.Controller(mapRoot, data, {
+    const initDisplayOptions = data.options?.initDisplayOptions || options.initDisplayOptions;
+    const ctl = new layer.Controller(mapRoot, data, {
       ...layer.ctlOptions,
-      ...options
+      ...data.options,
+      ...options,
+      initDisplayOptions
     });
+    data.ctl = ctl;
     this.triggerDependents(id)
-    return data.ctl;
+    return ctl;
   }
 
   triggerDependents(id: LayerID) {

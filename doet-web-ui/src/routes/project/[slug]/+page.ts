@@ -1,10 +1,4 @@
-import type { EntryGenerator, PageLoad } from './$types';
-
-export const load: PageLoad = ({ params }) => {
-  return {
-    project_name: params.slug
-  }
-};
+import type { EntryGenerator } from './$types';
 
 export const entries: EntryGenerator = () => {
   return ['bl24', 'bl24_test', 'bl25', 'bl25_test'].map((x) => ({slug: x}))

@@ -30,15 +30,11 @@
   {#snippet iconClosed()}<IconEyeClosed />{/snippet}
 
   {#each data.allControllers as ctl}
-    {#if ctl.options.controls === MapLayerControls.Full}
-      {@const LayerDisplayOptions = ctl.DisplayOptionsComponent}
-      {#if LayerDisplayOptions}
-        {#if ctl}
-          <hr class="hr border-t-4 border-surface-500" />
-          <LayerDisplayOptions ctl={ctl} />
-        {/if}
-      {/if}
-    {:else if ctl.options.controls == MapLayerControls.Simple}
+    {@const LayerDisplayOptions = ctl.DisplayOptionsComponent}
+    {#if LayerDisplayOptions}
+      <hr class="hr border-t-4 border-surface-500" />
+      <LayerDisplayOptions ctl={ctl} />
+    {:else if ctl.options.controls !== MapLayerControls.Off}
       <hr class="hr border-t-4 border-surface-500" />
       <BasicLayerDisplayOptions value={ctl.id} title={ctl.data.layer.name} icon={ctl.data.layer.icon} />
     {/if}

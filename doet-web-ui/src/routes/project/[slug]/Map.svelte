@@ -1,4 +1,5 @@
 <script lang="ts">
+  import {getContext} from 'svelte';
   import { browser } from '$app/environment'
   import { Map } from 'sveaflet';
 
@@ -14,56 +15,66 @@
   import "leaflet.polylinemeasure";
   import "leaflet.polylinemeasure/Leaflet.PolylineMeasure.css";
 
-  import MapContent from '$lib/MapContent.svelte';
-  import type { MapContentInterface } from '$lib/MapContent.svelte';
+  import MapContent, { type MapContentInterface } from '$lib/MapContent.svelte';
+  import {ProjectData} from '$lib/ProjectData.svelte';
 
+  import { coordsToLatLng } from '$lib/utils/geo';
   import { TimeRange } from '$lib/utils/misc';
   import { decompressFromEncodedURIComponent, } from 'lz-string';
 
   L.PM.setOptIn(true);
 
   let {
-    timeRange,
     content = $bindable(),
-    locate = false
+    showLocateControl = true,
+    showRulerControl = true,
   }: {
     timeRange: TimeRange,
     content: MapContentInterface,
-    locate: boolean
+    showLocateControl: boolean,
+    showRulerControl: boolean,
   } = $props();
 
   let map: L.Map | undefined = $state();
   let location: L.LocationEvent | undefined = $state();
 
+  let data = getContext<ProjectData>(ProjectData);
+
   $effect(() => {
     if (!map)
       return;
 
-    map.on('locationfound', (e) => {
-      console.log(e)
-      location = e;
-    });
+    if (showLocateControl) {
+      map.on('locationfound', (e) => {
+        console.log(e)
+        location = e;
+      });
+  
+      const locateControl = new LocateControl();
+      locateControl.addTo(map);
+    }
 
-    const locateControl = new LocateControl();
-    locateControl.addTo(map);
-
-    L.control.polylineMeasure({
-      useSubunits: true,
-      measureControlLabel: '&#128207;',
-      measureControlTitleOn: 'Measure distance',
-      measureControlTitleOff: 'Stop measurement',
-    }).addTo(map);
+    if (showRulerControl) {
+      L.control.polylineMeasure({
+        useSubunits: true,
+        measureControlLabel: '&#128207;',
+        measureControlTitleOn: 'Measure distance',
+        measureControlTitleOff: 'Stop measurement',
+      }).addTo(map);
+    }
   });
+  $inspect(data.mapOptions);
 
   const mapOptions: L.MapOptions = {
-    center: [57.62377, 14.92715],
-    zoom: 15,
-    minZoom: 0,
-    maxZoom: 21,
+    center: coordsToLatLng(data.mapOptions.center),
+    zoom: data.mapOptions.zoom,
+    minZoom: data.mapOptions.minZoom,
+    maxZoom: data.mapOptions.maxZoom,
     zoomControl: false,
     attributionControl: false,
     pmIgnore: false,
   };
+  console.debug("Map options: ", mapOptions);
 
   const params = new URLSearchParams(window.location.search);
   const initDisplayOptionsEncoded = params.get('d') || '';
@@ -77,7 +88,7 @@
 {#if browser}
   <Map options={mapOptions} bind:instance={map}>
     {#if map}
-      <MapContent mapRoot={map} timeRange={timeRange} bind:instance={content} displayOptions={initDisplayOptions}/>
+      <MapContent mapRoot={map} bind:instance={content} displayOptions={initDisplayOptions}/>
     {/if}
   </Map>
 {/if}

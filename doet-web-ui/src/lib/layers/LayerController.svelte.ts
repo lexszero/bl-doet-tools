@@ -76,7 +76,6 @@ export abstract class LayerController<
 
   public highlightable: boolean = $state(true);
   public selectable: boolean = $state(true);
-  public editable: boolean = $state(false);
   public infoBoxTab: string = $state('general');
 
   constructor(

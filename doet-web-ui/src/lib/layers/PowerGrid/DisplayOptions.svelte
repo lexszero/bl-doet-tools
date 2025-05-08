@@ -1,5 +1,6 @@
 <script lang="ts">
   import LayerDisplayOptions from '$lib/controls/LayerDisplayOptions.svelte';
+  import { MapLayerControls } from '../LayerController.svelte';
   import Slider from '$lib/controls/Slider.svelte';
   import Segment from '$lib/controls/Segment.svelte';
   import { SegmentItem } from '$lib/controls/Segment.svelte';
@@ -12,15 +13,6 @@
 </script>
 
 <LayerDisplayOptions value={ctl.data.id} title="Power grid" icon={IconPower}>
-  {@const mode = ctl.displayOptions.mode}
-
-  <div class="flex justify-between items-center gap-4">
-    <p>Show coverage</p>
-    <Switch checked={ctl.displayOptions.showCoverage}
-      onCheckedChange={(e) => {ctl.displayOptions.showCoverage = e.checked}}
-      />
-  </div>
-
   <div class="flex justify-between items-center gap-4">
     <p>Thickness</p>
     <Slider bind:value={ctl.displayOptions.scaleCable}
@@ -28,23 +20,33 @@
       />
   </div>
 
-  <div class="flex justify-between items-center gap-4">
-    <p>Color by</p>
-    <Segment bind:value={ctl.displayOptions.mode}>
-      <SegmentItem value="size">Cable size</SegmentItem>
-      <SegmentItem value="loss">Loss</SegmentItem>
-    </Segment>
-  </div>
-
-  {#if mode == 'loss'}
+  {#if ctl.options.controls == MapLayerControls.Full}
     <div class="flex justify-between items-center gap-4">
-      <p>Grid load</p>
-      <Slider bind:value={ctl.displayOptions.loadPercent}
-        min={0} max={100} step={5}
-        markers={[0, 25, 50, 75, 100]}
+      <p>Show coverage</p>
+      <Switch checked={ctl.displayOptions.showCoverage}
+        onCheckedChange={(e) => {ctl.displayOptions.showCoverage = e.checked}}
         />
-    <span>{ctl.displayOptions.loadPercent}%</span>
     </div>
+
+    {@const mode = ctl.displayOptions.mode}
+    <div class="flex justify-between items-center gap-4">
+      <p>Color by</p>
+      <Segment bind:value={ctl.displayOptions.mode}>
+        <SegmentItem value="size">Cable size</SegmentItem>
+        <SegmentItem value="loss">Loss</SegmentItem>
+      </Segment>
+    </div>
+
+    {#if mode == 'loss'}
+      <div class="flex justify-between items-center gap-4">
+        <p>Grid load</p>
+        <Slider bind:value={ctl.displayOptions.loadPercent}
+          min={0} max={100} step={5}
+          markers={[0, 25, 50, 75, 100]}
+          />
+      <span>{ctl.displayOptions.loadPercent}%</span>
+      </div>
+    {/if}
   {/if}
 
 </LayerDisplayOptions>

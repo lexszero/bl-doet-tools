@@ -94,7 +94,7 @@
 {/snippet}
 
 <Tabs
-  value={ctl.infoBoxTab}
+  value={ctl?.infoBoxTab}
   onValueChange={(e) => ctl.setInfoBoxTab(e.value)}
   activationMode="automatic"
   >
