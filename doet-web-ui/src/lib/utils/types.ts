@@ -14,7 +14,7 @@ export interface ValidationLog {
 }
 
 export interface CacheMixin<T> {
-  _cache?: T | ValidationLog;
+  _cache?: T & ValidationLog;
 }
 
 export type CachedValidationLog = CacheMixin<ValidationLog>;

@@ -1,5 +1,4 @@
 import { get } from 'svelte/store';
-import { browser } from '$app/environment';
 import { persisted, type Persisted } from "svelte-persisted-store";
 
 const API_BASE_URL = 'https://bl.skookum.cc/api';

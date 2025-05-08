@@ -1,5 +1,5 @@
 import type {Polygon} from 'geojson';
-import { LayerController, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
+import { LayerController, MapLayerControls, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
 import type {InfoItem} from '$lib/utils/types';
 
 import { L, coordsToLatLngs, ringArea } from '$lib/utils/geo';
@@ -28,6 +28,7 @@ export class PowerAreasController extends LayerController<
       zIndex: 405,
       priorityHighlight: 10,
       prioritySelect: 30,
+      controls: MapLayerControls.Full,
       defaultDisplayOptions: {
         visible: true,
         opacity: 0.3,
@@ -35,7 +36,7 @@ export class PowerAreasController extends LayerController<
         divTotalPower: 1,
       },
     });
-    mapRoot.createPane('layer-PowerAreasTotals').style.zIndex = "450";
+    mapRoot.createPane(`layer-${this.id}-totals`).style.zIndex = "450";
   }
 
   updateStyle(): void {
@@ -133,7 +134,7 @@ export class PowerAreasController extends LayerController<
           fillColor: '#000',
           fillOpacity: 0.5,
           color: '#fff',
-          pane: 'layer-PowerAreasTotals',
+          pane: `layer-${this.id}-totals`,
           textStyle: {
             color: '#fff',
             fillColor: '#fff',
@@ -154,7 +155,7 @@ export class PowerAreasController extends LayerController<
     }
 
     const layer = L.featureGroup(markers, {
-      pane: 'layer-PowerAreasTotals',
+      pane: `layer-${this.id}-totals`,
     });
     this.mapRoot.addLayer(layer);
     console.log(`PowerAreas: Added totals layer with ${markers.length} markers`);

@@ -1,6 +1,7 @@
 import { type PowerAreasDisplayOptions } from './PowerAreas/types';
 import { type PowerGridDisplayOptions } from './PowerGrid/types';
 import { type PlacementDisplayOptions } from './Placement/types';
+import { type SimpleDisplayOptions } from './Simple/Controller.svelte';
 
 export interface MapPosition {
   center: [number, number];
@@ -10,7 +11,8 @@ export interface MapPosition {
 export interface MapDisplayOptionsDTO {
   selected?: string,
   position?: MapPosition,
-  PowerAreas?: PowerAreasDisplayOptions,
-  PowerGrid?: PowerGridDisplayOptions,
-  Placement?: PlacementDisplayOptions,
+  roads?: SimpleDisplayOptions,
+  power_areas?: PowerAreasDisplayOptions,
+  power_grid?: PowerGridDisplayOptions,
+  placement?: PlacementDisplayOptions,
 }

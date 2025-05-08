@@ -6,6 +6,8 @@
   import IconEyeClosed from '@lucide/svelte/icons/eye-closed';
 
   import {ProjectData} from '$lib/ProjectData.svelte';
+  import {MapLayerControls} from './LayerController.svelte';
+  import BasicLayerDisplayOptions from '$lib/controls/LayerDisplayOptions.svelte';
 
   const data = getContext<ProjectData>(ProjectData);
 
@@ -30,10 +32,11 @@
   {#each data.allControllers as ctl}
     {@const LayerDisplayOptions = ctl.DisplayOptionsComponent}
     {#if LayerDisplayOptions}
-      {#if ctl}
-        <hr class="hr border-t-4 border-surface-500" />
-        <LayerDisplayOptions ctl={ctl} />
-      {/if}
+      <hr class="hr border-t-4 border-surface-500" />
+      <LayerDisplayOptions ctl={ctl} />
+    {:else if ctl.options.controls !== MapLayerControls.Off}
+      <hr class="hr border-t-4 border-surface-500" />
+      <BasicLayerDisplayOptions value={ctl.id} title={ctl.data.layer.name} icon={ctl.data.layer.icon} />
     {/if}
   {/each}
 </Accordion>

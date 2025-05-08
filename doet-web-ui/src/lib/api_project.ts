@@ -6,33 +6,42 @@ import type {
 
 import { API } from '$lib/api';
 import type {Feature} from "./utils/geojson";
-import type {GridFeature} from "./layers/PowerGrid/types";
-import type {PowerAreaFeature} from "./layers/PowerAreas/types";
-import type {PlacementFeature} from "./layers/Placement/types";
+
+import type {BasicLayerDisplayOptions, LayerControllerOptions} from "./layers/LayerController.svelte";
+import type {Props} from "./layers/LayerData.svelte";
+
+import type {GridFeature, PowerGridDisplayOptions} from "./layers/PowerGrid/types";
+import type {PowerAreaFeature, PowerAreasDisplayOptions} from "./layers/PowerAreas/types";
+import type {PlacementDisplayOptions, PlacementFeature} from "./layers/Placement/types";
 
 export interface ProjectInfo {
-  timestamps: [number];
+  name: string;
+  views: string[];
+  timestamps: number[];
 };
 
-export interface FeaturesDataElement<F extends Feature<Geometry, object>> {
+export interface FeaturesDataElement<
+  F extends Feature<Geometry, Props>,
+  DO extends BasicLayerDisplayOptions,
+  > {
   timestamp: string;
   features: F[];
-  editable: boolean;
+  options?: Partial<LayerControllerOptions<DO>>;
 }
 
-interface MapOptions {
+export interface MapOptions {
   center: Position,
   zoom: number;
-  zoomMin: number;
-  zoomMax: number;
+  minZoom: number;
+  maxZoom: number;
 }
 
-interface MapViewData {
-  mapOptions?: MapOptions;
-  layers: {
-    power_areas?: FeaturesDataElement<PowerAreaFeature>,
-    power_grid?: FeaturesDataElement<GridFeature>,
-    placement?: FeaturesDataElement<PlacementFeature>,
+export interface MapViewData {
+  options?: MapOptions;
+  layers: Record<string, FeaturesDataElement<Feature<Geometry, Props>, BasicLayerDisplayOptions>> & {
+    power_areas?: FeaturesDataElement<PowerAreaFeature, PowerAreasDisplayOptions>,
+    power_grid?: FeaturesDataElement<GridFeature, PowerGridDisplayOptions>,
+    placement?: FeaturesDataElement<PlacementFeature, PlacementDisplayOptions>,
   }
 }
 
@@ -80,8 +89,8 @@ export class ProjectAPI extends API {
     ) as T;
   }
 
-  async getChangeTimestamps(): Promise<ProjectInfo> {
-    return (await this.fetchJSON(`${this.project}/data/change_timestamps`)) as ProjectInfo;
+  async getProjectInfo(): Promise<ProjectInfo> {
+    return (await this.fetchJSON(`${this.project}/info`)) as ProjectInfo;
   }
 
 };

@@ -9,10 +9,12 @@ import { parseJSON as parseTimestamp } from 'date-fns';
 import type {FeaturesDataElement, ProjectView} from '$lib/api_project';
 import {ProjectData} from '$lib/ProjectData.svelte';
 import type {Layer} from './LayerInterface';
-import type {BasicLayerDisplayOptions, LayerController} from './LayerController.svelte';
+import type {BasicLayerDisplayOptions, LayerController, LayerControllerOptions} from './LayerController.svelte';
 import type {LayerID} from './Layers';
 
-export type Props = CacheMixin<ValidationLog> & Named;
+export type Props = CacheMixin<ValidationLog> & Named & {
+    type?: string;
+}
 
 export function featureCachedProps<
   PC extends ValidationLog,
@@ -34,7 +36,7 @@ export abstract class LayerData<G extends Geometry, P extends Props> {
   public featuresChanged: Map<string, Feature<G, P> | null> = new SvelteMap<string, Feature<G, P> | null>();
 
   public timestamp: Date | undefined;
-  public editable: boolean = false;
+  public options: Partial<LayerControllerOptions<BasicLayerDisplayOptions>> | undefined;
 
   constructor(
     project: ProjectData,
@@ -43,12 +45,11 @@ export abstract class LayerData<G extends Geometry, P extends Props> {
   ) {
     this.project = project;
     this.layer = layer;
-    this.id = element;
+    this.id = element as LayerID;
   }
 
-  setDataFromElement(data: FeaturesDataElement<Feature<G, P>>) {
+  setDataFromElement(data: FeaturesDataElement<Feature<G, P>, BasicLayerDisplayOptions>) {
     this.timestamp = parseTimestamp(data.timestamp || "");
-    this.editable = data.editable;
     const features = new Map<string, Feature<G, P>>(
       data.features.map(
         (it: Feature<G, P>) => ([it.id, it])
@@ -56,12 +57,13 @@ export abstract class LayerData<G extends Geometry, P extends Props> {
 
     this.processFeaturesAfterLoad(features);
     this.featuresLoaded = features;
+    this.options = data.options;
     this.resetChanges();
-    console.info(`${this.id}: ${this.features.size} features, timestamp: ${data.timestamp}, editable: ${this.editable}`);
+    console.info(`${this.id}: ${this.features.size} features, timestamp: ${data.timestamp}, options: ${this.options}`);
   }
 
   setDataFromView(view: ProjectView) {
-    this.setDataFromElement(view.map_data.layers[this.id] as FeaturesDataElement<Feature<G, P>>);
+    this.setDataFromElement(view.map_data.layers[this.id] as FeaturesDataElement<Feature<G, P>, BasicLayerDisplayOptions>);
   }
 
   processFeaturesAfterLoad(features: Map<string, Feature<G, P>>) {}
@@ -129,7 +131,7 @@ export abstract class LayerData<G extends Geometry, P extends Props> {
       if (log?.length)
         entries.push([feature.id, log]);
     }
-    console.debug(`${this.id}: featureWarnings - ${entries.length} entries`);
+    console.debug(`${this.id}: ${entries.length} warnings`);
 
     const summary: ItemLogEntry[] = [];
     for (const [id, log] of entries) {

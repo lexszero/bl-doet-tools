@@ -4,7 +4,7 @@ import L from "leaflet";
 import colormap from '$lib/utils/colormap';
 import { type InfoItem } from '$lib/utils/types';
 
-import { LayerController, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
+import { LayerController, MapLayerControls, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
 
 import { IconContact, IconDescription, IconPower, IconSound, IconPeople, IconPlacementEntity } from '$lib/Icons';
 import IconVehicle from '@lucide/svelte/icons/bus';
@@ -34,10 +34,10 @@ export class PlacementController extends LayerController<
   constructor (mapRoot: L.Map, data: PlacementData, options: LayerControllerOptions<PlacementDisplayOptions>) {
     super(mapRoot, data, {
       ...options,
-      name: 'Placement',
       zIndex: 410,
       priorityHighlight: 20,
       prioritySelect: 40,
+      controls: MapLayerControls.Full,
       defaultDisplayOptions: {
         visible: true,
         opacity: 0.5,
