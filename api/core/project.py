@@ -27,7 +27,6 @@ from core.store import StoreCollection, StoreItemRevision, VersionedCollection
 class View(BaseModel):
     name: str
     map_data: MapViewData
-    change_timestamps: list[datetime]
 
 class Project(DBModel, AsyncAttrs, AsyncSessionMixin):
     __tablename__ = 'project'
@@ -207,7 +206,6 @@ class Project(DBModel, AsyncAttrs, AsyncSessionMixin):
 
         return View(
                 name=view_name,
-                change_timestamps=[],
                 map_data=MapViewData(
                     options=view_config.options,
                     layers=results

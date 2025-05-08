@@ -77,7 +77,7 @@ BL_ELEMENTS = {
         }
 
 BL_MAP_OPTIONS = MapDisplayOptions(
-        center=Position2D(57.62377, 14.92715),
+        center=Position2D(14.92715, 57.62377),
         zoom=16,
         zoom_min=0,
         zoom_max=21,

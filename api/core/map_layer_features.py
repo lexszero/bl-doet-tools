@@ -31,7 +31,7 @@ class MapLayerDisplayOptions(BaseModel):
 class MapLayerOptions(BaseModel):
     editable: bool = False
     controls: Optional[MapLayerControls] = None
-    display_options: Optional[MapLayerDisplayOptions] = Field(default=None, serialization_alias='displayOptions')
+    display_options: Optional[MapLayerDisplayOptions] = Field(default=None, serialization_alias='initDisplayOptions')
 
 class MapLayerConfig_Features(DataViewConfigBase, Generic[_Feat]):
     type: Literal['features'] = 'features'

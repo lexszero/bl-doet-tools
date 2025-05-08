@@ -1,8 +1,7 @@
-from dataclasses import dataclass
 from typing import Annotated, Iterable, Optional, Union
 
 from geojson_pydantic.types import Position2D
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from core.data_view import ElementMapping
 from core.map_layer_features import MapLayerConfig_Features, MapLayerData_Features
