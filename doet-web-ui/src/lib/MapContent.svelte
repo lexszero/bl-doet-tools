@@ -35,7 +35,6 @@ export interface MapContentInterface {
 
   import IconPathInfo from '@lucide/svelte/icons/waypoints';
 
-
   let {
     mapRoot,
     instance = $bindable(),
@@ -71,16 +70,6 @@ export interface MapContentInterface {
   const layerControllerOptions = {
     onClick: onClick
   };
-  /*
-  data.ready().then(() => {
-    for (const l of data.allLayers) {
-      data.initController(l.id, mapRoot, {
-        ...layerControllerOptions,
-        ...(displayOptions?.[l.id] || {})
-      });
-    }
-  });
-  */
 
   onMount(() => {
     console.debug("MapContent displayOptions: ", displayOptions);
@@ -158,9 +147,9 @@ export interface MapContentInterface {
     <FeatureLayer
       mapRoot={mapRoot}
       layer={layer}
-      displayOptions={{
+      options={{
         ...layerControllerOptions,
-        ...displayOptions?.[layer.id]
+        initDisplayOptions: displayOptions?.[layer.id]
     }} />
   {/each}
 {/key}

@@ -12,7 +12,9 @@ import type {Layer} from './LayerInterface';
 import type {BasicLayerDisplayOptions, LayerController} from './LayerController.svelte';
 import type {LayerID} from './Layers';
 
-export type Props = CacheMixin<ValidationLog> & Named;
+export type Props = CacheMixin<ValidationLog> & Named & {
+    type?: string;
+}
 
 export function featureCachedProps<
   PC extends ValidationLog,
@@ -129,7 +131,7 @@ export abstract class LayerData<G extends Geometry, P extends Props> {
       if (log?.length)
         entries.push([feature.id, log]);
     }
-    console.debug(`${this.id}: featureWarnings - ${entries.length} entries`);
+    console.debug(`${this.id}: ${entries.length} warnings`);
 
     const summary: ItemLogEntry[] = [];
     for (const [id, log] of entries) {

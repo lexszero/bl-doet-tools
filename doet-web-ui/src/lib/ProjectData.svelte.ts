@@ -71,7 +71,7 @@ export class ProjectData {
   allLayers = $derived(Object.values(this.layers).toSorted((a, b) => (a.layer.order - b.layer.order)));
   allControllers = $derived(this.allLayers.reduce((result, l) => (l.ctl ? [...result, l.ctl] : result), [] as AnyLayerController[]));
 
-  initController<DO extends BasicLayerDisplayOptions>(id: LayerID, mapRoot: L.Map, options: LayerControllerOptions<DO>) {
+  initController<DO extends BasicLayerDisplayOptions>(id: LayerID, mapRoot: L.Map, options: Partial<LayerControllerOptions<DO>>) {
     const layer = LayerTemplatesOrdered.find((l) => l.id == id)
     if (!layer) {
       throw new Error(`Unsupported layer ${id}`);
@@ -80,7 +80,10 @@ export class ProjectData {
     if (!data) {
       throw new Error(`No data for layer ${id}`);
     }
-    data.ctl = new layer.Controller(mapRoot, data, options);
+    data.ctl = new layer.Controller(mapRoot, data, {
+      ...layer.ctlOptions,
+      ...options
+    });
     this.triggerDependents(id)
     return data.ctl;
   }

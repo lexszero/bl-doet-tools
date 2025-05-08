@@ -22,16 +22,24 @@ export type MapFeatureLayer<G extends geojson.Geometry, P extends Props> = L.Fea
   feature: Feature<G, P>;
 }
 
+export enum MapLayerControls {
+  Off = 'off',
+  Simple = 'simple',
+  Full = 'full'
+}
+
 export interface BasicLayerDisplayOptions {
   visible: boolean;
   opacity: number;
 };
 
 export interface LayerControllerOptions<D extends BasicLayerDisplayOptions> {
-  name: string;
   zIndex: number;
   priorityHighlight: number;
   prioritySelect: number;
+  controls: MapLayerControls;
+  filter?: ((f: Feature<geojson.Geometry, Props>) => boolean);
+  style?: ((f: Feature<geojson.Geometry, Props>) => L.PathOptions);
 
   defaultDisplayOptions: D;
   initDisplayOptions?: D;
@@ -52,13 +60,19 @@ export abstract class LayerController<
 
   public opacity: number = $state(1);
 
-  public features: SvelteMap<string, Feature<G, P>> = $state(new SvelteMap<string, Feature<G, P>>());
+  public features: SvelteMap<string, Feature<G, P>> = $derived(
+    this.options.filter
+    ? new SvelteMap<string, Feature<G, P>>(
+      this.data.features.entries().filter(([id, f]) => this.options.filter(f))
+    )
+    : this.data.features
+  );
 
   public displayOptions: DO = $state({visible: true, opacity: 1.0} as DO);
-  private displayOptionsStore: Persisted<DO>;
+  private displayOptionsStore?: Persisted<DO>;
 
-  declare abstract readonly DisplayOptionsComponent;
-  declare abstract readonly FeatureDetailsComponent;
+  readonly DisplayOptionsComponent? = undefined;
+  readonly FeatureDetailsComponent? = undefined;
 
   public highlightable: boolean = $state(true);
   public selectable: boolean = $state(true);
@@ -74,21 +88,32 @@ export abstract class LayerController<
     this.data.ctl = this;
     this.id = this.data.id;
 
-
     const defaultDisplayOptions = options.defaultDisplayOptions || {visible: true, opacity: 1.0} as DO;
 
-    console.info(`Initializing layer ${options.name} with zIndex ${options.zIndex}`, defaultDisplayOptions);
-    this.displayOptionsStore = persisted('layer_'+options.name, defaultDisplayOptions);
-    this.displayOptions = {
-      ...defaultDisplayOptions,
-      ...get(this.displayOptionsStore),
-      ...options.initDisplayOptions};
-    $effect(() => {
-      this.displayOptionsStore.set(this.displayOptions);
-    });
+    console.info(`Initializing layer ${this.id} with options`, options);
+    if (options.initDisplayOptions) {
+      this.displayOptions = {
+        ...defaultDisplayOptions,
+        ...options.initDisplayOptions
+      };
+    } else {
+      this.displayOptionsStore = persisted('layer_'+this.id, defaultDisplayOptions);
+      this.displayOptions = {
+        ...defaultDisplayOptions,
+        ...get(this.displayOptionsStore)
+      };
+      $effect(() => {
+        this.displayOptionsStore?.set(this.displayOptions);
+      });
+    }
+
+    if (this.options.priorityHighlight < 0)
+      this.highlightable = false;
+    if (this.options.prioritySelect < 0)
+      this.selectable = false;
 
     this.mapRoot = mapRoot;
-    const pane = this.mapRoot.createPane('layer-'+options.name);
+    const pane = this.mapRoot.createPane('layer-'+this.id);
     pane.style.zIndex = options.zIndex.toString();
     $effect(() => {
       if (this.displayOptions) {
@@ -98,7 +123,7 @@ export abstract class LayerController<
 
     if (options.onClick) {
       $effect(() => {
-        //console.log(`${this.layerName}: effect mapBaseLayer`);
+        //console.log(`${this.id}: effect mapBaseLayer`);
         if (this.mapBaseLayer) {
           this.mapBaseLayer.on('click', (e) => options.onClick?.(e))
         }
@@ -111,7 +136,7 @@ export abstract class LayerController<
   }
 
   featureProperties = (f: Feature<G, P>) => {
-    const exclude = ['name', 'type', '_cache'];
+    const exclude = ['name', '_cache'];
     return (Object.entries(f.properties)
       .filter(([k]) => (!exclude.includes(k)))
       .map(([k, v]) => ({label: k, value: v} as InfoItem))
@@ -132,7 +157,7 @@ export abstract class LayerController<
   mapLayerOptions(): L.GeoJSONOptions {
     return {
       pmIgnore: true,
-      pane: 'layer-'+this.options.name,
+      pane: 'layer-'+this.id,
       onEachFeature: (f: Feature<G, P>, layer: MapFeatureLayer<G, P>) => this.onEachFeature(f, layer),
       style: (f?: Feature<G, P>): L.PathOptions => this.style(f),
       pointToLayer: (f: Feature<geojson.Point, P>, latlng: L.LatLng) => this.pointToLayer(f, latlng),
@@ -149,7 +174,7 @@ export abstract class LayerController<
     });
   }
 
-  style(feature?: Feature<G, P>): L.PathOptions {
+  style = (feature?: Feature<G, P>): L.PathOptions => {
     if (!feature)
       return {}
 
@@ -160,7 +185,7 @@ export abstract class LayerController<
       return this.styleSelected;
     }
     else {
-      return {};
+      return this.options.style?.(feature) || {};
     }
   }
 
@@ -222,7 +247,7 @@ export abstract class LayerController<
     if (!layer)
       return;
 
-    //console.log(`${this.layerName}: highlight ${layer.feature.id}`);
+    //console.log(`${this.id}: highlight ${layer.feature.id}`);
     layer.setStyle(this.styleHighlighted);
     if (this.highlightBringsToFront) {
       layer.bringToFront();

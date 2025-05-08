@@ -230,7 +230,7 @@
     <PopoverInfoBox title="Layers" contentClasses="flex">
       {#snippet trigger()}<IconLayers />{/snippet}
       {#snippet content()}
-        <DisplayOptions map={map}/>
+        <DisplayOptions />
       {/snippet}
     </PopoverInfoBox>
 

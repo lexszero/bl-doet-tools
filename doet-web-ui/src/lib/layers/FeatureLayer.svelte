@@ -16,7 +16,7 @@
   }: {
     mapRoot: L.Map,
     layer: LayerData<Geometry, Props>,
-    options: LayerControllerOptions<BasicLayerDisplayOptions>,
+    options: Partial<LayerControllerOptions<BasicLayerDisplayOptions>>,
   } = $props();
 
   const data = getContext<ProjectData>(ProjectData);
@@ -29,7 +29,7 @@
 
 {#if ctl.data.features && ctl.displayOptions.visible}
   <GeoJSON
-    json={{type: "FeatureCollection", features: [...ctl.data.features.values()]}}
+    json={{type: "FeatureCollection", features: [...ctl.features.values()]}}
     bind:instance={ctl.mapBaseLayer}
     options={ctl.mapLayerOptions()}
   />

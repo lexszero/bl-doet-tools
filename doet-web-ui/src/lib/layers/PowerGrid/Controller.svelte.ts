@@ -33,6 +33,7 @@ import IconTimestamp from '@lucide/svelte/icons/file-clock';
 import {
   featureChip, 
   LayerController,
+  MapLayerControls,
   type LayerControllerOptions,
   type MapFeatureLayer,
 } from '$lib/layers/LayerController.svelte';
@@ -93,10 +94,10 @@ export class PowerGridController extends LayerController<
   constructor (mapRoot: L.Map, data: PowerGridData, options: LayerControllerOptions<PowerGridDisplayOptions>) {
     super(mapRoot, data, {
       ...options,
-      name: 'PowerGrid',
       zIndex: 420,
       priorityHighlight: 50,
-      prioritySelect: -1,
+      prioritySelect: 50,
+      controls: MapLayerControls.Full,
       defaultDisplayOptions: {
         visible: true,
         opacity: 0.8,
@@ -109,7 +110,7 @@ export class PowerGridController extends LayerController<
       },
     });
 
-    mapRoot.createPane('layer-PowerGridCoverage').style.zIndex = "408";
+    mapRoot.createPane(`layer-${this.id}-coverage`).style.zIndex = "408";
 
     this.setupEditControls(this.data.editable);
 
@@ -222,6 +223,8 @@ export class PowerGridController extends LayerController<
 
   selectFeature(item: string | GridMapFeatureLayer, fly: boolean = false) {
     const layer = super.selectFeature(item, fly);
+    if (!layer)
+      return;
     console.debug(`Select grid feature ${layer?.feature.id}, editInProgress=${this.editInProgress}`);
     this.resetHighlightedFeature()
     this.resetHighlightedPath();
@@ -528,7 +531,7 @@ export class PowerGridController extends LayerController<
       opacity: 1,
       fillOpacity: 0.8,
       pmIgnore: false,
-      pane: 'layer-PowerGrid',
+      pane: `layer-${this.id}`,
       bubblingMouseEvents: false
     });
     m.on('move', () => {
@@ -751,7 +754,7 @@ export class PowerGridController extends LayerController<
         }
       };
       const layer = L.featureGroup(circles, {
-        pane: 'layer-PowerGridCoverage',
+        pane: `layer-${this.id}-coverage`,
       });
       this.mapRoot.addLayer(layer);
       console.log(`PowerGrid: Added coverage layer with ${circles.length} circles`);

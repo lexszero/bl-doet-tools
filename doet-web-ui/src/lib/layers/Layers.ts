@@ -1,12 +1,14 @@
 import PowerGridLayer from "./PowerGrid";
 import PowerAreasLayer from "./PowerAreas";
 import PlacementLayer from "./Placement";
+import {RoadsLayer} from "./Simple";
 import type {UnionOfValues} from "$lib/utils/types";
 
 export const LayerTemplates = {
   power_areas: PowerAreasLayer,
   power_grid: PowerGridLayer,
-  placement: PlacementLayer
+  placement: PlacementLayer,
+  roads: RoadsLayer
 }
 
 export const LayerTemplatesOrdered = Object.values(LayerTemplates).toSorted((a, b) => (a.order - b.order));

@@ -10,7 +10,7 @@ export interface MapPosition {
 export interface MapDisplayOptionsDTO {
   selected?: string,
   position?: MapPosition,
-  PowerAreas?: PowerAreasDisplayOptions,
-  PowerGrid?: PowerGridDisplayOptions,
-  Placement?: PlacementDisplayOptions,
+  power_areas?: PowerAreasDisplayOptions,
+  power_grid?: PowerGridDisplayOptions,
+  placement?: PlacementDisplayOptions,
 }

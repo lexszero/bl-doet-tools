@@ -9,6 +9,7 @@ import type {Feature} from "./utils/geojson";
 import type {GridFeature} from "./layers/PowerGrid/types";
 import type {PowerAreaFeature} from "./layers/PowerAreas/types";
 import type {PlacementFeature} from "./layers/Placement/types";
+import type {BasicLayerDisplayOptions} from "./layers/LayerController.svelte";
 
 export interface ProjectInfo {
   timestamps: [number];
@@ -18,6 +19,7 @@ export interface FeaturesDataElement<F extends Feature<Geometry, object>> {
   timestamp: string;
   features: F[];
   editable: boolean;
+  displayOptions?: BasicLayerDisplayOptions;
 }
 
 interface MapOptions {
@@ -29,7 +31,7 @@ interface MapOptions {
 
 interface MapViewData {
   mapOptions?: MapOptions;
-  layers: {
+  layers: Record<string, FeaturesDataElement<Feature<Geometry, object>>> & {
     power_areas?: FeaturesDataElement<PowerAreaFeature>,
     power_grid?: FeaturesDataElement<GridFeature>,
     placement?: FeaturesDataElement<PlacementFeature>,
