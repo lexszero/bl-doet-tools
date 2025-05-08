@@ -30,8 +30,8 @@ export interface LossInfoCable {
 }
 
 export function cableLength(feature: GridCableFeature): number {
-  if (feature.properties._loss?.L) {
-    return feature.properties._loss.L;
+  if (feature.properties._cache?.loss?.L) {
+    return feature.properties._cache?.loss?.L;
   }
   let length = 0;
   for (let i = 0; i < feature.geometry.coordinates.length - 1; i++) {

@@ -11,7 +11,7 @@
   let { ctl }: { ctl: Controller } = $props();
 </script>
 
-<LayerDisplayOptions value={ctl.layerName} title="Power grid" icon={IconPower}>
+<LayerDisplayOptions value={ctl.data.id} title="Power grid" icon={IconPower}>
   {@const mode = ctl.displayOptions.mode}
 
   <div class="flex justify-between items-center gap-4">

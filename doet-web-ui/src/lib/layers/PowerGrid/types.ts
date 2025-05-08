@@ -1,55 +1,54 @@
 import type {FeaturesDataElement} from '$lib/api_project';
 import { type BasicLayerDisplayOptions } from '$lib/layers/LayerController.svelte';
 import type { Feature } from '$lib/utils/geojson';
-import type { Named } from '$lib/utils/types';
+import type { CacheMixin, Named, ValidationLog } from '$lib/utils/types';
+import type { ItemLogEntry } from '$lib/utils/misc';
 import type { Point, LineString } from 'geojson';
 import type { LossInfoCable, LossInfoPDU } from './calculations';
+
+export type GridFeatureCommonCachedProperties = ValidationLog & {
+  pathToSource: string[];
+}
 
 interface GridFeatureCommonProperties extends Named {
   description?: string;
   power_size: string;
   power_native?: boolean;
-
-  _pathToSource?: string[];
-  _drc?: ItemizedLogEntry[];
 }
 
-export interface ItemizedLogEntry {
-  item_id?: string;
-  level: number;
-  message: string;
-};
+export interface GridPDUCachedProperties extends GridFeatureCommonCachedProperties {
+  consumers: string[];
+  loss?: LossInfoPDU;
+}
 
-export interface GridPDUProperties extends GridFeatureCommonProperties {
+export interface GridPDUProperties extends GridFeatureCommonProperties, CacheMixin<GridPDUCachedProperties> {
   type: "power_grid_pdu"
   power_source?: boolean
   cable_in?: string;
   cables_out?: string[];
-
-  _consumers: string[];
-  _loss?: LossInfoPDU;
 }
 
 export type GridPDUFeature = Feature<Point, GridPDUProperties>;
 
-export interface GridCableProperties extends GridFeatureCommonProperties {
+export interface GridCableCachedProperties extends GridFeatureCommonCachedProperties {
+  loss?: LossInfoCable;
+}
+
+export interface GridCableProperties extends GridFeatureCommonProperties, CacheMixin<GridCableCachedProperties> {
   type: "power_grid_cable"
   pdu_from?: string;
   pdu_to?: string;
-
-  _loss?: LossInfoCable;
 }
 
 export type GridCableFeature = Feature<LineString, GridCableProperties>;
 
+export type GridFeatureGeometry = Point | LineString
 export type GridFeatureProperties = GridPDUProperties | GridCableProperties;
-export type GridFeature = Feature<Point | LineString, GridFeatureProperties>;
+export type GridFeature = Feature<GridFeatureGeometry, GridFeatureProperties>;
 
 export interface PowerGridDataElement extends FeaturesDataElement<GridFeature> {
-  log: ItemizedLogEntry[];
+  log: ItemLogEntry[];
 }
-
-
 
 export interface PowerGridDisplayOptions extends BasicLayerDisplayOptions {
   mode: 'size' | 'loss';

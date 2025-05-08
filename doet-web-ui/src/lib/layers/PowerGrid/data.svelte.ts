@@ -1,19 +1,18 @@
-import {getContext} from 'svelte';
-import { SvelteMap } from 'svelte/reactivity';
 import L from 'leaflet';
-import { parseJSON as parseTimestamp } from 'date-fns';
 import { coordsToLatLng, isSamePoint } from '$lib/utils/geo';
 
 import type {
   GridFeature,
   GridCableFeature,
+  GridCableCachedProperties,
   GridPDUFeature,
   GridPDUProperties,
-  ItemizedLogEntry,
-  PowerGridDataElement
+  GridPDUCachedProperties,
+  GridFeatureCommonCachedProperties,
+  GridFeatureGeometry,
+  GridFeatureProperties
 } from './types';
 
-import { ProjectAPI } from '$lib/api_project';
 import { Vref_LL, getGridItemSizeInfo, gridItemSizeLE } from './constants';
 import {
   calculateCableLoss,
@@ -23,50 +22,21 @@ import {
   type LossParamsCable,
   type LossParamsPDU,
 } from './calculations';
+import {Severity, type ItemLogEntry} from '$lib/utils/misc';
+import {LayerData, featureCachedProps} from '../LayerData.svelte';
+import PowerGridController from './Controller.svelte';
 
-function applyToGridFeature<T>(f: GridFeature, pduFn?: ((f: GridPDUFeature) => T), cableFn?: ((f: GridCableFeature) => T)): T | undefined {
-  switch (f.properties.type) {
-    case 'power_grid_pdu':
-      return pduFn?.(f as GridPDUFeature);
-    case 'power_grid_cable':
-      return cableFn?.(f as GridCableFeature);
-  }
-}
-
-export class PowerGridData {
-  api: ProjectAPI;
-  features: SvelteMap<string, GridFeature> = $state(new SvelteMap<string, GridFeature>);
-
-  featuresLoaded: Map<string, GridFeature> = new Map();
-  featuresChanged: Map<string, GridFeature | null>;
-
-  timestamp?: Date;
-  log?: ItemizedLogEntry[] = $state();
-  editable: boolean = false;
+export class PowerGridData extends LayerData<GridFeatureGeometry, GridFeatureProperties> {
+  declare ctl: PowerGridController;
+  log?: ItemLogEntry[] = $state();
 
   lossCalculationParams: LossParamsPDU = {
     method: 'capacity',
     fractionLoad: 0.5
   };
 
-  constructor() {
-    this.api = getContext('api');
-    this.features = new SvelteMap<string, GridFeature>();
-    this.featuresChanged = new SvelteMap<string, GridFeature | null>();
-  }
-
-  async load(timeEnd?: Date) {
-    const data = await this.api.getDataViewElement<PowerGridDataElement>('power_grid', undefined, timeEnd);
-    this.timestamp = parseTimestamp(data.timestamp);
-    this.editable = data.editable;
-    console.info(`PowerGridData: last revision at `, this.timestamp);
-
-    const features = new Map<string, GridFeature>(
-      data.features.map(
-        (it: GridFeature) => ([it.id, it])
-      ));
+  processFeaturesAfterLoad(features: Map<string, GridFeature>): void {
     for (const f of features.values()) {
-      f.properties._drc = []
       if (f.properties.type == 'power_grid_cable') {
         const props = f.properties;
         if (props.pdu_from) {
@@ -81,38 +51,11 @@ export class PowerGridData {
         }
       }
     }
-    if (data.log) {
-      for (const entry of (data.log || [])) {
-        if (entry.item_id) {
-          const props = features.get(entry.item_id)?.properties;
-          if (props) {
-            if (props._drc) {
-              props._drc.push(entry);
-            } else {
-              props._drc = [entry]
-            }
-          }
-        }
-      }
-      this.log = data.log.toSorted((a, b) => (b.level - a.level));
-    }
-    this.featuresLoaded = features;
-    this.resetChanges();
+  }
+
+  updateCache() {
+    super.updateCache();
     this.updateCalculatedInfo(this.lossCalculationParams);
-  }
-
-  resetChanges() {
-    this.features = new SvelteMap<string, GridFeature>(this.featuresLoaded.entries().map(
-      ([k, v]) => ([k, structuredClone(v)])
-    ));
-  }
-
-  getFeature(id?: string) {
-    const result = (id) ? this.features.get(id) : undefined;
-    if (!result) {
-      console.error("Can't find feature ", id);
-    }
-    return result;
   }
 
   getCable(id?: string) {
@@ -121,6 +64,29 @@ export class PowerGridData {
 
   getPDU(id?: string) {
     return this.getFeature(id) as GridPDUFeature | undefined;
+  }
+
+  validateFeature(f: GridFeature) {
+    const log: ItemLogEntry[] = [];
+    const record = (level: Severity, message: string) => log.push({item_id: f.id, level, message});
+    switch (f.properties.type) {
+      case 'power_grid_pdu': {
+        const props = f.properties;
+        if (!props.cable_in && !props.power_source)
+          record(Severity.Error, "PDU is not getting power");
+        break;
+      }
+
+      case 'power_grid_cable': {
+        const props = f.properties;
+        if (!props.pdu_from)
+          record(Severity.Error, "Cable is not connected to source");
+        if (!props.pdu_to)
+          record(Severity.Error, "Cable is not connected to load");
+        break;
+      }
+    }
+    return log;
   }
 
   updateCalculatedInfo(
@@ -140,7 +106,7 @@ export class PowerGridData {
   ) {
     return calculatePathLoss(
       this.getGridPathToSource(feature),
-      params.fractionLoad
+      { loadPercentage: params.fractionLoad * 100 }
     );
   }
 
@@ -200,7 +166,7 @@ export class PowerGridData {
       I_in: I_in,
       I_load: I_in * calc.fractionLoad,
     };
-    pdu.properties._loss = lossPDU;
+    (featureCachedProps(pdu) as GridPDUCachedProperties).loss = lossPDU;
 
 //    console.debug(`PDU ${pdu.id}: `, lossPDU);
 
@@ -209,7 +175,7 @@ export class PowerGridData {
         continue;
 
       const lossCable = calculateCableLoss(cable, V_in, calc.getCableAmps(cable));
-      cable.properties._loss = lossCable;
+      (featureCachedProps(cable) as GridCableCachedProperties).loss = lossCable;
 
  //     console.debug(`Cable ${cable.id}: `, lossCable);
 
@@ -246,11 +212,12 @@ export class PowerGridData {
   getGridPathToSource(
     feature: GridFeature,
   ): GridFeature[] | undefined {
-    if (feature.properties._pathToSource) {
-      return feature.properties._pathToSource.map((id) => this.getFeature(id));
+    const c = featureCachedProps(feature) as GridFeatureCommonCachedProperties;
+    if (c.pathToSource) {
+      return c.pathToSource.map((id) => this.getFeature(id));
     } else {
       const path = this.findGridPathToSource(feature);
-      feature.properties._pathToSource = path?.map((f) => f.id);
+      c.pathToSource = path?.map((f) => f.id);
       return path;
     }
     //return this.findGridPathToSource(feature);
@@ -259,11 +226,12 @@ export class PowerGridData {
   getGridPathToSourceIds(
     feature: GridFeature,
   ): string[] | undefined {
-    if (!feature.properties._pathToSource) {
+    const c = featureCachedProps(feature) as GridFeatureCommonCachedProperties;
+    if (!c.pathToSource) {
       const path = this.findGridPathToSource(feature);
-      feature.properties._pathToSource = path?.map((f) => f.id);
+      c.pathToSource = path?.map((f) => f.id);
     }
-    return feature.properties._pathToSource;
+    return c.pathToSource;
     //return this.findGridPathToSource(feature)?.map((f) => f.id);
   }
 
@@ -307,7 +275,7 @@ export class PowerGridData {
         break;
       }
       case 'power_grid_cable': {
-        feature.properties._pathToSource = undefined;
+        feature.properties._cache = undefined;
         break;
       }
     }
@@ -319,7 +287,7 @@ export class PowerGridData {
   }
 
   updateCableGeometry(cable: GridCableFeature) {
-    cable.properties._loss = undefined;
+    cable.properties._cache = undefined;
     this.markChanged(cable);
   }
 
@@ -360,7 +328,7 @@ export class PowerGridData {
 
   invalidatePathToSourceDownstream(feature: GridFeature) {
     this.forEachGridFeatureDownstream(feature, (f: GridFeature) => {
-      f.properties._pathToSource = undefined;
+      f.properties._cache = undefined;
     })
   }
 

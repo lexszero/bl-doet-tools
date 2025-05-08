@@ -5,6 +5,10 @@
 @source '../node_modules/@skeletonlabs/skeleton-svelte/dist';
 @custom-variant dark (&:where(.dark, .dark *)); 
 
+[data-theme='cerberus'] {
+  --spacing: 0.15rem;
+}
+
 @utility preset-box {
   background-color: var(--color-surface-100-900);
   color: var(--color-surface-contrast-100-900);

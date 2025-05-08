@@ -1,7 +1,9 @@
 
+import IconArea from '@lucide/svelte/icons/drafting-compass';
 import IconClose from '@lucide/svelte/icons/x';
 import IconContact from '@lucide/svelte/icons/contact';
 import IconDescription from '@lucide/svelte/icons/badge-info';
+import IconMenu from '@lucide/svelte/icons/menu';
 import IconWarning from '@lucide/svelte/icons/triangle-alert';
 import IconFeatureDefault from '@lucide/svelte/icons/map-pin';
 import IconCable from '@lucide/svelte/icons/cable';
@@ -16,9 +18,11 @@ import IconPlug from '@lucide/svelte/icons/plug';
 import IconSound from '@lucide/svelte/icons/volume-2';
 
 export {
+  IconArea,
   IconClose,
   IconContact,
   IconDescription,
+  IconMenu,
   IconWarning,
   IconFeatureDefault,
   IconCable,
@@ -48,6 +52,6 @@ export interface IconProps extends Attrs {
 }
 
 declare const Icon: import("svelte").Component<IconProps, {}, "">;
-export type IconType = ReturnType<typeof Icon>;
+export type IconType = typeof Icon;
 
 

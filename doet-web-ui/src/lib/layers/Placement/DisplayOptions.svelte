@@ -24,7 +24,7 @@
   </SegmentItem>
 {/snippet}
 
-<LayerDisplayOptions value={ctl.layerName} title="Placement" icon={IconPlacement}>
+<LayerDisplayOptions value={ctl.data.id} title="Placement" icon={IconPlacement}>
   {@const mode = ctl.displayOptions.mode}
   <div class="flex justify-between items-center gap-4">
     <p>Color by</p>

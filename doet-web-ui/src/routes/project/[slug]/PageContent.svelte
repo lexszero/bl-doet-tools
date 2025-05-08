@@ -11,41 +11,53 @@
   import TimeTravelSlider from './TimeTravelSlider.svelte';
 
   import { ProjectAPI } from '$lib/api_project';
-  import Map from './Map.svelte?client';
+  import { ProjectData } from '$lib/ProjectData.svelte';
+  import Map from './Map.svelte';
   import { type MapContentInterface } from '$lib/MapContent.svelte';
-  import { PowerGridData } from '$lib/layers/PowerGrid/data.svelte?client';
   import DisplayOptions from '$lib/layers/DisplayOptions.svelte';
 
-  import { IconPlacement, IconPower, IconWarning } from '$lib/Icons';
+  import { IconMenu, IconWarning } from '$lib/Icons';
+  import IconArrowLeftToLine from '@lucide/svelte/icons/arrow-left-to-line';
   import IconHistory from '@lucide/svelte/icons/history';
   import IconInfo from '@lucide/svelte/icons/info';
   import IconLayers from '@lucide/svelte/icons/layers';
   import IconLink from '@lucide/svelte/icons/link';
 
   import { TimeRange, Severity, logLevelToColor } from '$lib/utils/misc';
-  
-  import { copy as copyToClipboard } from 'svelte-copy';
+  import { type SearchboxItem } from '$lib/utils/types';
+
   import lz from 'lz-string';
 
 
-  let { project }: {project: string} = $props();
+  let {
+    project,
+    timeRange = $bindable(new TimeRange()),
+  }: {
+    project: string,
+    timeRange: TimeRange,
+  } = $props();
 
-  let api = $derived(new ProjectAPI(project));
+  let api = new ProjectAPI(project);
   setContext('api', api);
-  let grid: PowerGridData | undefined;
-  if (browser) {
-    grid = new PowerGridData(api);
-    setContext('PowerGridData', grid);
-  }
+
+  let data = new ProjectData();
+  setContext(ProjectData, data);
+
+  $effect(async () => {
+    if (timeRange)
+      await data.loadView('default', timeRange.start, timeRange.end)
+  });
 
   let map: MapContentInterface | undefined = $state();
   $effect(() => {
     setContext('Map', map);
   })
 
-  let timeRange: TimeRange = $state(new TimeRange());
-  let searchItems = $derived(Object.values(map?.layers || {}).reduce((all, layer) => ([...all, ...layer.searchItems]), []));
-  let searchValue = $state();
+  let searchValue: string | undefined = $state(undefined);
+  let searchItems: SearchboxItem[] = $derived(Object.values(data.layers).reduce(
+    (all, layer) => ([...all, ...layer.ctl?.searchItems || []])
+    , [] as SearchboxItem[]));
+
 
   let copyUrlWithSelected: boolean = $state(false);
 
@@ -65,58 +77,108 @@
     return url.toString();
   }
 
-  let warningsGrid = $derived(map?.layers.PowerGrid.warningsSummary() || []);
-  let warningsPlacement = $derived(map?.layers.Placement.warningsSummary() || []);
-  let nWarnings = $derived(warningsGrid.length + warningsPlacement.length);
-  let warningsGroup = $derived(
-    warningsGrid.length > 0 ? 'PowerGrid'
-    : warningsPlacement.length > 0 ? 'Placement'
-    : ""
-  );
+  let allWarnings = $derived(Object.values(data.warnings).reduce(
+    (all, log) => all.concat(log), []
+    ))
+  let warningsDefaultTab = $derived.by(() => {
+    for (const [name, log] of Object.entries(data.warnings)) {
+      if (log.length > 0)
+        return name;
+    }
+  });
+  let warningsTab = $state('');
+
+  let showToolbar = $state(false);
 </script>
 
-<AppBar background="bg-surface-200-800" padding='p-1'>
+<AppBar
+  background="bg-surface-200-800"
+  padding="p-1"
+  toolbarGap="gap-1"
+  >
   {#snippet lead()}
-    <UserMenu />
+    <span class="items-center">
+      <button
+        class={["btn", showToolbar ? "preset-tonal-primary-200-800" : "preset-filled-surface-100-900"]}
+        onclick={() => {showToolbar = !showToolbar}}
+        >
+        {#if showToolbar}
+          <IconArrowLeftToLine />
+        {:else}
+          <IconMenu />
+        {/if}
+      </button>
+      {#if showToolbar}
+        <UserMenu />
 
-    <PopoverInfoBox title="Time travel"
-      positionerClasses="w-full pr-4"
-      contentClasses="flex flex-col justify-between items-center gap-4">
-      {#snippet trigger()}<IconHistory/>{/snippet}
-      {#snippet content()}
-        {#await api.getChangeTimestamps()}
-        {:then info}
-          <TimeTravelSlider
-            bind:timeRange={timeRange}
-            markers={info.timestamps}
-          />
-        {/await}
-      {/snippet}
-    </PopoverInfoBox>
+        <PopoverInfoBox title="Time travel"
+          positionerClasses="w-full pr-4"
+          contentClasses="flex flex-col justify-between items-center gap-4">
+          {#snippet trigger()}<IconHistory/>{/snippet}
+          {#snippet content()}
+            {#await api.getChangeTimestamps()}
+            {:then info}
+              <TimeTravelSlider
+                bind:timeRange={timeRange}
+                markers={info.timestamps}
+              />
+            {/await}
+          {/snippet}
+        </PopoverInfoBox>
+
+        <PopoverInfoBox title="Statistics">
+          {#snippet trigger()}<IconInfo />{/snippet}
+          {#snippet content()}
+            <PropertiesTable items={data.layers.power_grid.ctl.getStatistics()}
+              onClickChip={(id) => map?.selectFeature(id)}
+              onHoverChip={(id) => map?.highlightFeature(id)}
+              />
+          {/snippet}
+        </PopoverInfoBox>
+        
+        <PopoverInfoBox title="Share link">
+          {#snippet trigger()}<IconLink />{/snippet}
+          {#snippet content()}
+            <div class="flex-col p-1">
+              {#key copyUrlWithSelected}
+                <CopyURL url={getUrl(copyUrlWithSelected)} />
+              {/key}
+              <label class="flex items-center space-x-2">
+                <Switch checked={copyUrlWithSelected} onCheckedChange={(e) => {copyUrlWithSelected=e.checked}} />
+                <p>To selected feature</p>
+              </label>
+            </div>
+          {/snippet}
+        </PopoverInfoBox>
+
+      {/if}
+    </span>
+
+    <span class="vr border-l-2"></span>
 
     <Combobox
       data={searchItems}
       value={searchValue}
       onValueChange={(e) => map?.selectFeature(e.value[0])}
       placeholder="Search..."
-      base="preset-outlined-surface-50-950 bg-surface-50-950",
-      contentClassess="max-h-[500px]"
-      width="w-100"
+      classes="preset-filled-surface-50-950 bg-surface-50-950"
+      positionerClasses="flex grow min-w-[300px] max-h-screen max-w-screen"
+      contentClasses="overflow-auto overflow-x-hidden"
+      width="w-auto md:w-100"
       zIndex="1000"
     >
       {#snippet item(item)}
         {@const Icon = item.icon}
-        <div class="flex grow w-150 justify-between space-x-2">
-          <span>{@html item.label}</span>
+        <div class="flex w-150 space-x-1">
           <Icon />
+          <span>{@html item.label}</span>
         </div>
       {/snippet}
     </Combobox>
   {/snippet}
 
   {#snippet trail()}
-    {#if nWarnings}
-      {@const allWarnings = [...warningsPlacement, ...warningsGrid]}
+    {#if allWarnings.length}
       <PopoverInfoBox title="Warnings"
         contentClasses="overflow-auto max-h-[500px]"
         positionerClasses="max-h-screen"
@@ -134,77 +196,51 @@
         {/snippet}
         {#snippet content()}
           <Tabs
-            value={warningsGroup}
-            onValueChange={(e) => { warningsGroup = e.value }}
+            value={warningsTab || warningsDefaultTab}
+            onValueChange={(e) => { warningsTab = e.value }}
             activationMode="automatic"
             >
             {#snippet list()}
-              {#if warningsGrid.length}
-                <Tabs.Control value="PowerGrid">
-                  {#snippet lead()}<IconPower size="16" />{/snippet}
-                  Power grid [{warningsGrid.length}]
-                </Tabs.Control>
-              {/if}
-              {#if warningsPlacement.length}
-                <Tabs.Control value="Placement">
-                  {#snippet lead()}<IconPlacement size="16" />{/snippet}
-                  Placement [{warningsPlacement.length}]
-                </Tabs.Control>
-              {/if}
+              {#each data.allLayers as layer}
+                {@const w = layer.warningsSummary}
+                {#if w?.length}
+                  {@const Icon = layer.layer.icon}
+                  <Tabs.Control value={layer.id}>
+                    {#snippet lead()}<Icon size="16" />{/snippet}
+                    {layer.layer.name} [{w.length}]
+                  </Tabs.Control>
+                {/if}
+              {/each}
             {/snippet}
             {#snippet content()}
-              {#if warningsGrid.length}
-                <Tabs.Panel value="PowerGrid">
-                  <WarningsTable items={warningsGrid} />
-                </Tabs.Panel>
-              {/if}
-              {#if warningsPlacement.length}
-                <Tabs.Panel value="Placement">
-                  <WarningsTable items={warningsPlacement} />
-                </Tabs.Panel>
-              {/if}
+              {#each data.allLayers as layer}
+                {@const w = layer.warningsSummary}
+                {#if w?.length}
+                  <Tabs.Panel value={layer.id}>
+                    <WarningsTable items={w} />
+                  </Tabs.Panel>
+                {/if}
+              {/each}
             {/snippet}
           </Tabs>
         {/snippet}
       </PopoverInfoBox>
     {/if}
     
-    <PopoverInfoBox title="Statistics">
-      {#snippet trigger()}<IconInfo />{/snippet}
-      {#snippet content()}
-        <PropertiesTable items={map?.layers.PowerGrid.getStatistics()}
-          onClickChip={(id) => map?.selectFeature(id)}
-          onHoverChip={(id) => map?.highlightFeature(id)}
-          />
-      {/snippet}
-    </PopoverInfoBox>
-
-    <PopoverInfoBox title="Layers" contentClasses="min-w-lg grow">
+    <PopoverInfoBox title="Layers" contentClasses="flex">
       {#snippet trigger()}<IconLayers />{/snippet}
       {#snippet content()}
         <DisplayOptions map={map}/>
       {/snippet}
     </PopoverInfoBox>
 
-    <PopoverInfoBox title="Share link">
-      {#snippet trigger()}<IconLink />{/snippet}
-      {#snippet content()}
-        <div class="flex-col p-1">
-          {#key copyUrlWithSelected}
-            <CopyURL url={getUrl(copyUrlWithSelected)} />
-          {/key}
-          <label class="flex items-center space-x-2">
-            <Switch checked={copyUrlWithSelected} onCheckedChange={(e) => {copyUrlWithSelected=e.checked}} />
-            <p>To selected feature</p>
-          </label>
-        </div>
-      {/snippet}
-    </PopoverInfoBox>
   {/snippet}
 </AppBar>
 
 {#if browser}
-  <Map
-    bind:content={map}
-    timeRange={timeRange}/>
+  {#key timeRange}
+    <Map
+      bind:content={map}
+      timeRange={timeRange}/>
+  {/key}
 {/if}

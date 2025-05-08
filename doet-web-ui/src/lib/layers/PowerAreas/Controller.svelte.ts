@@ -1,61 +1,41 @@
-import { getContext } from 'svelte';
-import { SvelteMap } from 'svelte/reactivity';
 import type {Polygon} from 'geojson';
-import type {PowerAreaFeature, PowerAreaProperties, PowerAreasDisplayOptions} from './types';
-import type {PowerGridData} from '$lib/layers/PowerGrid/data.svelte';
 import { LayerController, type LayerControllerOptions } from '$lib/layers/LayerController.svelte';
-import type {FeaturesDataElement} from '$lib/api_project';
-import type {PlacementFeature} from '../Placement/types';
 import type {InfoItem} from '$lib/utils/types';
 
 import { L, coordsToLatLngs, ringArea } from '$lib/utils/geo';
-import LabeledMarker from 'leaflet-labeled-circle';
+import 'leaflet-labeled-circle';
 
-import {IconPeople, IconPower} from '$lib/Icons';
-import IconArea from '@lucide/svelte/icons/drafting-compass';
-import power from '@lucide/svelte/icons/power';
+import type {PowerAreaCachedProperties, PowerAreaFeature, PowerAreaProperties, PowerAreasDisplayOptions} from './types';
+import type PowerAreasData from './data';
+import DisplayOptions from './DisplayOptions.svelte';
+
+import {IconArea, IconPeople, IconPower} from '$lib/Icons';
+import {featureCachedProps} from '../LayerData.svelte';
 
 export class PowerAreasController extends LayerController<
   Polygon,
   PowerAreaProperties,
   PowerAreasDisplayOptions
 > {
-  layerName = 'PowerAreas';
-  layerZIndex = 1;
+  DisplayOptionsComponent = DisplayOptions;
 
-  data: PowerGridData;
-  statsReady: boolean = false;
+  declare data: PowerAreasData;
 
-  constructor (mapRoot: L.Map, options: LayerControllerOptions<PowerAreasDisplayOptions>) {
-    super(mapRoot, {
+  constructor (mapRoot: L.Map, data: PowerAreasData, options: LayerControllerOptions<PowerAreasDisplayOptions>) {
+    super(mapRoot, data, {
+      ...options,
       name: 'PowerAreas',
       zIndex: 405,
+      priorityHighlight: 10,
+      prioritySelect: 30,
       defaultDisplayOptions: {
         visible: true,
         opacity: 0.3,
         showTotalPower: false,
         divTotalPower: 1,
       },
-      ...options
     });
-    this.data = getContext('PowerGridData');
     mapRoot.createPane('layer-PowerAreasTotals').style.zIndex = "450";
-  }
-
-  async load(timeStart?: Date, timeEnd?: Date) {
-    const data = await this.data.api.getDataViewElement<FeaturesDataElement<PowerAreaFeature>>('power_areas', timeStart, timeEnd);
-    this.features = new SvelteMap<string, PowerAreaFeature>(
-      data.features.map(
-        (f: PowerAreaFeature) => {
-          f.properties._attrs = {
-            poly: new L.Polyline(coordsToLatLngs(f.geometry.coordinates[0])),
-            population: 0,
-            powerNeed: 0
-          };
-          return [f.id, f];
-        }
-      )
-    );
   }
 
   updateStyle(): void {
@@ -86,37 +66,8 @@ export class PowerAreasController extends LayerController<
 
   highlightBringsToFront = false;
 
-  findAreasForPoint(p: L.LatLng): PowerAreaFeature[] {
-    const result = [];
-    for (const area of this.features.values()) {
-      const poly = area.properties._attrs?.poly;
-      if (!poly)
-        continue;
-      if (poly.contains(p))
-        result.push(area);
-    }
-    return result
-  }
-
-  updateStats(placement: Iterable<PlacementFeature>) {
-    for (const item of placement) {
-      const p = L.PolyUtil.centroid(coordsToLatLngs(item.geometry.coordinates[0]));
-      const areas = this.findAreasForPoint(p);
-      //console.debug(`Placement item ${item.id} ${item.properties.name} -> ${areas.map((a) => a.properties.name)}`);
-      for (const area of areas) {
-        const attrs = area?.properties._attrs;
-        if (!attrs)
-          continue;
-        attrs.powerNeed += item.properties.powerNeed || 0;
-        attrs.population += item.properties.nrOfPeople || 0;
-      }
-    }
-    this.statsReady = true;
-    this.updateTotals(true);
-  }
-
   featureProperties = (f: PowerAreaFeature) => {
-    const exclude = ['name', 'type', '_attrs'];
+    const exclude = ['name', 'type', '_cache'];
     const result = (Object.entries(f.properties)
       .filter(([k]) => (!exclude.includes(k)))
       .map(([k, v]) => ({label: k, value: v} as InfoItem))
@@ -127,49 +78,55 @@ export class PowerAreasController extends LayerController<
       label: "Area",
       value: `${totalArea.toFixed(0)} m²`
     });
-    const attrs = f.properties._attrs;
-    if (attrs) {
+    const c = featureCachedProps(f) as PowerAreaCachedProperties;
+    if (c.population)
+      result.push({
+        icon: IconPeople,
+        label: "Population",
+        value: `${(c.population).toFixed(0)}`,
+      });
+
+    if (c.powerNeed) {
       const powerNeedAdjusted = (this.displayOptions.divTotalPower != 1)
-        ? `| ${(attrs.powerNeed / this.displayOptions.divTotalPower / 1000).toFixed(0)} kW (div ${this.displayOptions.divTotalPower})`
+        ? `| ${(c.powerNeed / this.displayOptions.divTotalPower / 1000).toFixed(0)} kW (div ${this.displayOptions.divTotalPower})`
         : '';
-      result.push(
-        {
-          icon: IconPeople,
-          label: "Population",
-          value: `${(attrs.population).toFixed(0)}`,
-        },
-        {
-          icon: IconPower,
-          label: "Power need",
-          value: `${(attrs.powerNeed/1000).toFixed(0)} kW ${powerNeedAdjusted}`,
-        },
-        {
-          label: "W/person",
-          value: `${(attrs.powerNeed/attrs.population).toFixed(0)} W`,
-        },
-        {
-          label: "m²/person",
-          value: `${(totalArea/attrs.population).toFixed(0)} m²`,
-        },
-      );
+      result.push({
+        icon: IconPower,
+        label: "Power need",
+        value: `${(c.powerNeed/1000).toFixed(0)} kW ${powerNeedAdjusted}`,
+      });
     }
+
+    if (c.powerNeed && c.population)
+      result.push({
+        label: "W/person",
+        value: `${(c.powerNeed/c.population).toFixed(0)} W`,
+      });
+
+    if (c.population)
+      result.push({
+        label: "m²/person",
+        value: `${(totalArea/c.population).toFixed(0)} m²`,
+      });
     return result;
   }
 
   mapTotalsLayer: L.FeatureGroup | undefined;
 
   addTotalsMarkers() {
-    if (!this.data.features.size || !this.statsReady || this.mapTotalsLayer)
+    if (!this.data.features.size || !this.data.statsReady || this.mapTotalsLayer)
       return;
 
     const markers = [];
-    for (const area of this.features.values()) {
-      const attrs = area.properties._attrs;
-      if (!attrs)
+    for (const area of this.data.features.values()) {
+      const c = featureCachedProps(area);
+      const center = L.PolyUtil.centroid(this.data.getAreaPoly(area).getLatLngs());
+      if (!center)
         continue;
+
       const marker = L.textCircle(
-        `${(attrs.powerNeed/this.displayOptions.divTotalPower/1000).toFixed(0)}`,
-        L.PolyUtil.centroid(attrs.poly.getLatLngs()),
+        `${(c.powerNeed/this.displayOptions.divTotalPower/1000).toFixed(0)}`,
+        center,
         {
           radius: 12,
           weight: 1,
@@ -217,7 +174,7 @@ export class PowerAreasController extends LayerController<
   }
 
   updateTotals(forceRedraw: boolean = false) {
-    console.debug(`features: ${this.data.features.size}, statsReady: ${this.statsReady}, show: ${this.displayOptions.showTotalPower}, layer: ${!!this.mapTotalsLayer}`);
+    //console.debug(`${this.data.id} features: ${this.data.features.size}, statsReady: ${this.data.statsReady}, show: ${this.displayOptions.showTotalPower}, layer: ${!!this.mapTotalsLayer}`);
     if (forceRedraw && this.displayOptions.showTotalPower) {
       this.deleteTotalsMarkers();
       this.addTotalsMarkers();

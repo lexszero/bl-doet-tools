@@ -1,6 +1,6 @@
 import { type BasicLayerDisplayOptions } from '$lib/layers/LayerController.svelte';
 import type { Feature, FeatureCollection } from '$lib/utils/geojson';
-import type { Named } from '$lib/utils/types';
+import type { CacheMixin, Named, ValidationLog } from '$lib/utils/types';
 import type { Polygon } from 'geojson';
 import type { GridPDUFeature, PowerPlugType } from '../PowerGrid/types';
 
@@ -10,7 +10,11 @@ export interface PowerAppliance {
   watt: number;
 }
 
-export interface PlacementEntityProperties extends Named {
+export interface PlacementEntityCachedProperties extends ValidationLog {
+  nearPDUs?: [GridPDUFeature, number][];
+}
+
+export interface PlacementEntityProperties extends Named, CacheMixin<PlacementEntityCachedProperties> {
   description?: string;
   contactInfo?: string;
   nrOfPeople?: number;
@@ -23,12 +27,11 @@ export interface PlacementEntityProperties extends Named {
   powerImage?: string;
   powerAppliances?: PowerAppliance[];
   powerNeed?: number;
-
-  _nearPDUs?: [GridPDUFeature, number][];
 };
 
-export type PlacementFeature = Feature<Polygon, PlacementEntityProperties>;
-export type PlacementFeatureCollection = FeatureCollection<Polygon, PlacementEntityProperties>;
+export type PlacementFeatureGeometry = Polygon;
+export type PlacementFeature = Feature<PlacementFeatureGeometry, PlacementEntityProperties>;
+export type PlacementFeatureCollection = FeatureCollection<PlacementFeatureGeometry, PlacementEntityProperties>;
 
 export interface PlacementDisplayOptions extends BasicLayerDisplayOptions {
     mode: 'power_need' | 'grid_n_pdus' | 'grid_distance' | 'grid_loss' | 'sound',

@@ -5,21 +5,20 @@ import { SvelteMap } from 'svelte/reactivity';
 import L from 'leaflet';
 import geojson from 'geojson';
 import type {Feature, FeatureCollection} from '$lib/utils/geojson';
+import { type InfoItem, type ChipItem, type Named, type SearchboxItem } from '$lib/utils/types';
+import { type LayerData, type Props} from '$lib/layers/LayerData.svelte';
+import type {LayerID} from './Layers';
+import {IconFeatureDefault, type IconType} from '$lib/Icons';
 
-import { type IconType, IconFeatureDefault } from '$lib/Icons';
-import { type SearchboxItem, type InfoItem, type ChipItem } from '$lib/utils/types';
-import { type ItemizedLogEntry } from './PowerGrid/types';
-import {logLevelToString} from '$lib/utils/misc';
-
-export function featureChip<G extends geojson.Geometry, P extends {name: string}>(f?: Feature<G, P>): ChipItem{
+export function featureChip<G extends geojson.Geometry, P extends Named>(f?: Feature<G, P>): ChipItem {
   return f ? {id: f.id, label: f.properties.name} : {label: "<unknown>"}
 }
 
-export type MapLayer<G extends geojson.Geometry, P extends object> = L.GeoJSON<P> & {
+export type MapLayer<G extends geojson.Geometry, P extends Props> = L.FeatureGroup<P> & {
   feature: FeatureCollection<G, P>;
 };
 
-export type MapFeatureLayer<G extends geojson.Geometry, P extends object> = L.FeatureGroup<P> & {
+export type MapFeatureLayer<G extends geojson.Geometry, P extends Props> = L.FeatureGroup<P> & {
   feature: Feature<G, P>;
 }
 
@@ -29,38 +28,61 @@ export interface BasicLayerDisplayOptions {
 };
 
 export interface LayerControllerOptions<D extends BasicLayerDisplayOptions> {
-  onClick?: ((e: L.LeafletMouseEvent) => void);
-  initDisplayOptions?: D;
-};
-
-export interface InternalLayerControllerOptions<D extends BasicLayerDisplayOptions> extends LayerControllerOptions<D> {
   name: string;
   zIndex: number;
+  priorityHighlight: number;
+  prioritySelect: number;
+
   defaultDisplayOptions: D;
+  initDisplayOptions?: D;
+  onClick?: ((e: L.LeafletMouseEvent) => void);
 };
 
-export class LayerController<
+export abstract class LayerController<
   G extends geojson.Geometry,
-  P extends object,
-  D extends BasicLayerDisplayOptions = BasicLayerDisplayOptions,
+  P extends Props,
+  DO extends BasicLayerDisplayOptions = BasicLayerDisplayOptions,
   > {
-  public layerName = 'layer';
+  public readonly id: LayerID;
+  public readonly data: LayerData<G, P>;
+  public readonly options: LayerControllerOptions<DO>;
+  public readonly mapRoot: L.Map;
 
-  public mapRoot: L.Map;
   public mapBaseLayer?: MapLayer<G, P> = $state();
+
   public opacity: number = $state(1);
 
   public features: SvelteMap<string, Feature<G, P>> = $state(new SvelteMap<string, Feature<G, P>>());
 
-  public displayOptions: D = $state({visible: true, opacity: 1.0} as D);
-  displayOptionsStore: Persisted<D>;
+  public displayOptions: DO = $state({visible: true, opacity: 1.0} as DO);
+  private displayOptionsStore: Persisted<DO>;
 
-  constructor(mapRoot: L.Map, options: InternalLayerControllerOptions<D>) {
-    const defaultDisplayOptions = options.defaultDisplayOptions || {visible: true, opacity: 1.0} as D;
+  declare abstract readonly DisplayOptionsComponent;
+  declare abstract readonly FeatureDetailsComponent;
+
+  public highlightable: boolean = $state(true);
+  public selectable: boolean = $state(true);
+  public editable: boolean = $state(false);
+  public infoBoxTab: string = $state('general');
+
+  constructor(
+    mapRoot: L.Map,
+    data: LayerData<G, P>,
+    options: LayerControllerOptions<DO>) {
+    this.options = options;
+    this.data = data;
+    this.data.ctl = this;
+    this.id = this.data.id;
+
+
+    const defaultDisplayOptions = options.defaultDisplayOptions || {visible: true, opacity: 1.0} as DO;
 
     console.info(`Initializing layer ${options.name} with zIndex ${options.zIndex}`, defaultDisplayOptions);
     this.displayOptionsStore = persisted('layer_'+options.name, defaultDisplayOptions);
-    this.displayOptions = {...defaultDisplayOptions, ...get(this.displayOptionsStore), ...options.initDisplayOptions};
+    this.displayOptions = {
+      ...defaultDisplayOptions,
+      ...get(this.displayOptionsStore),
+      ...options.initDisplayOptions};
     $effect(() => {
       this.displayOptionsStore.set(this.displayOptions);
     });
@@ -88,58 +110,29 @@ export class LayerController<
     return this.displayOptions.visible ? this.displayOptions : {visible: false};
   }
 
-  /*
-  $derived(this.geojson ?
-    new SvelteMap<string, Feature<G, P>>(
-      this.geojson.features?.map(
-        (x) => [x.id as string, x]
-      ))
-    : new SvelteMap());
-  */
-  geojson: FeatureCollection<G, P> = $derived({type: 'FeatureCollection', features: [...this.features.values()]});
-
-  featureLabel: ((f: Feature<G, P>) => string) = (f: Feature<G, P>) => (f.id as string).replaceAll('_', ' ').trim();
-  featureIcon: ((f: Feature<G, P>) => IconType) = () => IconFeatureDefault;
-  featureColorForStatus: ((f: Feature<G, P>) => string) = () => "surface";
-
   featureProperties = (f: Feature<G, P>) => {
-    const exclude = ['name', 'type'];
+    const exclude = ['name', 'type', '_cache'];
     return (Object.entries(f.properties)
       .filter(([k]) => (!exclude.includes(k)))
       .map(([k, v]) => ({label: k, value: v} as InfoItem))
       )
+
   };
 
-  searchItems: Array<SearchboxItem> = $derived.by(() => {
-    if (!this.features)
-      return [];
-    const items = [...this.features.values().map(
-      (f: Feature<G, P>) => ({
-        label: this.featureLabel(f),
-        value: f.id,
-        icon: this.featureIcon(f),
-      } as SearchboxItem)
-    )];
-    //console.log("searchItems: ", items);
-    return items;
-  });
-
-  mapLayers?: SvelteMap<string, MapFeatureLayer<G, P>> = $derived.by(() =>
-    (this.mapBaseLayer ?
+  mapLayers?: SvelteMap<string, MapFeatureLayer<G, P>> = $derived(
+    this.mapBaseLayer ?
       new SvelteMap<string, MapFeatureLayer<G, P>> (
-        (this._getLayers() as MapFeatureLayer<G, P>[]).map(
+        (this.mapBaseLayer?.getLayers() as MapFeatureLayer<G, P>[]).map(
           (l) => [
             l.feature.id as string,
             l
           ]))
-      : undefined))
-
-  _getLayers = () => this.mapBaseLayer?.getLayers();
+      : undefined)
 
   mapLayerOptions(): L.GeoJSONOptions {
     return {
       pmIgnore: true,
-      pane: 'layer-'+this.layerName,
+      pane: 'layer-'+this.options.name,
       onEachFeature: (f: Feature<G, P>, layer: MapFeatureLayer<G, P>) => this.onEachFeature(f, layer),
       style: (f?: Feature<G, P>): L.PathOptions => this.style(f),
       pointToLayer: (f: Feature<geojson.Point, P>, latlng: L.LatLng) => this.pointToLayer(f, latlng),
@@ -188,12 +181,14 @@ export class LayerController<
   };
 
   selectFeature(item: string | MapFeatureLayer<G, P>, fly: boolean = false): MapFeatureLayer<G, P> | undefined {
+    if (!this.selectable)
+      return;
     this.resetSelectedFeature();
     const layer = (typeof item === 'string') ? this.mapLayers?.get(item) : item;
     if (!layer)
       return;
 
-    console.info(`${this.layerName}: select ${layer.feature.id}`);
+    console.info(`${this.data.id}: select ${layer.feature.id}`);
     layer.setStyle(this.styleSelected);
     if (fly && this.layerSelected?.feature.id != layer.feature.id) {
       if (layer.getLatLng) {
@@ -221,6 +216,8 @@ export class LayerController<
   highlightBringsToFront: boolean = true;
 
   highlightFeature(item: string | MapFeatureLayer<G, P>) {
+    if (!this.highlightable)
+      return;
     const layer = (typeof item === 'string') ? this.mapLayers?.get(item) : item;
     if (!layer)
       return;
@@ -246,42 +243,22 @@ export class LayerController<
     this.layerHighlighted = undefined;
   }
 
-  featureWarnings(_: Feature<G, P>): ItemizedLogEntry[] {
-    return [];
+  setInfoBoxTab(tab: string) {
+    this.infoBoxTab = tab;
   }
 
-  warningsSummary(): ItemizedLogEntry[] {
-    const result: ItemizedLogEntry[] = [];
-    for (const feature of this.features.values()) {
-      const log = this.featureWarnings(feature);
-      if (!log.length)
-        continue;
-      const byLevel = new Map<number, ItemizedLogEntry[]>();
-      for (const r of log) {
-        if (!byLevel.has(r.level))
-          byLevel.set(r.level, []);
-        (byLevel.get(r.level) || []).push(r);
-      }
-      if (byLevel.size > 1) {
-        result.push({
-          item_id: feature.id,
-          level: Math.max(...byLevel.values().map((recs) => recs.length)),
-          message: [...byLevel.entries().map(([level, recs]) => (`${recs.length} ${logLevelToString(level)}s`))].join(', ')
-        });
-      } else if (byLevel.size == 1) {
-        const r = byLevel.values().next().value[0];
-        result.push({item_id: feature.id, ...r});
-      }
-    }
-    return result;
-  }
+  featureLabel: ((f: Feature<G, P>) => string) = (f: Feature<G, P>) => (f.id as string).replaceAll('_', ' ').trim();
+  featureIcon: ((f: Feature<G, P>) => IconType) = () => IconFeatureDefault;
+  featureColorForStatus: ((f: Feature<G, P>) => string) = () => "surface";
 
-  warnings(): ItemizedLogEntry[] {
-    const result: ItemizedLogEntry[] = [];
-    for (const feature of this.features.values()) {
-      result.push(...this.featureWarnings(feature));
-    }
-    return result;
-  }
+  searchItems: Array<SearchboxItem> = $derived([
+    ...this.data?.features.values().map(
+      (f: Feature<G, P>) => ({
+        label: this.featureLabel(f),
+        value: f.id,
+        icon: this.featureIcon(f),
+      } as SearchboxItem) 
+    ) || []]);
+
 
 }

@@ -1,21 +1,45 @@
 import { getUnixTime } from "date-fns";
 import type {
-  Point,
-  LineString,
-  Polygon
+  Geometry,
+  Position
 } from "geojson";
 
 import { API } from '$lib/api';
-import type {PowerGridData} from "./layers/PowerGrid/types";
+import type {Feature} from "./utils/geojson";
+import type {GridFeature} from "./layers/PowerGrid/types";
+import type {PowerAreaFeature} from "./layers/PowerAreas/types";
+import type {PlacementFeature} from "./layers/Placement/types";
 
 export interface ProjectInfo {
   timestamps: [number];
 };
 
-export interface FeaturesDataElement<T> {
+export interface FeaturesDataElement<F extends Feature<Geometry, object>> {
   timestamp: string;
-  features: T[];
+  features: F[];
   editable: boolean;
+}
+
+interface MapOptions {
+  center: Position,
+  zoom: number;
+  zoomMin: number;
+  zoomMax: number;
+}
+
+interface MapViewData {
+  mapOptions?: MapOptions;
+  layers: {
+    power_areas?: FeaturesDataElement<PowerAreaFeature>,
+    power_grid?: FeaturesDataElement<GridFeature>,
+    placement?: FeaturesDataElement<PlacementFeature>,
+  }
+}
+
+export interface ProjectView {
+  name: string;
+  map_data: MapViewData;
+  change_timestamps: string[];
 }
 
 export class ProjectAPI extends API {
@@ -35,6 +59,16 @@ export class ProjectAPI extends API {
     };
     return await this.fetch(url)
   };
+
+  async getDataView(view: string, timeStart?: Date, timeEnd?: Date) {
+    return await this.fetchJSON(
+      `${this.project}/v/${view}`,
+      {
+        time_start: timeStart ? getUnixTime(timeStart) : 0,
+        time_end: getUnixTime(timeEnd ? timeEnd : Date())
+      }
+    ) as ProjectView;
+  }
 
   async getDataViewElement<T>(element: string, timeStart?: Date, timeEnd?: Date) {
     return await this.fetchJSON(
