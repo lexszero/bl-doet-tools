@@ -1,20 +1,21 @@
-import abc
 from dataclasses import dataclass
-import enum
-from typing import Annotated, Any, Generic, Optional, Self
+from datetime import timezone
+from typing import Annotated, Any, Optional, Self
 
-from pydantic import BeforeValidator, ConfigDict, Field, TypeAdapter, ValidationInfo, field_validator, model_validator
+from geojson_pydantic import Feature, Polygon
+from geojson_pydantic.geometries import Geometry
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 from pydantic_extra_types.color import Color
 
 from common.datetime import datetime_cet
-from common.model_utils import ModelT
-from common.geometry import Feature, Polygon
-from core.data_request import DataRequestContext
-from core.permission import Role
+from common.log import Log
+from common.types import NameDescriptionModel
+from core.importer.feature_collection import AnyFeature
 from core.store import VersionedCollection
 from power_map.power_grid_base import PowerPlugType
-from power_map.utils import BaseModel, NameDescriptionModel, log
+
+log = Log.getChild('placement')
 
 WeakInt = Annotated[Optional[int], BeforeValidator(lambda v: v)]
 WeakFloat = Annotated[Optional[float], BeforeValidator(lambda v: v)]
@@ -73,24 +74,8 @@ class PlacementEntityProperties(NameDescriptionModel):
 
 PlacementEntityFeature = Feature[Polygon, PlacementEntityProperties]
 
-#class PlacementEntityFeature(
-#        _PlacementEntityFeature,
-#        StorableItem[_PlacementEntityFeature]):
-#
-#    def to_dto(self) -> _PlacementEntityFeature:
-#        return self
-#
-#    @classmethod
-#    def from_dto(cls, data: _PlacementEntityFeature) -> Self:
-#        return cls.model_validate(data)
 
-class FeatureRevision(abc.ABC, Generic[ModelT]):
-    @property
-    @abc.abstractmethod
-    def feature(self) -> ModelT:
-        pass
-
-class PlacementEntityRevision(BaseModel, FeatureRevision[PlacementEntityFeature]):
+class PlacementEntityRevision(BaseModel):
     id: int
     revision: int
     geojson: PlacementEntityFeature = Field(alias='geoJson')
@@ -113,31 +98,24 @@ class PlacementEntityRevision(BaseModel, FeatureRevision[PlacementEntityFeature]
         return self
 
     @property
-    def feature(self):
+    def item(self):
         return self.geojson
+
+    @property
+    def timestamp_utc(self):
+        return self.timestamp.astimezone(timezone.utc)
 
     model_config = ConfigDict(
             alias_generator=to_camel,
             populate_by_name=True
             )
 
-PlacementEntityRevisionCollection = TypeAdapter(list[PlacementEntityRevision])
-
 class PlacementEntityFeatureCollection(VersionedCollection[PlacementEntityFeature]):
     store_collection_name = 'placement'
     store_item_type = 'placement_entity'
     store_item_class = PlacementEntityFeature
 
-RolesNonPublic = frozenset([Role.Owner, Role.Admin, Role.Editor, Role.Viewer])
-
-def transform_placement_scrub_private_data(f: PlacementEntityFeature, context: DataRequestContext) -> PlacementEntityFeature:
-    props = f.properties
-    if context.client_project_roles.intersection(RolesNonPublic):
-        return f
-    if props:
-        if props.contact_info:
-            props.contact_info = "<redacted>"
-        if props.tech_contact_info:
-            props.tech_contact_info = "<redacted>"
-
-    return f
+class RoadsFeatureCollection(VersionedCollection[AnyFeature]):
+    store_collection_name = 'roads'
+    store_item_type = 'feature'
+    store_item_class = AnyFeature

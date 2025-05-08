@@ -22,7 +22,7 @@ class AnyModel(BaseModel):
             extra='allow'
             )
 
-ModelT = TypeVar('ModelT', bound=BaseModel)
+ModelT = TypeVar('ModelT', bound=BaseModel, covariant=True)
 class ModelJson(TypeDecorator, Generic[ModelT]):
     impl = JSONB
     cache_ok = True
@@ -52,14 +52,14 @@ class ModelJson(TypeDecorator, Generic[ModelT]):
             if not issubclass(type(value), variant):
                 continue
             if issubclass(variant, BaseModel):
-                return value.dict()
+                return value.model_dump()
             if isinstance(value, dict):
                 return value
 
         if isinstance(value, dict) or value is None:
             return value
         if isinstance(value, self._model):
-            return value.dict()
+            return value.model_dump()
 
         raise TypeError(f"Expected one of {self._allowed_types}, got {type(value)} {value}")
 

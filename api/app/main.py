@@ -18,7 +18,8 @@ from core.user_api import router as user_api_router
 from core.project_api import router as project_api_router
 from power_map.api import router as power_map_api_router
 
-from power_map.map_layers import *
+from power_map.map_layer import *
+from placement.map_layer import *
 
 app = FastAPI(
     title="BL DoET data service"

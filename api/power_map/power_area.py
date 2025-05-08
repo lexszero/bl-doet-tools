@@ -1,16 +1,15 @@
 from functools import cached_property
-from typing import Any, ClassVar, Iterable, Optional, Self
+from typing import Any, ClassVar, Iterable, Self
 from geojson_pydantic import Feature, Polygon
 from pydantic import Field, PrivateAttr, computed_field
 
 from common.geometry import GeometryPolygon, ShapelyPoint
+from common.types import NameDescriptionModel
 from core.store import VersionedCollection
+from power_map.log import log
 from power_map.power_grid_cable import PowerGridCable
-from power_map.power_grid_pdu import PowerGridPDU, PowerGridPDUFeature
+from power_map.power_grid_pdu import PowerGridPDU
 from power_map.power_consumer import PowerConsumer
-
-
-from .utils import NameDescriptionModel, log
 
 class PowerAreaProperties(NameDescriptionModel):
     pass
@@ -58,7 +57,7 @@ class PowerArea(
     @classmethod
     def from_feature(cls, data: PowerAreaFeature) -> Self:
         if not data.properties:
-            raise ValueError(f"Placement entity feature {data} is missing properties")
+            raise ValueError(f"Power area feature {data} is missing properties")
         return cls(id=data.id, geometry=data.geometry, **data.properties.model_dump())
 
     @computed_field

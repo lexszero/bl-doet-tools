@@ -6,11 +6,10 @@ from core.data_view import DataViewBase
 from core.map_layer_features import MapLayer_Features
 from core.permission import Role
 from power_map.dependencies import get_power_grid_cached
-from power_map.placement import PlacementEntityFeature, transform_placement_scrub_private_data
 from power_map.power_grid import PowerGridProcessedFeature
 from power_map.power_grid_base import PowerItemBase
 
-from power_map.map_layers_types import MapLayerConfig_PowerGrid, MapLayerData_PowerGrid_Features
+from power_map.map_layer_types import MapLayerConfig_PowerGrid, MapLayerData_PowerGrid_Features
 
 class MapLayer_PowerGrid(MapLayer_Features[PowerGridProcessedFeature],
         DataViewBase[
@@ -32,13 +31,6 @@ class MapLayer_PowerGrid(MapLayer_Features[PowerGridProcessedFeature],
             editable=bool(context.client_project_roles.intersection([Role.Editor, Role.Admin, Role.Owner]))
             )
 
-class MapLayer_Placement(MapLayer_Features[PlacementEntityFeature]):
-    TYPE: ClassVar[Literal['placement']] = 'placement'
-    TRANSFORMS = {
-            "redacted": transform_placement_scrub_private_data
-            }
-
 __all__ = [
         'MapLayer_PowerGrid',
-        'MapLayer_Placement'
         ]

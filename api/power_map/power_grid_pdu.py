@@ -3,8 +3,8 @@ from typing import Literal, Optional
 from pydantic import Field, PrivateAttr, computed_field
 
 from common.geometry import XFRM_PROJ_TO_GEO, Feature, GeometryPoint, Point, PointStyle, Polygon, coord_transform
+from power_map.log import log as log_default
 from power_map.power_grid_base import PowerGridItemPropertiesBase, PowerItemBase
-from power_map.utils import log as log_default
 
 class PowerGridPDUProperties(PowerGridItemPropertiesBase):
     type: Literal['power_grid_pdu'] = Field('power_grid_pdu', repr=False)

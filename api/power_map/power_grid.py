@@ -8,9 +8,8 @@ from common.geometry import (
         Point, LineString,
         ShapelyPoint, ShapelyLineString,
         )
-from core.map_layer_features import MapLayerData_Features
 from core.store import VersionedCollection
-from power_map.placement import PlacementEntityFeature, PlacementEntityFeatureCollection
+from placement.types import PlacementEntityFeature
 from power_map.power_area import PowerArea, PowerAreaFeature, PowerAreaFeatureCollection
 from power_map.power_consumer import PowerConsumer
 from power_map.power_grid_cable import (
@@ -23,8 +22,8 @@ from power_map.power_grid_pdu import (
         PowerGridPDUFeature,
         PowerGridProcessedPDUProperties
         )
-from power_map.utils import log
-from power_map.itemized_log import ItemizedLogEntry, ItemizedLogCollector
+from power_map.log import log
+from power_map.itemized_log import ItemizedLogCollector
 
 PowerGridItem = PowerGridCable | PowerGridPDU
 PowerGridFeature = PowerGridCableFeature | PowerGridPDUFeature

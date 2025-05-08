@@ -1,7 +1,5 @@
 import abc
-from datetime import datetime
-from functools import cached_property
-from typing import Any, ClassVar, Generic, Optional, TypeVar
+from typing import Any, ClassVar, Generic, Iterable, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -41,5 +39,11 @@ class DataViewBase(abc.ABC, Generic[DataViewConfigT, DataViewResultT]):
     async def get(self, context: DataRequestContext):
         return DataViewResultT(type=self.config.type)
 
-class DatasetViewConfig(PermissionsMixin):
-    elements: dict[str, str] = Field(default_factory=dict)
+class ElementMapping(PermissionsMixin):
+    @abc.abstractmethod
+    def element(self, key: str) -> str:
+        raise NotImplemented
+
+    @abc.abstractmethod
+    def elements(self) -> Iterable[str]:
+        raise NotImplemented

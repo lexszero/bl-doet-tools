@@ -96,12 +96,8 @@ class StoreCollection(DBModel, AsyncAttrs):
                 num_revisions=len(await self.awaitable_attrs.revisions)
                 )
 
-    def instantiate(self, context: DataRequestContext):
-        for cls in VersionedCollection.__subclasses__():
-            if cls.store_item_type == self.item_type and cls.store_collection_name == self.name:
-                return cls(self, time_start=context.time_start, time_end=context.time_end)
-        raise InternalError(f"Unable to determine VersionedCollection class for {self}")
-
+    def instantiate(self, context: Optional[DataRequestContext] = None):
+        return VersionedCollection.instantiate(self, context)
 
 Index('idx_collection_item_revision',
       StoreItemRevision.collection_id,
@@ -118,6 +114,28 @@ class VersionedCollection(ABC, Generic[ModelT]):
     _db: AsyncSession
     _time_start: Optional[datetime] = None
     _time_end: Optional[datetime] = None
+
+    @classmethod
+    def class_for(cls, name: Optional[str] = None, item_type: Optional[str] = None):
+        if name is None and item_type is None:
+            raise RuntimeError("class_for requires at least one of name or item_type parameters")
+        for c in VersionedCollection.__subclasses__():
+            if ((
+                    (name is None) or (c.store_collection_name == name)
+                ) and (
+                    (item_type is None) or (c.store_collection_name == name)
+                )):
+                return c
+        raise InternalError(f"Unable to find VersionedCollection class with {name=} {item_type=}")
+
+    @classmethod
+    def instantiate(cls, store_collection: StoreCollection, context: Optional[DataRequestContext] = None):
+        c = cls.class_for(name=store_collection.name, item_type=store_collection.item_type)
+        if context:
+            return c(store_collection, time_start=context.time_start, time_end=context.time_end)
+        else:
+            return c(store_collection)
+
 
     @classmethod
     async def bind(cls, project: 'Project', allow_create=False, time_start: Optional[datetime] = None, time_end: Optional[datetime] = None):

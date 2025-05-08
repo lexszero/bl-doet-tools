@@ -5,8 +5,8 @@ from shapely import distance
 from pydantic import Field, PrivateAttr, computed_field
 
 from common.geometry import Feature, GeometryLineString, LineStyle, LineString, ShapelyPoint, coord_transform, XFRM_GEO_TO_PROJ
+from power_map.log import log as log_default
 from power_map.power_grid_base import PowerGridItemPropertiesBase, PowerItemBase
-from power_map.utils import log as log_default
 
 class PowerGridCableProperties(PowerGridItemPropertiesBase):
     type: Literal['power_grid_cable'] = Field('power_grid_cable', repr=False)

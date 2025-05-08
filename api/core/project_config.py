@@ -5,6 +5,7 @@ from common.errors import InternalError, NotFoundError
 from core.data_view import DataViewBase
 from core.map import AnyMapLayerConfig, MapViewConfig
 from core.permission import Role
+from core.importer.config import ProjectImportConfig
 
 def get_all_subclasses(cls):
     all_subclasses = []
@@ -21,6 +22,8 @@ class ProjectConfig(BaseModel):
     elements: dict[str, AnyMapLayerConfig]
     views: dict[str, MapViewConfig] = Field(default_factory=dict)
     public: bool = False
+
+    external: ProjectImportConfig = Field(...)
 
     model_config = ConfigDict(extra='allow')
 

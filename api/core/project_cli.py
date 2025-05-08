@@ -2,7 +2,7 @@ import sys
 from typing import Annotated, Optional
 from devtools import pformat
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete as sql_delete, select
 import typer
 from rich import print
 
@@ -13,10 +13,9 @@ from core.log import log
 from core.permission import grant_permission
 from core.project import Project, create_project
 from core.project_config import ProjectConfig
-from core.project_default_config import DEFAULT_PROJECT_CONFIG
 from core.store import StoreCollection, StoreItemRevision
 from core.user import get_user_db
-from power_map.data_bl24_test import PowerGrid_BL24_Test
+from project_configs.bl import get_default_project_config
 
 project = AsyncTyper()
 
@@ -43,7 +42,7 @@ async def list():
 async def create(name: str, username: str):
     async with await get_db_session() as db:
         user = await get_user_db(db, username)
-        project = await create_project(db, name, owner=user, config=DEFAULT_PROJECT_CONFIG)
+        project = await create_project(db, name, owner=user, config=get_default_project_config(name))
         await print_project_info(project)
         await db.commit()
 
@@ -74,45 +73,26 @@ async def delete(name: str):
         await db.delete(project)
         await db.commit()
 
-
 @project.command()
-async def data_update(project_name: str, commit: bool = typer.Option(False)):
-    from power_map.updater import Updater
-    from power_map.data_bl24 import PowerGrid_BL24
-    from power_map.data_bl25 import PowerGrid_BL25
-    from power_map.data_bl25_test import PowerGrid_BL25_Test
-
-    updatable_projects = {
-        'bl24': PowerGrid_BL24,
-        'bl25': PowerGrid_BL25,
-        'bl25_test': PowerGrid_BL25_Test,
-        'bl24_test': PowerGrid_BL24_Test
-        }
-
-    if commit:
-        log.warning(f"Fetched changes will be stored to the DB")
-
-    loader = updatable_projects.get(project_name)
-    if not loader:
-        log.error(f"No known loader for project {project_name}")
-        raise typer.Exit(1)
-
-    updater = Updater('admin', project_name, loader)
-    await updater.run(commit=commit)
+async def data_update(name: str, loader: Optional[str] = typer.Option(None), commit: bool = typer.Option(False)):
+    async with await get_db_session() as db:
+        user = await get_user_db(db, 'admin')
+        project = await get_project(db, name)
+        await project.update_data(user=user, loader=loader)
+        if commit:
+            log.info("Saving updates to the database")
+            await db.commit()
+        else:
+            log.warning("Updates are not saved")
 
 @project.command()
 async def config_reset(project_name: str):
     async with await get_db_session() as db:
+        config = get_default_project_config(project_name)
         project = await get_project(db, project_name)
-        await project.set_config(DEFAULT_PROJECT_CONFIG)
+        await project.set_config(config)
         print("Updated config: ", project.config)
         await db.commit()
-
-@project.command()
-async def config_get(project_name: str):
-    async with await get_db_session() as db:
-        project = await get_project(db, project_name)
-        print(project.data.model_dump_json(indent=2))
 
 @project.command()
 async def config_get(project_name: str):
@@ -169,6 +149,6 @@ async def data_delete(project_name: str, collection: str):
         info = await c.info()
         print(f"Found collection {project.name}/{collection}\nitem_type={info.item_type}, {info.num_items} items, {info.num_revisions} revisions")
         typer.confirm(f"This will IRREVERSIBLY delete all data in {project.name}/{collection}. Proceed?", abort=True)
-        await db.execute(delete(StoreItemRevision).where(StoreItemRevision.collection_id == c.id))
-        await db.execute(delete(StoreCollection).where(StoreCollection.id == c.id))
+        await db.execute(sql_delete(StoreItemRevision).where(StoreItemRevision.collection_id == c.id))
+        await db.execute(sql_delete(StoreCollection).where(StoreCollection.id == c.id))
         await db.commit()

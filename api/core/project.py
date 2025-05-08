@@ -6,22 +6,23 @@ from cachetools import TTLCache
 from cachetools_async import cached
 from pydantic import BaseModel
 from sqlalchemy import ForeignKey, Integer, String, cast, func, or_, select, union, and_
-from sqlalchemy.ext.asyncio import AsyncAttrs, async_object_session
+from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, attribute_keyed_dict, joinedload, mapped_column, relationship
 from sqlalchemy.sql import literal
 
-from common.db_async import AsyncSessionMixin, DBSessionDep, DBModel, AsyncSession
-from common.errors import InternalError, InvalidRequestError, NotFoundError, PermissionDeniedError
+from common.db_async import AsyncSessionMixin, DBSessionDep, DBModel
+from common.errors import NotFoundError
 from common.model_utils import ModelJson
 
 from core.data_request import DataRequestContext
 from core.data_view import DataViewBase
+from core.importer.base import ImportContext
 from core.user import UserInDB
-from core.permission import ClientPermissions, PermissionInDB, Role, get_roles
+from core.permission import ClientPermissions, Permission, PermissionInDB, Role, get_roles
 from core.log import log
 from core.project_config import ProjectConfig, merge_config
 from core.map import AnyMapLayerData, MapViewData
-from core.store import StoreCollection, StoreItemRevision
+from core.store import StoreCollection, StoreItemRevision, VersionedCollection
 
 class View(BaseModel):
     name: str
@@ -53,11 +54,36 @@ class Project(DBModel, AsyncAttrs, AsyncSessionMixin):
         else:
             return get_roles(client_permissions, 'project', self.id)
 
-    async def get_store_collection(self, collection_name: str):
+    async def get_store_collection(self, collection_name: str, allow_create: bool = False):
+        db = self._db()
         collection: StoreCollection = (await self.awaitable_attrs.collections).get(collection_name)
-        if not collection:
-            raise NotFoundError("Collection not found")
-        return collection
+        if collection:
+            return collection
+        elif allow_create:
+            cls = VersionedCollection.class_for(name=collection_name)
+            collection = StoreCollection(
+                project_id=self.id,
+                name=collection_name,
+                item_type=cls.store_item_type
+                )
+            (await self.awaitable_attrs.collections)[cls.store_collection_name] = collection
+            db.add(collection)
+
+            await db.flush()
+            await self.owner_user.grant_permission(Permission(
+                object_type='collection',
+                object_id=str(collection.id),
+                role=Role.Owner
+                ))
+            await db.flush()
+            return collection
+        raise NotFoundError("Collection not found")
+
+    async def get_versioned_collection(self, collection_name: str, allow_create: bool = False, context: Optional[DataRequestContext] = None):
+        return (await self.get_store_collection(
+                collection_name=collection_name,
+                allow_create=allow_create
+                )).instantiate(context)
 
     async def get_all_permissions(self):
         db = self._db()
@@ -145,7 +171,7 @@ class Project(DBModel, AsyncAttrs, AsyncSessionMixin):
             roles: frozenset[Role],
             ):
         view_config = self.get_view_config(view_name, roles)
-        element_name = view_config.elements.get(element_alias)
+        element_name = view_config.element(element_alias)
         if not element_name:
             raise NotFoundError(f"{self.name}: empty binding for alias {element_alias} in view {view_name}")
         return self.config.get_element_generator(element_name, roles)
@@ -170,7 +196,7 @@ class Project(DBModel, AsyncAttrs, AsyncSessionMixin):
 
         results: dict[str, AnyMapLayerData] = {}
         elements: dict[str, DataViewBase] = {}
-        for alias in view_config.elements.keys():
+        for alias in view_config.elements():
             elements[alias] = self.get_view_element(view_name, alias, context.client_project_roles)
 
         for alias, element in elements.items():
@@ -184,18 +210,19 @@ class Project(DBModel, AsyncAttrs, AsyncSessionMixin):
                 change_timestamps=[],
                 map_data=MapViewData(
                     map_options=view_config.map_options,
+                    layer_options=view_config.layers,
                     layers=results
                     )
                 )
 
     async def set_config(self, config: ProjectConfig):
         db = self._db()
+        config.name = self.name
         self.data = config
-        self.data.name = self.name
         db.add(self)
         await db.flush()
 
-    def update_config(self, update: Optional[Mapping[str, Any]] = None):
+    def update_config(self, update: Mapping[str, Any] = {}):
         db = self._db()
 
         config = merge_config(self.data, update)
@@ -203,6 +230,22 @@ class Project(DBModel, AsyncAttrs, AsyncSessionMixin):
 
         self.data = config
         db.add(self)
+
+    async def update_data(self, user: Optional[UserInDB] = None, loader: Optional[str] = None):
+        if loader:
+            importers = [it for it in self.config.external.importers if it.loader == loader]
+        else:
+            importers = self.config.external.importers
+        for importer in importers:
+            loader = importer.loader and self.config.external.loaders.get(importer.loader)
+
+            ctx = ImportContext(
+                    db=self._db(),
+                    user=user,
+                    project=self,
+                    loader=loader
+                    )
+            await importer.do_import(ctx)
 
 async def create_project(db: DBSessionDep, name: str, owner: UserInDB, config: ProjectConfig):
     config = config.model_copy()

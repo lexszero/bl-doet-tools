@@ -1,4 +1,3 @@
-import logging
 from typing import Any, Callable, Iterable, Optional
 
 import io
@@ -7,15 +6,14 @@ from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
 from common.geometry import Feature, FeatureCollection, Polygon, Point, LineString, to_geojson_feature_collection
+from common.types import NameDescriptionModel
 from core.dependencies import RequiredProjectRole_Any
-from core.permission import Role
 from power_map.dependencies import PowerGridDep
 from power_map.power_area import PowerArea, PowerAreaStats, PowerAreaInfo
 from power_map.power_consumer import PowerConsumerColoringMode, PowerConsumerPropertiesWithStatsStyled
 from power_map.power_grid_base import PowerGridItemSizeOrder, PowerItemBase
 from power_map.power_grid_cable import PowerGridCable, PowerGridProcessedCableProperties, PowerGridCablePropertiesWithStatsStyled
 from power_map.power_grid_pdu import PowerGridPDU, PowerGridProcessedPDUProperties, PowerGridPDUPropertiesWithStatsStyled
-from power_map.utils import NameDescriptionModel
 
 def write_csv(f, collection: Iterable[Any], properties_fn: Callable[[Any], list[Any]], columns: Optional[Iterable[str]]):
     writer = csv.writer(f, delimiter=";")

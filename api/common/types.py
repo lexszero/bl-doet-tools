@@ -1,11 +1,5 @@
-import logging
-from typing import Any, Self, Optional, TypeVar
-
-from common.log import Log
+from typing import Optional
 from common.model_utils import BaseModel
-
-log = Log.getChild('power_map')
-log.setLevel(logging.DEBUG)
 
 class NameDescriptionModel(BaseModel):
     name: str

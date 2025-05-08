@@ -5,7 +5,7 @@ from typing import Any, Optional, Self
 from pydantic import ConfigDict, Field, PrivateAttr
 
 from common.geometry import Feature, GeoObject
-from power_map.utils import NameDescriptionModel
+from common.types import NameDescriptionModel
 
 PowerGridItemSizeOrder: list[str] = ['unknown', '1f', '16', '32', '63', '125', '250']
 

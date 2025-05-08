@@ -1,17 +1,17 @@
 from enum import Enum
 from math import inf
-from typing import Any, ClassVar, Iterable, Literal, Optional, Self
+from typing import Any, ClassVar, Iterable, Literal, Optional
 
 import matplotlib as mpl
 
-from pydantic import PrivateAttr, ValidationError
+from pydantic import PrivateAttr
 from pydantic_extra_types.color import Color
 
 from common.geometry import GeometryPolygon, PolygonStyle
-from power_map.placement import PlacementEntityProperties
+from placement.types import PlacementEntityProperties
+from power_map.log import log
 from power_map.power_grid_base import PowerItemBase
 from power_map.power_grid_pdu import PowerGridPDU
-from power_map.utils import log
 
 class PowerConsumerColoringMode(str, Enum):
     power_need = 'power_need'

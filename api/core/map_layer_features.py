@@ -1,9 +1,12 @@
-from datetime import datetime
-from typing import Any, Callable, ClassVar, Generic, Literal, Optional, TypeVar
 import asyncstdlib as a
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Any, Callable, ClassVar, Generic, Literal, Optional, TypeVar
 
 from geojson_pydantic import Feature
 from geojson_pydantic.features import Feat
+from pydantic import ConfigDict, Field
 
 from common.errors import ConfigurationError, InternalError
 from core.data_request import DataRequestContext
@@ -15,17 +18,31 @@ _Feat = TypeVar('_Feat', bound=Feature)
 
 FeatureTransform = Callable[[Feat, DataRequestContext], Any]
 
+class MapLayerControls(str, Enum):
+    Off = 'off'
+    Simple = 'simple'
+    Full = 'full'
+
+@dataclass
+class MapLayerDisplayOptions:
+    visible: bool = True
+    controls: MapLayerControls = MapLayerControls.Off
+
+    model_config = ConfigDict(extra='allow')
+
 class MapLayerConfig_Features(DataViewConfigBase, Generic[_Feat]):
     type: Literal['features'] = 'features'
     collection: str
     transform: Optional[str] = None
     editable: bool = False
+    display_options: Optional[MapLayerDisplayOptions] = Field(default=None)
 
 class MapLayerData_Features(DataViewResultBase, Generic[_Feat]):
     type: Literal['features'] = 'features'
     timestamp: Optional[datetime]
     editable: bool = False
     features: list[_Feat]
+    display_options: Optional[MapLayerDisplayOptions] = Field(default=None, serialization_alias='displayOptions')
 
 class MapLayer_Features(
         DataViewBase[
@@ -55,5 +72,6 @@ class MapLayer_Features(
                 not context.project.config.frozen
                 and self.config.editable
                 and bool(store_collection.roles_for(context.client_permissions).intersection([Role.Editor, Role.Admin, Role.Owner]))
-                )
+                ),
+            display_options=self.config.display_options
         )
