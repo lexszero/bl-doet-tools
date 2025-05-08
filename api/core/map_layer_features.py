@@ -6,7 +6,7 @@ from typing import Any, Callable, ClassVar, Generic, Literal, Optional, TypeVar
 
 from geojson_pydantic import Feature
 from geojson_pydantic.features import Feat
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from common.errors import ConfigurationError, InternalError
 from core.data_request import DataRequestContext
@@ -23,26 +23,27 @@ class MapLayerControls(str, Enum):
     Simple = 'simple'
     Full = 'full'
 
-@dataclass
-class MapLayerDisplayOptions:
+class MapLayerDisplayOptions(BaseModel):
     visible: bool = True
-    controls: MapLayerControls = MapLayerControls.Off
 
     model_config = ConfigDict(extra='allow')
+
+class MapLayerOptions(BaseModel):
+    editable: bool = False
+    controls: Optional[MapLayerControls] = None
+    display_options: Optional[MapLayerDisplayOptions] = Field(default=None, serialization_alias='displayOptions')
 
 class MapLayerConfig_Features(DataViewConfigBase, Generic[_Feat]):
     type: Literal['features'] = 'features'
     collection: str
     transform: Optional[str] = None
-    editable: bool = False
-    display_options: Optional[MapLayerDisplayOptions] = Field(default=None)
+    options: MapLayerOptions = MapLayerOptions()
 
 class MapLayerData_Features(DataViewResultBase, Generic[_Feat]):
     type: Literal['features'] = 'features'
     timestamp: Optional[datetime]
-    editable: bool = False
+    options: Optional[MapLayerOptions] = None
     features: list[_Feat]
-    display_options: Optional[MapLayerDisplayOptions] = Field(default=None, serialization_alias='displayOptions')
 
 class MapLayer_Features(
         DataViewBase[
@@ -64,14 +65,15 @@ class MapLayer_Features(
             if not transform:
                 raise ConfigurationError(f'unsupported transform: {self.config.transform}')
             features = [transform(f, context) for f in features]
+        options = self.config.options.model_copy()
+        options.editable = (
+                not context.project.config.frozen
+                and options.editable
+                and bool(store_collection.roles_for(context.client_permissions).intersection([Role.Editor, Role.Admin, Role.Owner]))
+                )
         return MapLayerData_Features(
             type='features',
             timestamp=await collection.last_timestamp(),
             features=features,
-            editable=(
-                not context.project.config.frozen
-                and self.config.editable
-                and bool(store_collection.roles_for(context.client_permissions).intersection([Role.Editor, Role.Admin, Role.Owner]))
-                ),
-            display_options=self.config.display_options
+            options=options
         )

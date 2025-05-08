@@ -37,15 +37,14 @@ AnyMapLayerData = Annotated[
         Field(discriminator='type')
         ]
 
-@dataclass
-class MapDisplayOptions:
+class MapDisplayOptions(BaseModel):
     center: Position2D
     zoom: float = 21
     zoom_min: float = Field(0, serialization_alias='minZoom')
     zoom_max: float = Field(0, serialization_alias='maxZoom')
 
 class MapViewConfig(ElementMapping):
-    map_options: Optional[MapDisplayOptions] = Field(None)
+    options: Optional[MapDisplayOptions] = Field(None)
     layers: dict[str, str] = Field(default_factory=dict)
 
     def element(self, key: str) -> str:
@@ -58,5 +57,5 @@ class MapViewConfig(ElementMapping):
         return self.layers.keys()
 
 class MapViewData(BaseModel):
-    map_options: Optional[MapDisplayOptions] = Field(None, serialization_alias='mapOptions')
+    options: Optional[MapDisplayOptions] = None
     layers: dict[str, AnyMapLayerData]

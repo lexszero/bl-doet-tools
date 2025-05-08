@@ -209,8 +209,7 @@ class Project(DBModel, AsyncAttrs, AsyncSessionMixin):
                 name=view_name,
                 change_timestamps=[],
                 map_data=MapViewData(
-                    map_options=view_config.map_options,
-                    layer_options=view_config.layers,
+                    options=view_config.options,
                     layers=results
                     )
                 )
@@ -231,13 +230,15 @@ class Project(DBModel, AsyncAttrs, AsyncSessionMixin):
         self.data = config
         db.add(self)
 
-    async def update_data(self, user: Optional[UserInDB] = None, loader: Optional[str] = None):
-        if loader:
-            importers = [it for it in self.config.external.importers if it.loader == loader]
+    async def update_data(self, user: Optional[UserInDB] = None, loader_name: Optional[str] = None):
+        if loader_name:
+            importers = [it for it in self.config.external.importers if it.loader == loader_name]
         else:
             importers = self.config.external.importers
         for importer in importers:
-            loader = importer.loader and self.config.external.loaders.get(importer.loader)
+            loader = None
+            if importer.loader:
+                loader = self.config.external.loaders.get(importer.loader)
 
             ctx = ImportContext(
                     db=self._db(),

@@ -78,7 +78,7 @@ async def data_update(name: str, loader: Optional[str] = typer.Option(None), com
     async with await get_db_session() as db:
         user = await get_user_db(db, 'admin')
         project = await get_project(db, name)
-        await project.update_data(user=user, loader=loader)
+        await project.update_data(user=user, loader_name=loader)
         if commit:
             log.info("Saving updates to the database")
             await db.commit()

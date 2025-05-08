@@ -7,6 +7,11 @@ from core.data_view import DataViewBase, DataViewConfigBase, DataViewResultBase
 class _MapTileLayer(BaseModel):
     type: Literal['tile'] = 'tile'
     url: str
+    minZoom: float = 0
+    maxZoom: float = 21
+    minNativeZoom: float = 0
+    maxNativeZoom: float = 20
+    tms: bool = False
 
 class MapLayerConfig_Tile(DataViewConfigBase, _MapTileLayer):
     type: Literal['tile'] = 'tile'
@@ -15,7 +20,6 @@ class MapLayerConfig_Tile(DataViewConfigBase, _MapTileLayer):
 class MapLayerData_Tile(DataViewResultBase, _MapTileLayer):
     type: Literal['tile'] = 'tile'
     pass
-
 
 class MapLayer_Tile(
         DataViewBase[
